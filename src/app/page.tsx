@@ -1,22 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Star,
-  Shield,
-  Truck,
-  Headphones,
-  Sparkles,
-} from "lucide-react";
-import ProductCard from "@/components/products/ProductCard";
-import { ProductCardSkeleton } from "@/components/ui/skeleton";
-import { Slipper, Category } from "@/types";
-import { useCart } from "@/contexts/CartContext";
-import { API_ENDPOINTS } from "@/lib/constants";
-import { toast } from "react-toastify";
-import modernApiClient from "@/lib/modernApiClient";
+import { ArrowRight, Star, Shield, Truck, Headphones } from "lucide-react";
 
 const features = [
   {
@@ -42,41 +28,6 @@ const features = [
 ];
 
 export default function HomePage() {
-  const { addToCart } = useCart();
-  const [featuredProducts, setFeaturedProducts] = useState<Slipper[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const [productsResponse, categoriesResponse] =
-          await modernApiClient.batch([
-            { endpoint: API_ENDPOINTS.SLIPPERS, params: { limit: 4 } },
-            { endpoint: API_ENDPOINTS.CATEGORIES },
-          ]);
-        if (productsResponse.error || categoriesResponse.error) {
-          throw new Error("Failed to fetch data");
-        }
-        const productsData =
-          productsResponse.items ||
-          productsResponse.data ||
-          productsResponse ||
-          [];
-        setFeaturedProducts(
-          Array.isArray(productsData) ? (productsData as Slipper[]) : []
-        );
-      } catch (error) {
-        setFeaturedProducts([]);
-        toast.error("Ошибка загрузки данных");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
   return (
     <>
       {/* Modern Hero Section */}
@@ -92,7 +43,8 @@ export default function HomePage() {
               </span>
             </h1>
             <p className="text-xl md:text-2xl mb-12 text-blue-100 max-w-3xl mx-auto leading-relaxed">
-              Откройте для себя коллекцию премиальных тапочек, созданных для идеального комфорта и стиля
+              Откройте для себя коллекцию премиальных тапочек, созданных для
+              идеального комфорта и стиля
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link

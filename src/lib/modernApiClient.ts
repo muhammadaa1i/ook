@@ -4,8 +4,8 @@
 
 import Cookies from "js-cookie";
 
-interface CacheEntry {
-  data: any;
+interface CacheEntry<T = unknown> {
+  data: T;
   timestamp: number;
   expiry: number;
 }
@@ -19,7 +19,7 @@ interface RequestConfig {
 
 class ModernApiClient {
   private cache = new Map<string, CacheEntry>();
-  private pendingRequests = new Map<string, Promise<any>>();
+  private pendingRequests = new Map<string, Promise<unknown>>();
   private readonly baseURL = "/api/proxy";
 
   // Cache TTL configurations (in milliseconds) - optimized for better performance
@@ -32,7 +32,10 @@ class ModernApiClient {
     search: 2 * 60 * 1000, // 2 minutes (search results can be cached longer)
   };
 
-  private getCacheKey(endpoint: string, params?: Record<string, any>): string {
+  private getCacheKey(
+    endpoint: string,
+    params?: Record<string, unknown>
+  ): string {
     const paramString = params ? JSON.stringify(params) : "";
     return `${endpoint}:${paramString}`;
   }
@@ -53,7 +56,7 @@ class ModernApiClient {
     return Date.now() < entry.expiry;
   }
 
-  private setCache(key: string, data: any, ttl: number): void {
+  private setCache(key: string, data: unknown, ttl: number): void {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -74,10 +77,10 @@ class ModernApiClient {
   private async makeRequest(
     endpoint: string,
     options: RequestInit & {
-      params?: Record<string, any>;
+      params?: Record<string, unknown>;
       timeout?: number;
     } = {}
-  ): Promise<any> {
+  ): Promise<unknown> {
     const {
       params,
       headers: optionHeaders,
@@ -163,8 +166,10 @@ class ModernApiClient {
         }
 
         const error = new Error(errorMessage);
-        (error as any).status = response.status;
-        (error as any).statusText = response.statusText;
+        (error as Error & { status?: number; statusText?: string }).status =
+          response.status;
+        (error as Error & { status?: number; statusText?: string }).statusText =
+          response.statusText;
         throw error;
       }
 
@@ -182,9 +187,9 @@ class ModernApiClient {
 
   async get(
     endpoint: string,
-    params?: Record<string, any>,
+    params?: Record<string, unknown>,
     config: RequestConfig = {}
-  ): Promise<any> {
+  ): Promise<unknown> {
     const { cache = true, ttl, retries = 2, timeout = 10000 } = config;
     const cacheKey = this.getCacheKey(endpoint, params);
 
@@ -229,9 +234,9 @@ class ModernApiClient {
 
   async post(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     config: RequestConfig = {}
-  ): Promise<any> {
+  ): Promise<unknown> {
     const { retries = 2, timeout = 10000 } = config;
 
     return this.executeWithRetries(
@@ -247,9 +252,9 @@ class ModernApiClient {
 
   async put(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     config: RequestConfig = {}
-  ): Promise<any> {
+  ): Promise<unknown> {
     const { retries = 2, timeout = 10000 } = config;
 
     return this.executeWithRetries(
@@ -263,7 +268,7 @@ class ModernApiClient {
     );
   }
 
-  async delete(endpoint: string, config: RequestConfig = {}): Promise<any> {
+  async delete(endpoint: string, config: RequestConfig = {}): Promise<unknown> {
     const { retries = 2, timeout = 10000 } = config;
 
     return this.executeWithRetries(
@@ -277,10 +282,10 @@ class ModernApiClient {
   }
 
   private async executeWithRetries(
-    fn: () => Promise<any>,
+    fn: () => Promise<unknown>,
     retries: number,
     timeout: number
-  ): Promise<any> {
+  ): Promise<unknown> {
     for (let i = 0; i <= retries; i++) {
       try {
         const controller = new AbortController();
@@ -289,17 +294,28 @@ class ModernApiClient {
         const result = await fn();
         clearTimeout(timeoutId);
         return result;
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (i === retries) throw error;
 
         // Don't retry on certain error types
-        if (error.status && [400, 401, 403, 404, 422].includes(error.status)) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "status" in error &&
+          (error as { status: number }).status &&
+          [400, 401, 403, 404, 422].includes(
+            (error as { status: number }).status
+          )
+        ) {
           throw error; // Client errors - don't retry
         }
 
         // For server errors (5xx) and network errors, use exponential backoff
-        const isServerError = error.status && error.status >= 500;
-        const isNetworkError = !error.status || error.name === "AbortError";
+        const errorWithStatus = error as { status?: number; name?: string };
+        const isServerError =
+          errorWithStatus.status && errorWithStatus.status >= 500;
+        const isNetworkError =
+          !errorWithStatus.status || errorWithStatus.name === "AbortError";
 
         if (isServerError || isNetworkError) {
           // Exponential backoff with jitter for server errors
@@ -317,8 +333,8 @@ class ModernApiClient {
 
   // Batch requests for better performance
   async batch(
-    requests: Array<{ endpoint: string; params?: Record<string, any> }>
-  ): Promise<any[]> {
+    requests: Array<{ endpoint: string; params?: Record<string, unknown> }>
+  ): Promise<unknown[]> {
     const promises = requests.map(({ endpoint, params }) =>
       this.get(endpoint, params).catch((error) => ({ error }))
     );
@@ -327,7 +343,7 @@ class ModernApiClient {
   }
 
   // Preload data for better UX
-  preload(endpoint: string, params?: Record<string, any>): void {
+  preload(endpoint: string, params?: Record<string, unknown>): void {
     this.get(endpoint, params).catch(() => {
       // Silently fail for preloading
     });

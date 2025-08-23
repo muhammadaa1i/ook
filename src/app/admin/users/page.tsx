@@ -57,24 +57,33 @@ export default function AdminUsersPage() {
       const response = await modernApiClient.get(API_ENDPOINTS.USERS, params);
 
       // modernApiClient returns direct data, not axios-wrapped response
-      const data = response.data || response;
+      const data =
+        (response as { data?: User[] })?.data || (response as User[]);
 
       // Handle both response structures: {data: [...]} and {items: [...]}
-      const usersData = data.items || data.data || data || [];
+      const usersData = Array.isArray(data)
+        ? data
+        : (data as { items?: User[]; data?: User[] })?.items ||
+          (data as { items?: User[]; data?: User[] })?.data ||
+          [];
 
       setUsers(Array.isArray(usersData) ? usersData : []);
+      const responseData = response as {
+        data?: { total?: number; pages?: number; total_pages?: number };
+      };
       setPagination({
-        total: data.total || 0,
+        total: responseData.data?.total || 0,
         page:
           Math.floor(
             (filters.skip || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ) + 1,
         limit: Number(filters.limit || PAGINATION.DEFAULT_LIMIT),
         totalPages:
-          data.pages ||
-          data.total_pages ||
+          responseData.data?.pages ||
+          responseData.data?.total_pages ||
           Math.ceil(
-            (data.total || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
+            (responseData.data?.total || 0) /
+              (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ),
       });
     } catch (error) {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Wifi, WifiOff, AlertCircle, CheckCircle } from "lucide-react";
+import { WifiOff, CheckCircle } from "lucide-react";
 
 interface NetworkStatusProps {
   className?: string;

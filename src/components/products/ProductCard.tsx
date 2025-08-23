@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { Slipper } from "@/types";
 import { formatPrice, getFullImageUrl } from "@/lib/utils";
-import { ShoppingCart, Eye } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 
 interface ProductCardProps {
   slipper: Slipper;

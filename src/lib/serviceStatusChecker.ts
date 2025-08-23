@@ -2,8 +2,6 @@
  * Service status checker for monitoring API health
  */
 
-import { modernApiClient } from "./modernApiClient";
-
 interface ServiceStatus {
   isHealthy: boolean;
   lastChecked: number;
@@ -60,11 +58,13 @@ class ServiceStatusChecker {
           `Health check failed with status ${response.status}`;
         this.updateStatus(false, [errorMessage]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.name === "AbortError"
+        error instanceof Error && error.name === "AbortError"
           ? "Health check timeout"
-          : error.message || "Network error";
+          : error instanceof Error
+          ? error.message
+          : "Network error";
 
       this.updateStatus(false, [errorMessage]);
     }
