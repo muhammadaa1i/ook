@@ -39,19 +39,29 @@ export const performanceMonitor = {
 // Memory usage checker
 export const checkMemoryUsage = () => {
   if (typeof window !== "undefined" && "memory" in performance) {
-    const memory = (performance as any).memory;
-    if (process.env.NODE_ENV === "development") {
+    const memory = (
+      performance as Performance & {
+        memory?: {
+          usedJSHeapSize: number;
+          totalJSHeapSize: number;
+          jsHeapSizeLimit: number;
+        };
+      }
+    ).memory;
+    if (memory && process.env.NODE_ENV === "development") {
       console.log("🧠 Memory Usage:", {
         used: `${Math.round(memory.usedJSHeapSize / 1024 / 1024)} MB`,
         total: `${Math.round(memory.totalJSHeapSize / 1024 / 1024)} MB`,
         limit: `${Math.round(memory.jsHeapSizeLimit / 1024 / 1024)} MB`,
       });
     }
-    return {
-      used: memory.usedJSHeapSize,
-      total: memory.totalJSHeapSize,
-      limit: memory.jsHeapSizeLimit,
-    };
+    return memory
+      ? {
+          used: memory.usedJSHeapSize,
+          total: memory.totalJSHeapSize,
+          limit: memory.jsHeapSizeLimit,
+        }
+      : null;
   }
   return null;
 };

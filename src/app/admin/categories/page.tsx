@@ -60,26 +60,35 @@ export default function AdminCategoriesPage() {
       setIsLoading(true);
       const response = await modernApiClient.get(
         API_ENDPOINTS.CATEGORIES,
-        filters
+        filters as Record<string, unknown>
       );
 
       // Handle response data structure
-      const data = response.data || response;
-      const categoriesData = data.items || data.data || data || [];
+      const data =
+        (response as { data?: Category[] })?.data || (response as Category[]);
+      const categoriesData = Array.isArray(data)
+        ? data
+        : (data as { items?: Category[]; data?: Category[] })?.items ||
+          (data as { items?: Category[]; data?: Category[] })?.data ||
+          [];
 
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      const responseData = response as {
+        data?: { total?: number; pages?: number; total_pages?: number };
+      };
       setPagination({
-        total: data.total || 0,
+        total: responseData.data?.total || 0,
         page:
           Math.floor(
             (filters.skip || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ) + 1,
         limit: Number(filters.limit || PAGINATION.DEFAULT_LIMIT),
         totalPages:
-          data.pages ||
-          data.total_pages ||
+          responseData.data?.pages ||
+          responseData.data?.total_pages ||
           Math.ceil(
-            (data.total || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
+            (responseData.data?.total || 0) /
+              (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ),
       });
     } catch (error) {

@@ -84,22 +84,52 @@ export default function AdminOrdersPage() {
       const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, params);
 
       // Handle response data structure
-      const data = response.data || response;
-      const ordersData = data.items || data.data || data || [];
+      const data =
+        (
+          response as {
+            data?: {
+              items?: Order[];
+              data?: Order[];
+              total?: number;
+              pages?: number;
+              total_pages?: number;
+            };
+          }
+        )?.data ||
+        (response as
+          | Order[]
+          | {
+              items?: Order[];
+              data?: Order[];
+              total?: number;
+              pages?: number;
+              total_pages?: number;
+            });
+      const ordersData = Array.isArray(data)
+        ? data
+        : (data as { items?: Order[]; data?: Order[] })?.items ||
+          (data as { items?: Order[]; data?: Order[] })?.data ||
+          [];
 
       setOrders(Array.isArray(ordersData) ? ordersData : []);
+      const paginationData = data as {
+        total?: number;
+        pages?: number;
+        total_pages?: number;
+      };
       setPagination({
-        total: data.total || 0,
+        total: paginationData?.total || 0,
         page:
           Math.floor(
             (filters.skip || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ) + 1,
         limit: Number(filters.limit || PAGINATION.DEFAULT_LIMIT),
         totalPages:
-          data.pages ||
-          data.total_pages ||
+          paginationData?.pages ||
+          paginationData?.total_pages ||
           Math.ceil(
-            (data.total || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
+            (paginationData?.total || 0) /
+              (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ),
       });
     } catch (error) {

@@ -36,7 +36,8 @@ export default function ProductDetailPage() {
       const response = await modernApiClient.get(
         API_ENDPOINTS.SLIPPER_BY_ID(Number(productId))
       );
-      const productData = response?.data || response;
+      const productData =
+        (response as { data?: Slipper })?.data || (response as Slipper);
       setProduct(productData);
       setHasError(false);
     } catch (error: unknown) {
