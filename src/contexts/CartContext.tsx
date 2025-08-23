@@ -1,0 +1,164 @@
+"use client";
+
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { toast } from "react-toastify";
+
+interface CartItem {
+  id: number;
+  name: string;
+  price: number;
+  quantity: number;
+  images: Array<{ id: number; image_url: string }>;
+  size?: string;
+  color?: string;
+}
+
+interface CartContextType {
+  items: CartItem[];
+  itemCount: number;
+  totalAmount: number;
+  addToCart: (
+    product: any,
+    quantity?: number,
+    size?: string,
+    color?: string
+  ) => void;
+  removeFromCart: (productId: number) => void;
+  updateQuantity: (productId: number, quantity: number) => void;
+  clearCart: () => void;
+  isInCart: (productId: number) => boolean;
+  getCartItem: (productId: number) => CartItem | undefined;
+}
+
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  const [items, setItems] = useState<CartItem[]>([]);
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        try {
+          setItems(JSON.parse(savedCart));
+        } catch (error) {
+          console.error("Error loading cart from localStorage:", error);
+        }
+      }
+    }
+  }, []);
+
+  // Save cart to localStorage whenever items change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cart", JSON.stringify(items));
+    }
+  }, [items]);
+
+  const addToCart = (
+    product: any,
+    quantity = 50,
+    size?: string,
+    color?: string
+  ) => {
+    // Always add in multiples of 5, minimum 50
+    let addQty = Math.max(5, Math.round(quantity / 5) * 5);
+    if (addQty < 50) addQty = 50;
+
+    const existingItemIndex = items.findIndex(
+      (item) =>
+        item.id === product.id && item.size === size && item.color === color
+    );
+
+    if (existingItemIndex > -1) {
+      setItems((prevItems) => {
+        const newItems = [...prevItems];
+        let newQty = newItems[existingItemIndex].quantity + addQty;
+        if (newQty < 50) newQty = 50;
+        // Always round to nearest 5
+        newQty = Math.round(newQty / 5) * 5;
+        newItems[existingItemIndex].quantity = newQty;
+        return newItems;
+      });
+      toast.success(`Увеличено количество в корзине: ${product.name}`);
+    } else {
+      const cartItem: CartItem = {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: addQty,
+        images: product.images || [],
+        size,
+        color,
+      };
+      setItems((prevItems) => [...prevItems, cartItem]);
+      toast.success(`Добавлено в корзину: ${product.name}`);
+    }
+  };
+
+  const removeFromCart = (productId: number) => {
+    setItems((prevItems) => {
+      const removedItem = prevItems.find((item) => item.id === productId);
+      if (removedItem) {
+        toast.success(`Удалено из корзины: ${removedItem.name}`);
+      }
+      return prevItems.filter((item) => item.id !== productId);
+    });
+  };
+
+  const updateQuantity = (productId: number, quantity: number) => {
+    // Enforce minimum 50, step 5
+    let newQty = Math.max(50, Math.round(quantity / 5) * 5);
+    if (newQty <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === productId ? { ...item, quantity: newQty } : item
+      )
+    );
+  };
+
+  const clearCart = () => {
+    setItems([]);
+    toast.success("Корзина очищена");
+  };
+
+  const isInCart = (productId: number) => {
+    return items.some((item) => item.id === productId);
+  };
+
+  const getCartItem = (productId: number) => {
+    return items.find((item) => item.id === productId);
+  };
+
+  const itemCount = items.reduce((total, item) => total + item.quantity, 0);
+  const totalAmount = items.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
+
+  const value: CartContextType = {
+    items,
+    itemCount,
+    totalAmount,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    isInCart,
+    getCartItem,
+  };
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+}
+
+export function useCart() {
+  const context = useContext(CartContext);
+  if (context === undefined) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
+  return context;
+}
