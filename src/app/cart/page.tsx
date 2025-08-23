@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { getFullImageUrl } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -15,6 +16,52 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { toast } from "react-toastify";
+
+// Component for handling product images with error fallback
+const ProductImage = ({
+  item,
+}: {
+  item: { images?: { image_url: string }[]; image?: string; name: string };
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  // Get the image URL
+  let imageUrl = "";
+  if (item.images && item.images.length > 0 && item.images[0].image_url) {
+    imageUrl = item.images[0].image_url;
+  } else if (item.image) {
+    imageUrl = item.image;
+  }
+
+  if (!imageUrl || imageError) {
+    return (
+      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+        <span className="text-gray-400 text-xs text-center">
+          No Image
+          <br />
+          Available
+        </span>
+      </div>
+    );
+  }
+
+  const fullImageUrl = getFullImageUrl(imageUrl);
+
+  return (
+    <Image
+      src={fullImageUrl}
+      alt={item.name}
+      width={96}
+      height={96}
+      className="w-full h-full object-contain bg-white"
+      onError={() => {
+        console.error("Failed to load image:", fullImageUrl);
+        setImageError(true);
+      }}
+      priority
+    />
+  );
+};
 
 export default function CartPage() {
   const {
@@ -77,9 +124,9 @@ export default function CartPage() {
               <ShoppingCart className="h-8 w-8 mr-3" />
               Корзина ({itemCount} товаров)
             </h1>
-              <button className="flex items-center bg-blue-100 text-blue-900 px-4 py-2 rounded-lg font-semibold text-lg mb-6">
-                <ShoppingCart className="mr-2" /> Мои заказы
-              </button>
+            <button className="flex items-center bg-blue-100 text-blue-900 px-4 py-2 rounded-lg font-semibold text-lg mb-6">
+              <ShoppingCart className="mr-2" /> Мои заказы
+            </button>
             <button
               onClick={clearCart}
               className="text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1 rounded-md font-medium transition-colors"
@@ -104,19 +151,7 @@ export default function CartPage() {
                     {/* Product Image */}
                     <div className="flex-shrink-0">
                       <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center border border-blue-100">
-                        {item.images && item.images.length > 0 && item.images[0].image_url ? (
-                          <Image
-                            src={item.images[0].image_url}
-                            alt={item.name}
-                            width={96}
-                            height={96}
-                            className="w-full h-full object-contain bg-white"
-                            onError={e => { e.currentTarget.style.display = 'none'; }}
-                            priority
-                          />
-                        ) : (
-                          <ShoppingBag className="h-10 w-10 text-blue-200" />
-                        )}
+                        <ProductImage item={item} />
                       </div>
                     </div>
 

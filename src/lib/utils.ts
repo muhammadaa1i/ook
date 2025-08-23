@@ -35,3 +35,17 @@ export const debounce = <F extends (...args: never[]) => void>(
     timeoutId = setTimeout(() => func(...args), delay);
   }) as F;
 };
+
+export const getFullImageUrl = (imageUrl: string): string => {
+  if (!imageUrl) {
+    return "/placeholder-product.svg";
+  }
+
+  // If the URL already starts with http/https, return as is
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  // Otherwise, prepend the backend URL
+  return `https://oyoqkiyim.duckdns.org${imageUrl}`;
+};
