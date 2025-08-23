@@ -1,8 +1,60 @@
 /**
- * Comprehensive performance utilities for the application
+ * Comprehensive performance utilities for the application - OPTIMIZED
  */
 
 import React from "react";
+
+// Simple performance monitor for development
+export const performanceMonitor = {
+  timers: new Map<string, number>(),
+
+  start(label: string) {
+    this.timers.set(label, performance.now());
+  },
+
+  end(label: string) {
+    const startTime = this.timers.get(label);
+    if (startTime) {
+      const duration = performance.now() - startTime;
+      if (process.env.NODE_ENV === "development") {
+        console.log(`⏱️ ${label}: ${duration.toFixed(2)}ms`);
+      }
+      this.timers.delete(label);
+      return duration;
+    }
+    return 0;
+  },
+
+  async measure<T>(label: string, fn: () => T | Promise<T>): Promise<T> {
+    this.start(label);
+    try {
+      const result = await fn();
+      return result;
+    } finally {
+      this.end(label);
+    }
+  },
+};
+
+// Memory usage checker
+export const checkMemoryUsage = () => {
+  if (typeof window !== "undefined" && "memory" in performance) {
+    const memory = (performance as any).memory;
+    if (process.env.NODE_ENV === "development") {
+      console.log("🧠 Memory Usage:", {
+        used: `${Math.round(memory.usedJSHeapSize / 1024 / 1024)} MB`,
+        total: `${Math.round(memory.totalJSHeapSize / 1024 / 1024)} MB`,
+        limit: `${Math.round(memory.jsHeapSizeLimit / 1024 / 1024)} MB`,
+      });
+    }
+    return {
+      used: memory.usedJSHeapSize,
+      total: memory.totalJSHeapSize,
+      limit: memory.jsHeapSizeLimit,
+    };
+  }
+  return null;
+};
 
 // Performance measurement utilities
 export class PerformanceTimer {

@@ -17,7 +17,7 @@ import {
   Plus,
   Package,
 } from "lucide-react";
-import { formatPrice, debounce } from "@/lib/utils";
+import { formatPrice, debounce, getFullImageUrl } from "@/lib/utils";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Slipper[]>([]);
@@ -247,13 +247,15 @@ export default function AdminProductsPage() {
                             {product.images && product.images.length > 0 ? (
                               <img
                                 className="h-12 w-12 rounded-lg object-cover"
-                                src={product.images[0].image_url}
+                                src={getFullImageUrl(
+                                  product.images[0].image_url
+                                )}
                                 alt={product.name}
                               />
                             ) : product.image ? (
                               <img
                                 className="h-12 w-12 rounded-lg object-cover"
-                                src={product.image}
+                                src={getFullImageUrl(product.image)}
                                 alt={product.name}
                               />
                             ) : (

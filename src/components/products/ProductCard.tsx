@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { Slipper } from "@/types";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, getFullImageUrl } from "@/lib/utils";
 import { ShoppingCart, Eye } from "lucide-react";
 
 interface ProductCardProps {
@@ -18,13 +18,9 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
 
     // Memoize image URL calculation
     const imageUrl = useMemo(() => {
-      let url = "/placeholder-product.svg";
-
       if (slipper.image) {
         // New API format: single image field
-        url = slipper.image.startsWith("http")
-          ? slipper.image
-          : `https://oyoqkiyim.duckdns.org${slipper.image}`;
+        return getFullImageUrl(slipper.image);
       } else if (slipper.images && slipper.images.length > 0) {
         // Old API format: images array
         const primaryImage = slipper.images.find((img) => img.is_primary);
@@ -32,13 +28,11 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
         const rawImageUrl = primaryImage?.image_url || fallbackImage?.image_url;
 
         if (rawImageUrl) {
-          url = rawImageUrl.startsWith("http")
-            ? rawImageUrl
-            : `https://oyoqkiyim.duckdns.org${rawImageUrl}`;
+          return getFullImageUrl(rawImageUrl);
         }
       }
 
-      return url;
+      return "/placeholder-product.svg";
     }, [slipper.image, slipper.images]);
 
     // Memoize availability info
@@ -98,6 +92,8 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
               fill
               className="object-cover"
               onError={handleImageError}
+              loading="lazy"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-100">

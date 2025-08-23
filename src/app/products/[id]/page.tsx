@@ -8,7 +8,7 @@ import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { Slipper } from "@/types";
 import { useCart } from "@/contexts/CartContext";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, getFullImageUrl } from "@/lib/utils";
 import { ArrowLeft, ShoppingCart, Minus, Plus } from "lucide-react";
 import { ProductDetailSkeleton } from "@/components/ui/skeleton";
 
@@ -98,18 +98,14 @@ export default function ProductDetailPage() {
   // Handle image URL construction
   let imageUrl = "/placeholder-product.svg";
   if (product.image) {
-    imageUrl = product.image.startsWith("http")
-      ? product.image
-      : `https://oyoqkiyim.duckdns.org${product.image}`;
+    imageUrl = getFullImageUrl(product.image);
   } else if (product.images && product.images.length > 0) {
     const primaryImage = product.images.find((img) => img.is_primary);
     const fallbackImage = product.images[0];
     const rawImageUrl = primaryImage?.image_url || fallbackImage?.image_url;
 
     if (rawImageUrl) {
-      imageUrl = rawImageUrl.startsWith("http")
-        ? rawImageUrl
-        : `https://oyoqkiyim.duckdns.org${rawImageUrl}`;
+      imageUrl = getFullImageUrl(rawImageUrl);
     }
   }
 
