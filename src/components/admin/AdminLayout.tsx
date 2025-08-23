@@ -24,7 +24,6 @@ const adminNavigation = [
   { name: "Пользователи", href: "/admin/users", icon: Users },
   { name: "Товары", href: "/admin/products", icon: Package },
   { name: "Заказы", href: "/admin/orders", icon: ShoppingCart },
-  { name: "Категории", href: "/admin/categories", icon: Tag },
 ];
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {

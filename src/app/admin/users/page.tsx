@@ -230,7 +230,6 @@ export default function AdminUsersPage() {
         {/* Filters */}
         <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
-            {/* Search */}
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10 pointer-events-none" />
               <input

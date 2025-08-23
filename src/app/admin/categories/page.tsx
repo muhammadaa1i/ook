@@ -342,7 +342,6 @@ export default function AdminCategoriesPage() {
         {/* Filters */}
         <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
-            {/* Search */}
             <div className="flex-1 relative">
               <div className="absolute inset-y-0 left-0 flex items-center justify-center w-10 pointer-events-none z-10">
                 <Search className="h-4 w-4 text-gray-400" />

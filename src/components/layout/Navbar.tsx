@@ -26,6 +26,8 @@ const Navbar = React.memo(() => {
 
   // Memoize admin status
   const isAdmin = useMemo(() => user?.is_admin || false, [user?.is_admin]);
+  // Check if current path is admin
+  const isAdminPage = pathname?.startsWith("/admin");
 
   // Memoize navigation items
   const navigation = useMemo(() => {
@@ -99,18 +101,20 @@ const Navbar = React.memo(() => {
 
           {/* User Menu + Profile */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Cart Icon */}
-            <Link
-              href="/cart"
-              className="relative flex items-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <ShoppingCart className="h-6 w-6" />
-              {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                  {itemCount > 99 ? "99+" : itemCount}
-                </span>
-              )}
-            </Link>
+            {/* Cart Icon (hide on admin pages) */}
+            {!isAdminPage && (
+              <Link
+                href="/cart"
+                className="relative flex items-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <ShoppingCart className="h-6 w-6" />
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                    {itemCount > 99 ? "99+" : itemCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* Profile dropdown with logout */}
             {isAuthenticated && !isAdmin ? (
@@ -205,22 +209,24 @@ const Navbar = React.memo(() => {
                 );
               })}
 
-              {/* Cart in Mobile Menu */}
-              <Link
-                href="/cart"
-                onClick={closeMenu}
-                className="flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center space-x-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  <span>Корзина</span>
-                </div>
-                {itemCount > 0 && (
-                  <span className="bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                    {itemCount > 99 ? "99+" : itemCount}
-                  </span>
-                )}
-              </Link>
+              {/* Cart in Mobile Menu (hide on admin pages) */}
+              {!isAdminPage && (
+                <Link
+                  href="/cart"
+                  onClick={closeMenu}
+                  className="flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    <span>Корзина</span>
+                  </div>
+                  {itemCount > 0 && (
+                    <span className="bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                      {itemCount > 99 ? "99+" : itemCount}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               {isAuthenticated ? (
                 <div className="border-t pt-3 mt-3">

@@ -16,7 +16,7 @@ const Footer = () => {
               шаге.
             </p>
             <div className="text-sm text-gray-500">
-              <p>© 2024 ОёқКийим. Все права защищены.</p>
+              <p>© 2025 Optom oyoq kiyim. Все права защищены.</p>
             </div>
           </div>
 
