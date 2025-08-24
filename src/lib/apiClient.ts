@@ -54,7 +54,12 @@ proxyApi.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Don't attempt token refresh for login/register endpoints
+    const requestUrl = originalRequest.url || '';
+    const isAuthEndpoint = requestUrl.includes('endpoint=/auth/login') || 
+                          requestUrl.includes('endpoint=/auth/register');
+    
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
@@ -116,7 +121,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Don't attempt token refresh for login/register endpoints
+    const requestUrl = originalRequest.url || '';
+    const isAuthEndpoint = requestUrl.includes('endpoint=/auth/login') || 
+                          requestUrl.includes('endpoint=/auth/register');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {

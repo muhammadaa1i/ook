@@ -16,11 +16,13 @@ import {
   Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const Navbar = React.memo(() => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const confirm = useConfirm();
   const { user, logout, isAuthenticated } = useAuth();
-  const { itemCount } = useCart();
+  const { itemCount, distinctCount } = useCart();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -46,11 +48,20 @@ const Navbar = React.memo(() => {
   }, [isAuthenticated, isAdmin]);
 
   // Optimize callbacks with useCallback
-  const handleLogout = useCallback(() => {
-    logout();
-    router.push("/");
-    setIsMenuOpen(false);
-  }, [logout, router]);
+  const handleLogout = useCallback(async () => {
+    const ok = await confirm({
+      title: "Выйти из аккаунта?",
+      message: "Вы уверены, что хотите завершить сессию?",
+      confirmText: "Выйти",
+      cancelText: "Отмена",
+      variant: "danger",
+    });
+    if (ok) {
+      logout();
+      router.push("/");
+      setIsMenuOpen(false);
+    }
+  }, [confirm, logout, router]);
 
   const toggleMenu = useCallback(() => {
     setIsMenuOpen((prev) => !prev);
@@ -62,6 +73,54 @@ const Navbar = React.memo(() => {
 
   // Memoize user greeting
   const userGreeting = useMemo(() => user?.name, [user?.name]);
+
+  // Helper to format cart count (cap at 999+ for layout safety)
+  const formatCartCount = useCallback((count: number) => {
+    if (count > 999) return "999+";
+    if (count > 99) return "99+";
+    return String(count);
+  }, []);
+
+  // Cart Icon component (desktop & mobile reuse)
+  const CartIcon: React.FC<{ mobile?: boolean; onClick?: () => void }> = ({ mobile = false, onClick }) => {
+    if (isAdmin || isAdminPage) return null;
+    const isActive = pathname === "/cart";
+    const baseClasses = cn(
+      "relative group flex items-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+      mobile
+        ? "px-3 py-2 text-base font-medium"
+        : "p-2",
+      isActive
+        ? "bg-blue-50 text-blue-700 ring-1 ring-blue-400/60"
+        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+    );
+    const iconClasses = cn(
+      mobile ? "h-5 w-5" : "h-6 w-6",
+      "transition-transform group-hover:scale-105",
+      isActive && "scale-105"
+    );
+
+    return (
+      <Link
+    href="/cart"
+    aria-label={distinctCount > 0 ? `Корзина: ${distinctCount} позиций` : "Корзина"}
+        onClick={onClick}
+        className={baseClasses}
+      >
+        <ShoppingCart className={iconClasses} />
+    {distinctCount > 0 && (
+          <span
+            className={cn(
+              "absolute -top-1.5 -right-1.5 min-w-[1.15rem] h-5 px-1.5 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-semibold shadow-md ring-1 ring-white/70 select-none",
+              "animate-[fadeIn_120ms_ease-out]"
+            )}
+          >
+      {formatCartCount(distinctCount)}
+          </span>
+        )}
+      </Link>
+    );
+  };
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
@@ -101,45 +160,48 @@ const Navbar = React.memo(() => {
 
           {/* User Menu + Profile */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Cart Icon (hide on admin pages) */}
-            {!isAdminPage && (
-              <Link
-                href="/cart"
-                className="relative flex items-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <ShoppingCart className="h-6 w-6" />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                    {itemCount > 99 ? "99+" : itemCount}
-                  </span>
-                )}
-              </Link>
-            )}
+            {/* Cart Icon (only for non-admin users and not on admin pages) */}
+            <CartIcon />
 
             {/* Profile dropdown with logout */}
             {isAuthenticated && !isAdmin ? (
               <div className="relative group">
                 <button
+                  aria-haspopup="menu"
+                  aria-expanded="false"
                   className={cn(
-                    "flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors bg-blue-100 text-blue-700 focus:outline-none"
+                    "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors",
+                    "bg-white border border-blue-200/60 text-gray-700 hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   )}
                 >
-                  <User className="h-4 w-4" />
+                  <User className="h-4 w-4 text-blue-600" />
                   <span>{userGreeting || "Профиль"}</span>
+                  <span className="ml-0.5 text-[10px] font-normal text-blue-600/70 group-hover:text-blue-700">▼</span>
                 </button>
-                <div className="absolute right-0 mt-2 w-44 bg-white border border-blue-200 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity z-50 pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto overflow-hidden">
-                  <Link
-                    href="/profile"
-                    className="block px-4 py-2 text-blue-700 hover:bg-blue-50 hover:text-blue-900 transition-colors font-medium"
-                  >
-                    Профиль
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-2 text-blue-700 hover:bg-blue-50 hover:text-blue-900 transition-colors font-medium border-t border-blue-100"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" /> Выйти
-                  </button>
+                <div
+                  className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl border border-blue-200/60 bg-white/95 backdrop-blur shadow-lg shadow-blue-100/40 ring-1 ring-black/5 opacity-0 scale-95 group-hover:scale-100 group-hover:opacity-100 group-focus-within:opacity-100 group-focus-within:scale-100 transition-all z-50 pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto"
+                  role="menu"
+                  aria-label="Меню профиля"
+                >
+                  <div className="py-2 px-2">
+                    <Link
+                      href="/profile"
+                      className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50 focus:text-blue-700 transition-colors"
+                      role="menuitem"
+                    >
+                      <User className="h-4 w-4" />
+                      <span>Профиль</span>
+                    </Link>
+                    <div className="my-2 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:bg-red-50 focus:text-red-700 transition-colors"
+                      role="menuitem"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Выйти</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : isAuthenticated && isAdmin ? (
@@ -209,24 +271,8 @@ const Navbar = React.memo(() => {
                 );
               })}
 
-              {/* Cart in Mobile Menu (hide on admin pages) */}
-              {!isAdminPage && (
-                <Link
-                  href="/cart"
-                  onClick={closeMenu}
-                  className="flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    <span>Корзина</span>
-                  </div>
-                  {itemCount > 0 && (
-                    <span className="bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                      {itemCount > 99 ? "99+" : itemCount}
-                    </span>
-                  )}
-                </Link>
-              )}
+              {/* Cart in Mobile Menu (only for non-admin users and not on admin pages) */}
+              <CartIcon mobile onClick={closeMenu} />
 
               {isAuthenticated ? (
                 <div className="border-t pt-3 mt-3">

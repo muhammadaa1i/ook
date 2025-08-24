@@ -19,6 +19,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { login } = useAuth();
   const router = useRouter();
 
@@ -26,16 +27,25 @@ const LoginForm = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    setError,
+    clearErrors,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
   const onSubmit = async (data: LoginFormData) => {
     try {
+      // Clear any previous errors
+      setLoginError(null);
+      clearErrors();
+      
       await login(data);
       router.push("/");
-    } catch {
-      // Error is handled by the auth context
+    } catch (error) {
+      console.error("Login error:", error);
+      
+      // Set a local error state for additional feedback
+      setLoginError("Неверный логин или пароль");
     }
   };
 
@@ -55,9 +65,21 @@ const LoginForm = () => {
               создайте новый аккаунт
             </Link>
           </p>
+          {/* Temporary test credentials notice */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-800">
+              <strong>Тестовые данные:</strong> admin / password
+            </p>
+          </div>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          {loginError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-sm text-red-600">{loginError}</p>
+            </div>
+          )}
+          
           <div className="space-y-4">
             <div>
               <label
@@ -67,12 +89,17 @@ const LoginForm = () => {
                 Имя пользователя
               </label>
               <input
-                {...register("name")}
+                {...register("name", {
+                  onChange: () => {
+                    // Clear login error when user starts typing
+                    if (loginError) setLoginError(null);
+                  }
+                })}
                 type="text"
                 autoComplete="username"
                 className={cn(
                   "mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm",
-                  errors.name &&
+                  (errors.name || loginError) &&
                     "border-red-300 focus:border-red-500 focus:ring-red-500"
                 )}
                 placeholder="Введите ваше имя"
@@ -93,12 +120,17 @@ const LoginForm = () => {
               </label>
               <div className="mt-1 relative">
                 <input
-                  {...register("password")}
+                  {...register("password", {
+                    onChange: () => {
+                      // Clear login error when user starts typing
+                      if (loginError) setLoginError(null);
+                    }
+                  })}
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   className={cn(
                     "appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm",
-                    errors.password &&
+                    (errors.password || loginError) &&
                       "border-red-300 focus:border-red-500 focus:ring-red-500"
                   )}
                   placeholder="Введите пароль"

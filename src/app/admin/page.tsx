@@ -191,25 +191,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Последняя активность
-          </h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">
-                  Добро пожаловать в админ панель!
-                </p>
-                <p className="text-sm text-gray-600">
-                  Используйте навигацию для управления магазином
-                </p>
-              </div>
-              <span className="text-sm text-gray-500">Сейчас</span>
-            </div>
-          </div>
-        </div>
       </div>
     </AdminLayout>
   );

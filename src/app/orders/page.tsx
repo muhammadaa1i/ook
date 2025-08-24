@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
+import { getFullImageUrl } from "@/lib/utils";
 import { toast } from "react-toastify";
 import {
   Package,
@@ -289,7 +290,9 @@ export default function OrdersPage() {
                     className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg"
                   >
                     <img
-                      src={item.slipper.images[0]?.image_url}
+                      src={getFullImageUrl(
+                        item.slipper.images?.[0]?.image_url || ""
+                      )}
                       alt={item.slipper.name}
                       className="h-16 w-16 object-cover rounded-md"
                     />
@@ -354,8 +357,8 @@ export default function OrdersPage() {
           <p className="text-gray-600">
             Отслеживайте статус ваших заказов и просматривайте историю покупок
           </p>
-    </div>
-    <p className="text-lg text-gray-500 mb-6">История заказов недоступна</p>
+        </div>
+        <p className="text-lg text-gray-500 mb-6">История заказов недоступна</p>
 
         {/* Orders List */}
         {isLoading ? (

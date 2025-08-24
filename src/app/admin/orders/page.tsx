@@ -1,24 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { Order, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Package,
-  Check,
-  X,
-  Clock,
-  Truck,
-} from "lucide-react";
-import { formatPrice, debounce } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, Eye, Package, Check, X, Clock, Truck } from "lucide-react";
+import { formatPrice } from "@/lib/utils";
 
 const statusIcons = {
   pending: <Clock className="h-4 w-4 text-yellow-500" />,
@@ -57,31 +47,14 @@ export default function AdminOrdersPage() {
     skip: 0,
     limit: PAGINATION.DEFAULT_LIMIT,
   });
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Search and global status filter removed
 
-  // Memoize the debounced search function
-  const debouncedSearch = useMemo(
-    () =>
-      debounce((search: string) => {
-        setFilters((prev) => ({
-          ...prev,
-          search: search || undefined,
-          skip: 0,
-        }));
-      }, 300),
-    []
-  );
+  // Debounced search removed
 
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const params = {
-        ...filters,
-        ...(statusFilter !== "all" && { status: statusFilter }),
-      };
-
-      const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, params);
+  const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, filters);
 
       // Handle response data structure
       const data = response.data || response;
@@ -109,15 +82,13 @@ export default function AdminOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, statusFilter]);
+  }, [filters]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
-  useEffect(() => {
-    debouncedSearch(searchTerm);
-  }, [searchTerm, debouncedSearch]);
+  // Search effect removed
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -208,39 +179,15 @@ export default function AdminOrdersPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
-            <div className="flex-1 relative">
-              <div className="absolute inset-y-0 left-0 flex items-center justify-center w-10 pointer-events-none z-10">
-                <Search className="h-4 w-4 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Поиск по ID заказа или имени клиента..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input-no-border w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 placeholder-gray-500"
-                disabled={isLoading}
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="lg:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
-                disabled={isLoading}
-              >
-                <option value="all">Все статусы</option>
-                <option value="pending">Ожидает</option>
-                <option value="processing">Обрабатывается</option>
-                <option value="shipped">Отправлен</option>
-                <option value="delivered">Доставлен</option>
-                <option value="cancelled">Отменен</option>
-              </select>
-            </div>
+        {/* Info bar (search & global status filter removed) */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Заказов: {pagination.total}</span>
+            {pagination.total > 0 && (
+              <span>
+                Страница {pagination.page} из {pagination.totalPages}
+              </span>
+            )}
           </div>
         </div>
 

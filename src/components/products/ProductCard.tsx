@@ -3,8 +3,10 @@
 import React, { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { Slipper } from "@/types";
-import { formatPrice } from "@/lib/utils";
-import { ShoppingCart, Eye } from "lucide-react";
+import { formatPrice, getFullImageUrl } from "@/lib/utils";
+import { ShoppingCart, Check } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
   slipper: Slipper;
@@ -15,16 +17,15 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = React.memo(
   ({ slipper, onAddToCart, onViewDetails }) => {
     const [imageError, setImageError] = useState(false);
+  const { user } = useAuth();
+  const { isInCart, getCartItem } = useCart();
+  const isAdmin = !!user?.is_admin;
 
     // Memoize image URL calculation
     const imageUrl = useMemo(() => {
-      let url = "/placeholder-product.svg";
-
       if (slipper.image) {
         // New API format: single image field
-        url = slipper.image.startsWith("http")
-          ? slipper.image
-          : `https://oyoqkiyim.duckdns.org${slipper.image}`;
+        return getFullImageUrl(slipper.image);
       } else if (slipper.images && slipper.images.length > 0) {
         // Old API format: images array
         const primaryImage = slipper.images.find((img) => img.is_primary);
@@ -32,13 +33,11 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
         const rawImageUrl = primaryImage?.image_url || fallbackImage?.image_url;
 
         if (rawImageUrl) {
-          url = rawImageUrl.startsWith("http")
-            ? rawImageUrl
-            : `https://oyoqkiyim.duckdns.org${rawImageUrl}`;
+          return getFullImageUrl(rawImageUrl);
         }
       }
 
-      return url;
+      return "/placeholder-product.svg";
     }, [slipper.image, slipper.images]);
 
     // Memoize availability info
@@ -76,9 +75,16 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
       }
     }, [onViewDetails, slipper]);
 
+    const inCart = useMemo(() => isInCart(slipper.id), [isInCart, slipper.id]);
+    const cartItem = useMemo(() => (inCart ? getCartItem(slipper.id) : undefined), [inCart, getCartItem, slipper.id]);
+
     return (
       <div
-        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+        className={
+          `relative bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer border ${
+            inCart ? "border-blue-500 ring-1 ring-blue-400/50" : "border-transparent"
+          }`
+        }
         onClick={onViewDetails ? handleViewDetails : undefined}
         tabIndex={onViewDetails ? 0 : undefined}
         role={onViewDetails ? "button" : undefined}
@@ -91,6 +97,12 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
         }
       >
         <div className="relative h-48 bg-gray-200">
+          {inCart && (
+            <div className="absolute top-2 left-2 z-10 bg-blue-600 text-white text-[11px] font-semibold px-2 py-1 rounded-md shadow-sm flex items-center space-x-1">
+              <Check className="h-3.5 w-3.5" />
+              <span>В корзине{cartItem ? `: ${cartItem.quantity}` : ""}</span>
+            </div>
+          )}
           {!imageError && imageUrl !== "/placeholder-product.svg" ? (
             <Image
               src={imageUrl}
@@ -98,6 +110,8 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
               fill
               className="object-cover"
               onError={handleImageError}
+              loading="lazy"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-100">
@@ -135,17 +149,29 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
               {formattedPrice}
             </span>
             <div className="flex space-x-2">
-              {onAddToCart && (
+              {onAddToCart && !isAdmin && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleAddToCart();
                   }}
                   disabled={!availabilityInfo.isAvailable}
-                  className="p-2 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
-                  title="В корзину (минимум 50, шаг 5)"
+                  className={`p-2 rounded-lg transition-colors flex items-center justify-center ${
+                    inCart
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  } disabled:bg-gray-300 disabled:cursor-not-allowed`}
+                  title={
+                    inCart
+                      ? "Товар уже в корзине. Нажмите чтобы добавить ещё"
+                      : "В корзину (минимум 50, шаг 5)"
+                  }
                 >
-                  <ShoppingCart className="h-5 w-5" />
+                  {inCart ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <ShoppingCart className="h-5 w-5" />
+                  )}
                 </button>
               )}
             </div>

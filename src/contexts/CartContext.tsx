@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { Slipper } from "@/types";
 
 interface CartItem {
   id: number;
@@ -9,6 +10,7 @@ interface CartItem {
   price: number;
   quantity: number;
   images: Array<{ id: number; image_url: string }>;
+  image?: string; // Single image URL (alternative format)
   size?: string;
   color?: string;
 }
@@ -16,9 +18,10 @@ interface CartItem {
 interface CartContextType {
   items: CartItem[];
   itemCount: number;
+  distinctCount: number; // number of different products/lines
   totalAmount: number;
   addToCart: (
-    product: any,
+    product: Slipper,
     quantity?: number,
     size?: string,
     color?: string
@@ -57,7 +60,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items]);
 
   const addToCart = (
-    product: any,
+    product: Slipper,
     quantity = 50,
     size?: string,
     color?: string
@@ -89,6 +92,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         price: product.price,
         quantity: addQty,
         images: product.images || [],
+        image: product.image,
         size,
         color,
       };
@@ -98,18 +102,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeFromCart = (productId: number) => {
+    const removedItem = items.find((item) => item.id === productId);
     setItems((prevItems) => {
-      const removedItem = prevItems.find((item) => item.id === productId);
-      if (removedItem) {
-        toast.success(`Удалено из корзины: ${removedItem.name}`);
-      }
       return prevItems.filter((item) => item.id !== productId);
     });
+    if (removedItem) {
+      toast.success(`Удалено из корзины: ${removedItem.name}`);
+    }
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
     // Enforce minimum 50, step 5
-    let newQty = Math.max(50, Math.round(quantity / 5) * 5);
+    const newQty = Math.max(50, Math.round(quantity / 5) * 5);
     if (newQty <= 0) {
       removeFromCart(productId);
       return;
@@ -134,7 +138,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return items.find((item) => item.id === productId);
   };
 
+  // Total quantity (sum of all unit quantities)
   const itemCount = items.reduce((total, item) => total + item.quantity, 0);
+  // Number of distinct cart lines
+  const distinctCount = items.length;
   const totalAmount = items.reduce(
     (total, item) => total + item.price * item.quantity,
     0
@@ -142,7 +149,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const value: CartContextType = {
     items,
-    itemCount,
+  itemCount,
+  distinctCount,
     totalAmount,
     addToCart,
     removeFromCart,

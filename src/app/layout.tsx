@@ -7,6 +7,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,23 +36,25 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col bg-white text-gray-900`}
       >
         <AuthProvider>
-          <CartProvider>
-            <Navbar />
-            <main className="flex-grow">{children}</main>
-            <Footer />
-          </CartProvider>
-          <ToastContainer
-            position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
+          <ConfirmDialogProvider>
+            <CartProvider>
+              <Navbar />
+              <main className="flex-grow">{children}</main>
+              <Footer />
+            </CartProvider>
+            <ToastContainer
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="light"
+            />
+          </ConfirmDialogProvider>
         </AuthProvider>
       </body>
     </html>

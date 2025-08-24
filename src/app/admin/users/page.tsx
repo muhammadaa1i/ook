@@ -1,25 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { User, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Edit,
-  Trash2,
-} from "lucide-react";
-import { formatDate, debounce } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user: currentUser } = useAuth();
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -30,31 +25,11 @@ export default function AdminUsersPage() {
     skip: 0,
     limit: PAGINATION.DEFAULT_LIMIT,
   });
-  const [searchTerm, setSearchTerm] = useState("");
-  const [adminFilter, setAdminFilter] = useState<boolean | undefined>();
-
-  // Memoize the debounced search function to prevent recreation on every render
-  const debouncedSearch = useMemo(
-    () =>
-      debounce((search: string) => {
-        setFilters((prev) => ({
-          ...prev,
-          search: search || undefined,
-          skip: 0, // Reset pagination on search
-        }));
-      }, 300),
-    []
-  );
 
   const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
-      const params = {
-        ...filters,
-        is_admin: adminFilter,
-      };
-
-      const response = await modernApiClient.get(API_ENDPOINTS.USERS, params);
+  const response = await modernApiClient.get(API_ENDPOINTS.USERS, filters);
 
       // modernApiClient returns direct data, not axios-wrapped response
       const data = response.data || response;
@@ -84,15 +59,11 @@ export default function AdminUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, adminFilter]);
+  }, [filters]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  useEffect(() => {
-    debouncedSearch(searchTerm);
-  }, [searchTerm, debouncedSearch]);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -102,35 +73,7 @@ export default function AdminUsersPage() {
     [pagination.limit]
   );
 
-  const handleAdminFilterChange = useCallback(
-    (isAdmin: boolean | undefined) => {
-      setAdminFilter(isAdmin);
-      setFilters((prev) => ({
-        ...prev,
-        is_admin: isAdmin,
-        skip: 0, // Reset pagination on filter change
-      }));
-    },
-    []
-  );
-
-  const handleDeleteUser = useCallback(
-    async (userId: number) => {
-      if (!confirm("Вы уверены, что хотите удалить этого пользователя?")) {
-        return;
-      }
-
-      try {
-        await modernApiClient.delete(API_ENDPOINTS.USER_BY_ID(userId));
-        toast.success("Пользователь успешно удален");
-        fetchUsers(); // Refresh the list
-      } catch (error) {
-        console.error("Error deleting user:", error);
-        toast.error("Ошибка удаления пользователя");
-      }
-    },
-    [fetchUsers]
-  );
+  // Actions removed per request (view/edit/delete)
 
   const renderPagination = () => {
     if (pagination.totalPages <= 1) return null;
@@ -227,53 +170,11 @@ export default function AdminUsersPage() {
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Поиск по имени, фамилии, телефону..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 placeholder-gray-500"
-                disabled={isLoading}
-              />
-            </div>
-
-            {/* Admin Filter */}
-            <select
-              value={adminFilter === undefined ? "" : adminFilter.toString()}
-              onChange={(e) =>
-                handleAdminFilterChange(
-                  e.target.value === "" ? undefined : e.target.value === "true"
-                )
-              }
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              disabled={isLoading}
-            >
-              <option value="">Все пользователи</option>
-              <option value="true">Только администраторы</option>
-              <option value="false">Только обычные пользователи</option>
-            </select>
-          </div>
-
-          <div className="flex justify-between items-center text-sm text-gray-600">
-            <span>Найдено пользователей: {pagination.total}</span>
-            {pagination.total > 0 && (
-              <span>
-                Страница {pagination.page} из {pagination.totalPages}
-              </span>
-            )}
-          </div>
-        </div>
-
         {/* Users Table */}
         <div className="bg-white shadow rounded-lg overflow-hidden">
           {isLoading ? (
             <div className="p-6">
-              <TableSkeleton rows={10} cols={6} />
+              <TableSkeleton rows={10} cols={4} />
             </div>
           ) : users.length > 0 ? (
             <>
@@ -293,14 +194,20 @@ export default function AdminUsersPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Дата регистрации
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Действия
-                      </th>
+                      {/* Actions column removed */}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {Array.isArray(users) &&
-                      users.map((user) => (
+                      users
+                        .filter((user) => {
+                          // If logged in as admin, hide only your own row
+                          if (currentUser?.is_admin && user.id === currentUser.id) {
+                            return false;
+                          }
+                          return true;
+                        })
+                        .map((user) => (
                         <tr key={user.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
@@ -331,37 +238,7 @@ export default function AdminUsersPage() {
                               ? formatDate(user.created_at)
                               : "Н/Д"}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center justify-end space-x-2">
-                              <button
-                                onClick={() =>
-                                  alert(`Просмотр пользователя ${user.id}`)
-                                }
-                                className="text-blue-600 hover:text-blue-900 p-1"
-                                title="Просмотреть"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  alert(
-                                    `Редактирование пользователя ${user.id}`
-                                  )
-                                }
-                                className="text-green-600 hover:text-green-900 p-1"
-                                title="Редактировать"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(user.id!)}
-                                className="text-red-600 hover:text-red-900 p-1"
-                                title="Удалить"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
+                          {/* Actions cell removed */}
                         </tr>
                       ))}
                   </tbody>

@@ -1,24 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { Category, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Edit,
-  Trash2,
-  Plus,
-  Tag,
-  Eye,
-  EyeOff,
-} from "lucide-react";
-import { debounce } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, Edit, Trash2, Plus, Tag, Eye, EyeOff } from "lucide-react";
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -33,7 +23,7 @@ export default function AdminCategoriesPage() {
     skip: 0,
     limit: PAGINATION.DEFAULT_LIMIT,
   });
-  const [searchTerm, setSearchTerm] = useState("");
+  // Search removed
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({
@@ -41,19 +31,20 @@ export default function AdminCategoriesPage() {
     description: "",
     is_active: true,
   });
+  const confirm = useConfirm();
 
-  // Memoize the debounced search function
-  const debouncedSearch = useMemo(
-    () =>
-      debounce((search: string) => {
-        setFilters((prev) => ({
-          ...prev,
-          search: search || undefined,
-          skip: 0,
-        }));
-      }, 300),
-    []
-  );
+  // Lock body scroll when any modal open
+  useEffect(() => {
+    if (showCreateModal || editingCategory) {
+      const original = document.documentElement.style.overflow;
+      document.documentElement.style.overflow = "hidden";
+      return () => {
+        document.documentElement.style.overflow = original;
+      };
+    }
+  }, [showCreateModal, editingCategory]);
+
+  // Debounced search removed
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -95,9 +86,7 @@ export default function AdminCategoriesPage() {
     fetchCategories();
   }, [fetchCategories]);
 
-  useEffect(() => {
-    debouncedSearch(searchTerm);
-  }, [searchTerm, debouncedSearch]);
+  // Search effect removed
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -138,23 +127,24 @@ export default function AdminCategoriesPage() {
     }
   }, [editingCategory, formData, fetchCategories]);
 
-  const handleDeleteCategory = useCallback(
-    async (categoryId: number) => {
-      if (!confirm("Вы уверены, что хотите удалить эту категорию?")) {
-        return;
-      }
-
-      try {
-        await modernApiClient.delete(API_ENDPOINTS.CATEGORY_BY_ID(categoryId));
-        toast.success("Категория успешно удалена");
-        fetchCategories();
-      } catch (error) {
-        console.error("Error deleting category:", error);
-        toast.error("Ошибка удаления категории");
-      }
-    },
-    [fetchCategories]
-  );
+  const handleDeleteCategory = useCallback(async (categoryId: number) => {
+    const ok = await confirm({
+      title: "Удалить категорию",
+      message: "Вы уверены, что хотите удалить эту категорию? Это действие нельзя отменить.",
+      confirmText: "Удалить",
+      cancelText: "Отмена",
+      variant: "danger",
+    });
+    if (!ok) return;
+    try {
+      await modernApiClient.delete(API_ENDPOINTS.CATEGORY_BY_ID(categoryId));
+      toast.success("Категория успешно удалена");
+      fetchCategories();
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast.error("Ошибка удаления категории");
+    }
+  }, [confirm, fetchCategories]);
 
   const handleToggleActive = useCallback(
     async (category: Category) => {
@@ -243,8 +233,14 @@ export default function AdminCategoriesPage() {
     if (!showCreateModal && !editingCategory) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        onClick={closeModal}
+      >
+        <div
+          className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             {editingCategory ? "Редактировать категорию" : "Создать категорию"}
           </h3>
@@ -337,25 +333,6 @@ export default function AdminCategoriesPage() {
             <Plus className="h-4 w-4" />
             <span>Добавить категорию</span>
           </button>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
-            <div className="flex-1 relative">
-              <div className="absolute inset-y-0 left-0 flex items-center justify-center w-10 pointer-events-none z-10">
-                <Search className="h-4 w-4 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Поиск по названию категории..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input-no-border w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 placeholder-gray-500"
-                disabled={isLoading}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Categories Table */}

@@ -12,6 +12,7 @@ import React, {
 import Cookies from "js-cookie";
 import { User, LoginRequest, RegisterRequest } from "@/types";
 import { apiClient } from "@/lib/apiClient";
+import { extractErrorMessage } from "@/lib/utils";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { toast } from "react-toastify";
 
@@ -21,6 +22,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
+  forgotPassword: (payload: { name: string; password?: string; confirm_password?: string }) => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
 }
@@ -116,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = useCallback(async (credentials: LoginRequest) => {
     try {
       setIsLoading(true);
+      
       const response = await apiClient.post(API_ENDPOINTS.LOGIN, credentials);
 
       const { access_token, refresh_token, user: userData } = response.data;
@@ -146,10 +149,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setTimeout(() => {
         toast.success("Успешный вход в систему!");
       }, 100);
+      
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { detail?: string } } };
-      const message = axiosError.response?.data?.detail || "Ошибка входа";
-      toast.error(message);
+      const axiosError = error as { response?: { data?: any; status?: number } };
+      
+      // Debug logging for login errors
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[login][debug] error status:', axiosError.response?.status);
+        console.error('[login][debug] error data:', axiosError.response?.data);
+      }
+      
+      // Always show "incorrect login or password" message for any authentication failure
+      // Use setTimeout to ensure the toast shows after any potential page operations
+      setTimeout(() => {
+        toast.error("Неверный логин или пароль");
+      }, 0);
+      
+      // Re-throw the error to be handled by the form
       throw error;
     } finally {
       setIsLoading(false);
@@ -186,8 +202,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       tokenVerificationRef.current = true; // Mark as verified since we just registered
       toast.success("Регистрация прошла успешно!");
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { detail?: string } } };
-      const message = axiosError.response?.data?.detail || "Ошибка регистрации";
+      const axiosError = error as { response?: { data?: any } };
+      const message = extractErrorMessage(axiosError.response?.data, "Ошибка регистрации");
+      toast.error(message);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const forgotPassword = useCallback(async (payload: { name: string; password?: string; confirm_password?: string }) => {
+    try {
+      setIsLoading(true);
+      
+      // Backend expects all fields at once: name, new_password, confirm_new_password
+      if (payload.password) {
+        const resetBody = {
+          name: payload.name,
+          new_password: payload.password,
+          confirm_new_password: payload.confirm_password,
+        };
+        await apiClient.post(API_ENDPOINTS.FORGOT_PASSWORD, resetBody);
+      } else {
+        // Step 1: Just validate the username exists (skip API call, proceed to step 2)
+        // Since backend expects full payload, we'll do client-side validation only
+        return;
+      }
+      if (payload.password) {
+        toast.success("Пароль успешно изменён");
+      } else {
+        toast.success("Пользователь найден. Введите новый пароль");
+      }
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: any } };
+      // Debug log for 422 validation issues so we can inspect expected fields
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[forgotPassword][debug] payload sent:', payload);
+        console.error('[forgotPassword][debug] transformed body:', payload.password ? {
+          name: payload.name,
+          new_password: payload.password,
+          confirm_new_password: payload.confirm_password,
+        } : { name: payload.name });
+        console.error('[forgotPassword][debug] server response:', axiosError.response?.data);
+      }
+      const message = extractErrorMessage(
+        axiosError.response?.data,
+        payload.password ? "Не удалось изменить пароль" : "Ошибка поиска пользователя"
+      );
       toast.error(message);
       throw error;
     } finally {
@@ -222,10 +283,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       isAuthenticated,
       login,
       register,
+      forgotPassword,
       logout,
       updateUser,
     }),
-    [user, isLoading, isAuthenticated, login, register, logout, updateUser]
+    [user, isLoading, isAuthenticated, login, register, forgotPassword, logout, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

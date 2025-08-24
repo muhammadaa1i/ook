@@ -99,23 +99,15 @@ CART: No cache           // Real-time data
 - ✅ **Recent requests visualization**
 - ✅ **Cache management controls**
 
-#### Performance Utilities (`src/lib/performanceUtils.ts`)
+#### (Removed) Performance Utilities
 
-- ✅ **Performance timing utilities**
-- ✅ **Memory usage monitoring**
-- ✅ **Network connection analysis**
-- ✅ **Core Web Vitals measurement**
-- ✅ **Resource loading analysis**
-- ✅ **Component render tracking**
+The previous `src/lib/performanceUtils.ts` helper (timers, memory, vitals, resource analysis) was removed to shrink the bundle and eliminate dead development-only code.
 
 ### 5. **Code Splitting & Lazy Loading**
 
-#### Lazy Loading Utilities (`src/lib/lazyLoading.ts`)
+#### (Removed) Lazy Loading Utilities
 
-- ✅ **Component lazy loading** with proper fallbacks
-- ✅ **Preloadable components** for better UX
-- ✅ **Intersection Observer** for scroll-based loading
-- ✅ **Optimized bundle splitting**
+The previous `src/lib/lazyLoading.ts` (preloadable lazy wrappers & IO hook) was unused and removed to reduce code size.
 
 ## 📈 Performance Improvements
 

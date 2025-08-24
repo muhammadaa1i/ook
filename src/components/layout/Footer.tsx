@@ -102,10 +102,6 @@ const Footer = () => {
             </ul>
           </div>
         </div>
-
-        <div className="border-t border-gray-200 mt-8 pt-8 text-center text-gray-500">
-          <p>Сделано с ❤️ для любителей комфорта</p>
-        </div>
       </div>
     </footer>
   );

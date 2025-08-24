@@ -9,6 +9,7 @@ import { Slipper, Category, SearchParams as FilterParams } from "@/types";
 import { useCart } from "@/contexts/CartContext";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
+// Performance instrumentation removed for production optimization
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -40,15 +41,25 @@ function CatalogContent() {
   const lastRequestParamsRef = useRef<string>("");
   const categoriesCachedRef = useRef<boolean>(false);
   const isRequestInProgressRef = useRef<boolean>(false);
+  const mountedRef = useRef<boolean>(true); // Track if component is mounted
 
   const fetchCategories = async () => {
     // Only fetch categories once per session
-    if (categoriesCachedRef.current) {
+    if (categoriesCachedRef.current || !mountedRef.current) {
       return;
     }
 
     try {
-      const response = await modernApiClient.get(API_ENDPOINTS.CATEGORIES);
+      const response = await modernApiClient.get(
+        API_ENDPOINTS.CATEGORIES,
+        undefined,
+        {
+          cache: true,
+          ttl: 30 * 60 * 1000, // 30 minutes
+          timeout: 6000,
+        }
+      );
+
       // modernApiClient returns direct data, not axios-wrapped response
       const categoriesData = response?.data || response || [];
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
@@ -69,9 +80,11 @@ function CatalogContent() {
   };
 
   const fetchProducts = async () => {
-    // Prevent duplicate requests
-    if (isRequestInProgressRef.current) {
-      console.log("Request already in progress, skipping...");
+    // Prevent duplicate requests and check if component is mounted
+    if (isRequestInProgressRef.current || !mountedRef.current) {
+      console.log(
+        "Request blocked - already in progress or component unmounted"
+      );
       return;
     }
 
@@ -95,9 +108,11 @@ function CatalogContent() {
       abortControllerRef.current = new AbortController();
 
       // Only show loading spinner for subsequent loads, not initial load
-      if (!isInitialLoading) {
+      if (!isInitialLoading && mountedRef.current) {
         setIsLoading(true);
       }
+
+
       const params = {
         ...filters,
         include_images: true,
@@ -105,33 +120,39 @@ function CatalogContent() {
 
       const response = await modernApiClient.get(
         API_ENDPOINTS.SLIPPERS,
-        params
+        params,
+        {
+          cache: true,
+          ttl: 2 * 60 * 1000, // 2 minutes cache for products
+          timeout: 8000, // Reduce timeout to 8 seconds
+        }
       );
+
+
+      // Check memory usage periodically in development
+
+      // Check if component is still mounted before updating state
+      if (!mountedRef.current) {
+        return;
+      }
 
       // modernApiClient returns direct data, not axios-wrapped response
       const data = response.data || response;
-      console.log("API Response:", data); // Debug log to see the structure
 
       // Handle both response structures: {data: [...]} and {items: [...]}
       const productsData = data.items || data.data || data || [];
-      console.log("Products data extracted:", productsData);
-      console.log("Is array?", Array.isArray(productsData));
-      console.log("Length:", productsData.length);
-
-      // Debug: Check the structure of each product
-      if (productsData.length > 0) {
-        console.log("First product structure:", productsData[0]);
-        const firstProduct = productsData[0] as { images?: unknown };
-        console.log("First product images:", firstProduct?.images);
-      }
 
       setProducts(
         Array.isArray(productsData) ? (productsData as Slipper[]) : []
       );
       setHasError(false);
       setHasLoaded(true);
-      setIsLoading(false);
-      setIsInitialLoading(false);
+
+      if (mountedRef.current) {
+        setIsLoading(false);
+        setIsInitialLoading(false);
+      }
+
       setPagination({
         total: data.total || 0,
         page:
@@ -196,20 +217,24 @@ function CatalogContent() {
 
   // Single optimized effect for initial load
   useEffect(() => {
-    // Fetch categories once on mount
-    fetchCategories();
+    mountedRef.current = true;
 
-    // Initial products fetch
-    fetchProducts();
+    // Fetch categories and products in parallel for faster loading
+    Promise.all([fetchCategories(), fetchProducts()]).catch((error) => {
+      console.error("Error in initial load:", error);
+    });
 
     // Cleanup function
     return () => {
+      mountedRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
+      // Clean up cache if component unmounts
+      isRequestInProgressRef.current = false;
     };
   }, []); // Empty dependency array - only run once on mount
 
@@ -238,18 +263,20 @@ function CatalogContent() {
 
   // Optimized effect for filter changes with proper debouncing
   useEffect(() => {
-    // Skip initial render
-    if (isInitialLoading) return;
+    // Skip initial render and if component is unmounted
+    if (isInitialLoading || !mountedRef.current) return;
 
     // Clear any existing timeout
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
     }
 
-    // Debounce the fetchProducts call by 500ms (increased for better performance)
+    // Debounce the fetchProducts call by 300ms (optimized for better performance)
     fetchTimeoutRef.current = setTimeout(() => {
-      fetchProducts();
-    }, 500);
+      if (mountedRef.current) {
+        fetchProducts();
+      }
+    }, 300);
 
     // Cleanup timeout
     return () => {
@@ -387,8 +414,6 @@ function CatalogContent() {
       </div>
 
       <div className="space-y-6">
-
-
         <div className="flex justify-between items-center">
           <p className="text-sm text-gray-600">
             Найдено товаров: {pagination.total}

@@ -21,15 +21,16 @@ class ModernApiClient {
   private cache = new Map<string, CacheEntry>();
   private pendingRequests = new Map<string, Promise<any>>();
   private readonly baseURL = "/api/proxy";
+  private refreshPromise: Promise<boolean> | null = null; // shared in-flight refresh
 
-  // Cache TTL configurations (in milliseconds)
+  // Cache TTL configurations (in milliseconds) - optimized for better performance
   private readonly cacheTTL = {
-    categories: 10 * 60 * 1000, // 10 minutes
-    products: 5 * 60 * 1000, // 5 minutes
-    productDetail: 15 * 60 * 1000, // 15 minutes
-    profile: 2 * 60 * 1000, // 2 minutes
-    orders: 1 * 60 * 1000, // 1 minute
-    search: 30 * 1000, // 30 seconds
+    categories: 30 * 60 * 1000, // 30 minutes (categories rarely change)
+    products: 3 * 60 * 1000, // 3 minutes (balance between freshness and performance)
+    productDetail: 10 * 60 * 1000, // 10 minutes
+    profile: 1 * 60 * 1000, // 1 minute (user data can change)
+    orders: 30 * 1000, // 30 seconds (orders change frequently)
+    search: 2 * 60 * 1000, // 2 minutes (search results can be cached longer)
   };
 
   private getCacheKey(endpoint: string, params?: Record<string, any>): string {
@@ -60,12 +61,12 @@ class ModernApiClient {
       expiry: Date.now() + ttl,
     });
 
-    // Cleanup old cache entries (keep only last 100)
-    if (this.cache.size > 100) {
+    // Cleanup old cache entries more aggressively (keep only last 50 for better memory management)
+    if (this.cache.size > 50) {
       const entries = Array.from(this.cache.entries());
       entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
       this.cache.clear();
-      entries.slice(0, 100).forEach(([key, value]) => {
+      entries.slice(0, 50).forEach(([key, value]) => {
         this.cache.set(key, value);
       });
     }
@@ -73,86 +74,156 @@ class ModernApiClient {
 
   private async makeRequest(
     endpoint: string,
-    options: RequestInit & { params?: Record<string, any> } = {}
+    options: RequestInit & {
+      params?: Record<string, any>;
+      timeout?: number;
+    } = {}
   ): Promise<any> {
-    const { params, headers: optionHeaders, ...fetchOptions } = options;
+    const { params, headers: optionHeaders, timeout = 8000, ...fetchOptions } = options;
 
-    const url = new URL(this.baseURL, window.location.origin);
-    url.searchParams.append("endpoint", endpoint);
-
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value));
-        }
-      });
-    }
-
-    // Get auth token from cookies
-    const token = Cookies.get("access_token");
-
-    const defaultHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    };
-
-    // Add Authorization header if token exists
-    if (token) {
-      defaultHeaders.Authorization = `Bearer ${token}`;
-    }
-
-    // Merge default headers with provided headers
-    const headers = {
-      ...defaultHeaders,
-      ...(optionHeaders as Record<string, string>),
-    };
-
-    const response = await fetch(url.pathname + url.search, {
-      method: options.method || "GET",
-      headers,
-      ...fetchOptions,
-    });
-
-    if (!response.ok) {
-      // Handle specific HTTP status codes with user-friendly messages
-      let errorMessage = `HTTP error! status: ${response.status}`;
-
-      switch (response.status) {
-        case 503:
-          errorMessage =
-            "Server is temporarily unavailable. Please try again in a few moments.";
-          break;
-        case 502:
-          errorMessage = "Server gateway error. Please try again later.";
-          break;
-        case 500:
-          errorMessage = "Internal server error. Please try again later.";
-          break;
-        case 404:
-          errorMessage = "Requested resource not found.";
-          break;
-        case 401:
-          errorMessage = "Authentication required. Please log in again.";
-          break;
-        case 403:
-          errorMessage =
-            "Access denied. You don't have permission to access this resource.";
-          break;
-        case 429:
-          errorMessage =
-            "Too many requests. Please wait a moment before trying again.";
-          break;
-        default:
-          errorMessage = `Server error (${response.status}). Please try again later.`;
+    const attemptRequest = async (): Promise<Response> => {
+      const url = new URL(this.baseURL, window.location.origin);
+      url.searchParams.append("endpoint", endpoint);
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            url.searchParams.append(key, String(value));
+          }
+        });
       }
 
-      const error = new Error(errorMessage);
-      (error as any).status = response.status;
-      (error as any).statusText = response.statusText;
+      // Get auth token from cookies each attempt (may change after refresh)
+      const token = Cookies.get("access_token");
+      const defaultHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      };
+      if (token) {
+        defaultHeaders.Authorization = `Bearer ${token}`;
+      }
+      const headers = { ...defaultHeaders, ...(optionHeaders as Record<string, string>) };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url.pathname + url.search, {
+          method: options.method || "GET",
+          headers,
+          signal: controller.signal,
+          ...fetchOptions,
+        });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        throw err;
+      }
+    };
+
+    let response: Response | null = null;
+    let triedRefresh = false;
+    try {
+      response = await attemptRequest();
+      // If unauthorized and we have refresh token, attempt refresh once
+      if (response.status === 401 && Cookies.get("refresh_token") && !triedRefresh) {
+        const refreshed = await this.refreshAccessToken();
+        triedRefresh = true;
+        if (refreshed) {
+          response = await attemptRequest();
+        }
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        switch (response.status) {
+          case 503:
+            errorMessage = "Server is temporarily unavailable. Please try again in a few moments."; break;
+          case 502:
+            errorMessage = "Server gateway error. Please try again later."; break;
+          case 500:
+            errorMessage = "Internal server error. Please try again later."; break;
+          case 404:
+            errorMessage = "Requested resource not found."; break;
+          case 401:
+            errorMessage = "Authentication required. Please log in again."; break;
+          case 403:
+            errorMessage = "Access denied. You don't have permission to access this resource."; break;
+          case 429:
+            errorMessage = "Too many requests. Please wait a moment before trying again."; break;
+          default:
+            errorMessage = `Server error (${response.status}). Please try again later.`;
+        }
+        const error = new Error(errorMessage);
+        (error as any).status = response.status;
+        (error as any).statusText = response.statusText;
+        throw error;
+      }
+      return response.json();
+    } catch (error: any) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new Error("Request timeout - Please check your connection and try again");
+      }
       throw error;
     }
+  }
 
-    return response.json();
+  /** Attempt to refresh access token using refresh_token cookie */
+  private async refreshAccessToken(): Promise<boolean> {
+    if (this.refreshPromise) return this.refreshPromise;
+    const refreshToken = Cookies.get("refresh_token");
+    if (!refreshToken) return false;
+
+    this.refreshPromise = (async () => {
+      try {
+        const attempt = async (endpointVariant: string) => {
+          const url = new URL(this.baseURL, window.location.origin);
+            url.searchParams.append("endpoint", endpointVariant);
+            return fetch(url.pathname + url.search, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({ refresh_token: refreshToken }),
+            });
+        };
+
+        // Try without trailing slash first, then with
+        let response = await attempt("/auth/refresh");
+        if (!response.ok) {
+          response = await attempt("/auth/refresh/");
+        }
+        if (!response.ok) {
+          console.warn("Token refresh failed", response.status, response.statusText);
+          throw new Error("Failed to refresh token");
+        }
+        let data: any = {};
+        try { data = await response.json(); } catch {}
+        if (data.access_token) {
+          Cookies.set("access_token", data.access_token, { expires: 1 });
+        }
+        if (data.refresh_token) {
+          Cookies.set("refresh_token", data.refresh_token, { expires: 30 });
+        }
+        return !!data.access_token;
+      } catch (err) {
+        // Clear auth data & notify app to logout
+        Cookies.remove("access_token");
+        Cookies.remove("refresh_token");
+        Cookies.remove("user");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("auth:logout"));
+        }
+        return false;
+      } finally {
+        // Reset promise holder shortly after to allow future attempts
+        const p = this.refreshPromise; // keep reference
+        setTimeout(() => {
+          if (this.refreshPromise === p) this.refreshPromise = null;
+        }, 50);
+      }
+    })();
+    return this.refreshPromise;
   }
 
   async get(
