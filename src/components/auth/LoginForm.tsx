@@ -9,17 +9,21 @@ import { z } from "zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
-const loginSchema = z.object({
-  name: z.string().min(1, "Имя обязательно"),
-  password: z.string().min(6, "Пароль должен содержать минимум 6 символов"),
-});
+// Schema will be defined inside component to access translation function
 
-type LoginFormData = z.infer<typeof loginSchema>;
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordValue, setPasswordValue] = useState(""); // controlled password value to avoid disappearing issues
   const [loginError, setLoginError] = useState<string | null>(null);
+  const { t } = useI18n();
+  const loginSchema = z.object({
+    name: z.string().min(1, t('auth.validation.nameRequired')),
+    password: z.string().min(8, t('auth.validation.passwordMin')),
+  });
+  type FormSchema = z.infer<typeof loginSchema>;
   const { login } = useAuth();
   const router = useRouter();
 
@@ -27,25 +31,23 @@ const LoginForm = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
     clearErrors,
-  } = useForm<LoginFormData>({
+  } = useForm<FormSchema>({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: FormSchema) => {
     try {
       // Clear any previous errors
       setLoginError(null);
       clearErrors();
-      
       await login(data);
+      // Only redirect if login was successful
       router.push("/");
-    } catch (error) {
-      console.error("Login error:", error);
-      
+  } catch {
       // Set a local error state for additional feedback
       setLoginError("Неверный логин или пароль");
+      // Don't redirect on error - stay on login page
     }
   };
 
@@ -54,39 +56,27 @@ const LoginForm = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Войти в аккаунт
+            {t('auth.login')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Или{" "}
+            {t('auth.orCreate').split(' ').slice(0,1).join(' ')}{" "}
             <Link
               href="/auth/register"
               className="font-medium text-blue-600 hover:text-blue-500"
             >
-              создайте новый аккаунт
+              {t('auth.register')}
             </Link>
           </p>
-          {/* Temporary test credentials notice */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
-              <strong>Тестовые данные:</strong> admin / password
-            </p>
-          </div>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          {loginError && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-sm text-red-600">{loginError}</p>
-            </div>
-          )}
-          
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)} noValidate>          
           <div className="space-y-4">
             <div>
               <label
                 htmlFor="name"
                 className="block text-sm font-medium text-gray-700"
               >
-                Имя пользователя
+                {t('auth.name')}
               </label>
               <input
                 {...register("name", {
@@ -102,7 +92,7 @@ const LoginForm = () => {
                   (errors.name || loginError) &&
                     "border-red-300 focus:border-red-500 focus:ring-red-500"
                 )}
-                placeholder="Введите ваше имя"
+                placeholder={t('auth.namePlaceholder')}
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-600">
@@ -116,35 +106,46 @@ const LoginForm = () => {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700"
               >
-                Пароль
+                {t('auth.password')}
               </label>
-              <div className="mt-1 relative">
-                <input
-                  {...register("password", {
-                    onChange: () => {
-                      // Clear login error when user starts typing
-                      if (loginError) setLoginError(null);
-                    }
-                  })}
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  className={cn(
-                    "appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm",
-                    (errors.password || loginError) &&
-                      "border-red-300 focus:border-red-500 focus:ring-red-500"
-                  )}
-                  placeholder="Введите пароль"
-                />
+              <div className="mt-1 relative group">
+                {(() => {
+                  const passwordReg = register("password");
+                  return (
+                    <input
+                      id="password"
+                      {...passwordReg}
+                      value={passwordValue}
+                      onChange={(e) => {
+                        passwordReg.onChange(e);
+                        setPasswordValue(e.target.value);
+                        if (loginError) setLoginError(null);
+                      }}
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      className={cn(
+                        "appearance-none relative block w-full px-3 py-2 pr-12 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm",
+                        (errors.password || loginError) &&
+                          "border-red-300 focus:border-red-500 focus:ring-red-500"
+                      )}
+                      placeholder={t('auth.passwordInputPlaceholder')}
+                    />
+                  );
+                })()}
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute inset-y-0 right-0 flex items-center justify-center w-10 text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md z-20"
+                  tabIndex={0}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
+                    <EyeOff className="h-5 w-5 pointer-events-none" />
                   ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
+                    <Eye className="h-5 w-5 pointer-events-none" />
                   )}
+                  <span className="sr-only">{showPassword ? t('auth.hidePassword') : t('auth.showPassword')}</span>
                 </button>
               </div>
               {errors.password && (
@@ -160,7 +161,7 @@ const LoginForm = () => {
               href="/auth/forgot-password"
               className="text-sm text-blue-600 hover:text-blue-500"
             >
-              Забыли пароль?
+              {t('auth.forgotPassword')}
             </Link>
           </div>
 
@@ -173,10 +174,10 @@ const LoginForm = () => {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Вход...
+                  {t('auth.loginProgress')}
                 </>
               ) : (
-                "Войти"
+                t('auth.login')
               )}
             </button>
           </div>

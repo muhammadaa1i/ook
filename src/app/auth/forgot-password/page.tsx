@@ -7,25 +7,28 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
-const schema = z
-  .object({
-    name: z.string().min(1, "Имя пользователя обязательно"),
-    new_password: z.string().min(6, "Минимум 6 символов"),
-    confirm_new_password: z.string().min(6, "Подтвердите пароль"),
-  })
-  .refine((data) => data.new_password === data.confirm_new_password, {
-    message: "Пароли не совпадают",
-    path: ["confirm_new_password"],
-  });
-
-type FormData = z.infer<typeof schema>;
+// Schema moved inside component to access translation function
 
 export default function ForgotPasswordPage() {
   const { forgotPassword, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { t } = useI18n();
   
+  const schema = z
+    .object({
+      name: z.string().min(1, t('auth.validation.nameRequired')),
+      new_password: z.string().min(8, t('auth.passwordPlaceholder')),
+      confirm_new_password: z.string().min(8, t('auth.confirmPasswordPlaceholder')),
+    })
+    .refine((data) => data.new_password === data.confirm_new_password, {
+      message: t('auth.validation.passwordsMismatch'),
+      path: ["confirm_new_password"],
+    });
+
+  type FormData = z.infer<typeof schema>;
   const form = useForm<FormData>({ 
     resolver: zodResolver(schema),
     defaultValues: {
@@ -54,10 +57,10 @@ export default function ForgotPasswordPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Восстановление пароля
+            {t('auth.forgot.title')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Введите имя пользователя и новый пароль
+            {t('auth.forgot.instructions')}
           </p>
         </div>
         
@@ -65,7 +68,7 @@ export default function ForgotPasswordPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Имя пользователя
+                {t('auth.name')}
               </label>
               <input
                 type="text"
@@ -83,7 +86,7 @@ export default function ForgotPasswordPage() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Новый пароль
+                {t('auth.forgot.newPassword')}
               </label>
               <div className="relative">
                 <input
@@ -94,7 +97,7 @@ export default function ForgotPasswordPage() {
                     "mt-1 appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm",
                     form.formState.errors.new_password && "border-red-300 focus:border-red-500 focus:ring-red-500"
                   )}
-                  placeholder="Минимум 6 символов"
+                  placeholder={t('auth.passwordPlaceholder')}
                 />
                 <button
                   type="button"
@@ -115,7 +118,7 @@ export default function ForgotPasswordPage() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Подтверждение пароля
+                {t('auth.forgot.confirmNewPassword')}
               </label>
               <div className="relative">
                 <input
@@ -126,7 +129,7 @@ export default function ForgotPasswordPage() {
                     "mt-1 appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm",
                     form.formState.errors.confirm_new_password && "border-red-300 focus:border-red-500 focus:ring-red-500"
                   )}
-                  placeholder="Повторите пароль"
+                  placeholder={t('auth.confirmPasswordPlaceholder')}
                 />
                 <button
                   type="button"
@@ -154,16 +157,16 @@ export default function ForgotPasswordPage() {
             {form.formState.isSubmitting || isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" /> 
-                Сохранение...
+                {t('auth.forgot.saving')}
               </>
             ) : (
-              "Сменить пароль"
+              t('auth.forgot.submit')
             )}
           </button>
           
           <div className="text-center text-sm">
             <Link href="/auth/login" className="text-blue-600 hover:text-blue-700">
-              Вернуться ко входу
+              {t('auth.forgot.backToLogin')}
             </Link>
           </div>
         </form>

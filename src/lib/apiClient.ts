@@ -56,8 +56,14 @@ proxyApi.interceptors.response.use(
 
     // Don't attempt token refresh for login/register endpoints
     const requestUrl = originalRequest.url || '';
-    const isAuthEndpoint = requestUrl.includes('endpoint=/auth/login') || 
-                          requestUrl.includes('endpoint=/auth/register');
+    const isAuthEndpoint = requestUrl.includes('endpoint=%2Fauth%2Flogin') || 
+                          requestUrl.includes('endpoint=%2Fauth%2Fregister') ||
+                          requestUrl.includes('endpoint=/auth/login') || 
+                          requestUrl.includes('endpoint=/auth/register') ||
+                          requestUrl.includes('/auth/login') ||
+                          requestUrl.includes('/auth/register');
+    
+  // Removed verbose development logging for performance
     
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
@@ -92,7 +98,10 @@ proxyApi.interceptors.response.use(
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("auth:logout"));
         }
-        setTimeout(() => (window.location.href = "/auth/login"), 100);
+        // Don't redirect to login if already on login page
+        if (typeof window !== "undefined" && !window.location.pathname.includes('/auth/login')) {
+          setTimeout(() => (window.location.href = "/auth/login"), 100);
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -123,8 +132,14 @@ api.interceptors.response.use(
 
     // Don't attempt token refresh for login/register endpoints
     const requestUrl = originalRequest.url || '';
-    const isAuthEndpoint = requestUrl.includes('endpoint=/auth/login') || 
-                          requestUrl.includes('endpoint=/auth/register');
+    const isAuthEndpoint = requestUrl.includes('endpoint=%2Fauth%2Flogin') || 
+                          requestUrl.includes('endpoint=%2Fauth%2Fregister') ||
+                          requestUrl.includes('endpoint=/auth/login') || 
+                          requestUrl.includes('endpoint=/auth/register') ||
+                          requestUrl.includes('/auth/login') ||
+                          requestUrl.includes('/auth/register');
+
+  // Removed verbose development logging for performance
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
@@ -156,7 +171,10 @@ api.interceptors.response.use(
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("auth:logout"));
         }
-        setTimeout(() => (window.location.href = "/auth/login"), 100);
+        // Don't redirect to login if already on login page
+        if (typeof window !== "undefined" && !window.location.pathname.includes('/auth/login')) {
+          setTimeout(() => (window.location.href = "/auth/login"), 100);
+        }
         return Promise.reject(refreshError);
       }
     }

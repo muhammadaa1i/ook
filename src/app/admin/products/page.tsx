@@ -1,14 +1,10 @@
 "use client";
 
-<<<<<<< HEAD
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-=======
-import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
->>>>>>> 098e82c8096eedbcbcf13f6c0c9419d4aa02c08a
 import AdminLayout from "@/components/admin/AdminLayout";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { Slipper, SearchParams } from "@/types";
@@ -17,8 +13,10 @@ import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight, Edit, Trash2, Plus, Package, X, ImagePlus, Images } from "lucide-react";
 import { formatPrice, getFullImageUrl } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 export default function AdminProductsPage() {
+  const { t } = useI18n();
   const [products, setProducts] = useState<Slipper[]>([]);
   const [pendingDeletions, setPendingDeletions] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +31,6 @@ export default function AdminProductsPage() {
     limit: PAGINATION.DEFAULT_LIMIT,
   });
   // Used to trigger manual refetches bypassing cache
-  const [refreshVersion, setRefreshVersion] = useState(0);
   // Search removed
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Slipper | null>(null);
@@ -49,7 +46,12 @@ export default function AdminProductsPage() {
   const [uploadProgress, setUploadProgress] = useState<{current:number;total:number}|null>(null);
   const [singleImageFile, setSingleImageFile] = useState<File | null>(null);
   const [multiImageFiles, setMultiImageFiles] = useState<FileList | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  // Existing images (when editing)
+  const [editingImages, setEditingImages] = useState<{
+    id: number; image_url: string; is_primary?: boolean; alt_text?: string
+  }[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [deletingImageIds, setDeletingImageIds] = useState<number[]>([]);
   // Track current image index for mini carousel per product id
   const [imageIndexMap, setImageIndexMap] = useState<Record<number, number>>({});
   const confirm = useConfirm();
@@ -68,7 +70,7 @@ export default function AdminProductsPage() {
 
   // Debounced search removed
 
-  const fetchProducts = useCallback(async (force = false) => {
+  const fetchProducts = useCallback(async () => {
     try {
       setIsLoading(true);
       const params = {
@@ -93,27 +95,23 @@ export default function AdminProductsPage() {
           (data as { items?: Slipper[]; data?: Slipper[] })?.data ||
           [];
 
-<<<<<<< HEAD
-      let list = Array.isArray(productsData) ? productsData : [];
+  let list: Slipper[] = Array.isArray(productsData) ? (productsData as Slipper[]) : [];
       // Filter out any items pending deletion to keep UI consistent even if backend hasn't finished yet
       if (pendingDeletions.size) {
-        list = list.filter((p: any) => !pendingDeletions.has(p.id));
+  list = list.filter((p: Slipper) => !pendingDeletions.has(p.id));
         // Clean up pending deletions that no longer exist in backend response
         const stillPending = new Set<number>();
         pendingDeletions.forEach((id) => {
-          if (list.find((p: any) => p.id === id)) stillPending.add(id);
+          if (list.find((p: Slipper) => p.id === id)) stillPending.add(id);
         });
         if (stillPending.size !== pendingDeletions.size) {
           setPendingDeletions(stillPending);
         }
       }
       setProducts(list as Slipper[]);
-=======
-      setProducts(Array.isArray(productsData) ? productsData : []);
       const responseData = response as {
         data?: { total?: number; pages?: number; total_pages?: number };
       };
->>>>>>> 098e82c8096eedbcbcf13f6c0c9419d4aa02c08a
       setPagination({
         total: responseData.data?.total || 0,
         page:
@@ -129,14 +127,13 @@ export default function AdminProductsPage() {
               (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ),
       });
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      toast.error("Ошибка загрузки товаров");
+  } catch {
+  toast.error(t('admin.products.toasts.loadError'));
       setProducts([]);
     } finally {
       setIsLoading(false);
     }
-  }, [filters, refreshVersion, pendingDeletions]);
+  }, [filters, pendingDeletions, t]);
 
 
   useEffect(() => {
@@ -157,34 +154,34 @@ export default function AdminProductsPage() {
 
   const handleDeleteProduct = useCallback(async (productId: number) => {
     const ok = await confirm({
-      title: "Удалить товар",
+      title: t('admin.products.deleteConfirm.title'),
       message: (
         <div>
-          Вы уверены, что хотите удалить этот товар? <br /> Это действие
-          нельзя отменить.
+          {t('admin.products.deleteConfirm.message')}
         </div>
       ),
-      confirmText: "Удалить",
-      cancelText: "Отмена",
+      confirmText: t('admin.products.deleteConfirm.confirm'),
+      cancelText: t('common.cancel'),
       variant: "danger",
     });
     if (!ok) return;
     try {
-      setDeletingId(productId);
+  // mark deleting (state removed)
       // Capture current count for page adjustment logic
       const currentCount = products.length;
       try {
         await modernApiClient.delete(API_ENDPOINTS.SLIPPER_BY_ID(productId));
-      } catch (err: any) {
+      } catch (err) {
         // Fallback: if constant change not yet deployed or backend expects opposite trailing slash variant
-        if (err?.status === 404) {
+        const status = (err as { status?: number })?.status;
+        if (status === 404) {
           const altEndpoint = API_ENDPOINTS.SLIPPER_BY_ID(productId).replace(/\/$/, "");
           await modernApiClient.delete(altEndpoint); // retry without slash
         } else {
           throw err;
         }
       }
-      toast.success("Товар успешно удален");
+  toast.success(t('admin.products.toasts.deleteSuccess'));
   // Optimistically remove from UI
   setPendingDeletions((prev) => new Set(prev).add(productId));
   setProducts((prev) => prev.filter((p) => p.id !== productId));
@@ -196,19 +193,18 @@ export default function AdminProductsPage() {
       // Clear cache and trigger background refresh
       modernApiClient.clearCache("/slippers");
       // Delay background refresh slightly to allow backend to finalize deletion
-      setTimeout(() => setRefreshVersion((v) => v + 1), 400);
-    } catch (error) {
-      console.error("Error deleting product:", error);
-    const status = (error as any)?.status;
+  // background refresh trigger removed
+  } catch (error) {
+  const status = (error as { status?: number })?.status;
     if (status === 404) {
-        toast.warn("Товар уже был удален");
+  toast.warn(t('admin.products.toasts.deleteAlreadyRemoved'));
         // Remove optimistically if still present
         setPendingDeletions((prev) => new Set(prev).add(productId));
         setProducts((prev) => prev.filter((p) => p.id !== productId));
         modernApiClient.clearCache("/slippers");
-        setTimeout(() => setRefreshVersion((v) => v + 1), 400);
+  // background refresh trigger removed
       } else {
-        toast.error("Ошибка удаления товара");
+  toast.error(t('admin.products.toasts.deleteError'));
         // If error other than 404, rollback optimistic removal
         setProducts((prev) => {
           // If product already removed, we can't restore its full data unless cached earlier; skip rollback
@@ -222,9 +218,9 @@ export default function AdminProductsPage() {
       }
     }
     finally {
-      setDeletingId(null);
+  // clear deleting marker
     }
-  }, [confirm, pagination.page, handlePageChange, products]);
+  }, [confirm, pagination.page, handlePageChange, products, t]);
 
   const resetForm = () => {
     setFormData({
@@ -251,12 +247,57 @@ export default function AdminProductsPage() {
       quantity: String(product.quantity ?? ""),
       is_available: product.is_available !== false,
     });
+  fetchEditingImages(product.id);
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     resetForm();
+  };
+
+  const fetchEditingImages = async (slipperId: number) => {
+    setEditingImages([]);
+    try {
+      setLoadingImages(true);
+      interface ImageRecord { id: number; image_url: string; is_primary?: boolean; alt_text?: string }
+      const resp = await modernApiClient.get(API_ENDPOINTS.SLIPPER_IMAGES(slipperId), undefined, { cache: false });
+      const data = ((resp as { data?: ImageRecord[] })?.data || resp) as ImageRecord[];
+      if (Array.isArray(data)) {
+        setEditingImages(data.map(d => ({
+          id: d.id,
+          image_url: d.image_url,
+          is_primary: d.is_primary,
+          alt_text: d.alt_text
+        })));
+      }
+    } catch {
+      // Failed to load images
+    } finally {
+      setLoadingImages(false);
+    }
+  };
+
+  const handleDeleteExistingImage = async (imageId: number) => {
+    if (!editingProduct) return;
+    const ok = await confirm({
+      title: "Удалить изображение",
+      message: "Удалить это изображение?",
+      confirmText: "Удалить",
+      cancelText: "Отмена",
+      variant: "danger"
+    });
+    if (!ok) return;    
+    try {
+      setDeletingImageIds(ids => [...ids, imageId]);
+      await modernApiClient.delete(API_ENDPOINTS.SLIPPER_DELETE_IMAGE(editingProduct.id, imageId));
+      setEditingImages(imgs => imgs.filter(i => i.id !== imageId));
+      toast.success("Изображение удалено");
+  } catch {
+      toast.error("Ошибка удаления изображения");
+    } finally {
+      setDeletingImageIds(ids => ids.filter(id => id !== imageId));
+    }
   };
 
   const handleSave = async () => {
@@ -271,7 +312,7 @@ export default function AdminProductsPage() {
       };
 
       if (!payload.name || !payload.price) {
-        toast.error("Пожалуйста, заполните обязательные поля");
+  toast.error(t('admin.products.toasts.saveError'));
         return;
       }
 
@@ -282,20 +323,25 @@ export default function AdminProductsPage() {
           payload
         );
         productId = editingProduct.id;
-        toast.success("Товар обновлен");
+  toast.success(t('admin.products.toasts.updateSuccess'));
         // Update in-place optimistically
-        setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, ...payload } as any : p)));
+  setProducts((prev) => prev.map((p) => (p.id === productId ? ({ ...p, ...payload } as Slipper) : p)));
       } else {
         const created = await modernApiClient.post(
           API_ENDPOINTS.SLIPPERS,
           payload
         );
         // backend may return created object or {data: {...}}
-        const createdData = created.data || created;
+  interface CreatedWrap { data?: Slipper; [k: string]: unknown }
+  const cObj = created as CreatedWrap | Slipper;
+  const createdData = ((cObj as CreatedWrap).data || (cObj as Slipper)) as Slipper;
         productId = createdData.id;
-        toast.success("Товар создан");
+  toast.success(t('admin.products.toasts.createSuccess'));
         // Prepend new product locally (basic shape)
-        setProducts((prev) => [{ ...createdData, ...payload, id: productId }, ...prev]);
+        if (productId) {
+          const newItem: Slipper = { ...createdData, ...payload, id: productId } as Slipper;
+          setProducts((prev) => [newItem, ...prev]);
+        }
         // Update totals & ensure we are on first page to see new product
         setPagination((prev) => ({ ...prev, total: prev.total + 1 }));
         if (pagination.page !== 1) {
@@ -308,11 +354,11 @@ export default function AdminProductsPage() {
         await handleImageUploads(productId);
       }
   modernApiClient.clearCache("/slippers");
-  setRefreshVersion((v) => v + 1); // trigger background refetch
+  // trigger background refetch removed
       closeModal();
-    } catch (e: any) {
-      console.error("Save product error", e);
-      toast.error(e?.message || "Ошибка сохранения товара");
+    } catch (e) {
+      const msg = (e as Error)?.message || t('admin.products.toasts.saveError');
+      toast.error(msg);
     } finally {
       setIsSaving(false);
     }
@@ -324,14 +370,13 @@ export default function AdminProductsPage() {
         ...product,
         is_available: !product.is_available,
       });
-      toast.success("Статус товара обновлен");
+  toast.success(t('admin.products.toasts.statusUpdateSuccess'));
   // Optimistic toggle
   setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, is_available: !product.is_available } : p));
   modernApiClient.clearCache("/slippers");
-  setRefreshVersion((v) => v + 1);
-    } catch (e) {
-      console.error("Toggle availability error", e);
-      toast.error("Ошибка обновления статуса");
+  // trigger background refetch removed
+  } catch {
+      toast.error(t('admin.products.toasts.statusUpdateError'));
     }
   };
 
@@ -341,19 +386,19 @@ export default function AdminProductsPage() {
       setUploadProgress(null);
       // Adaptive single image upload
       if (singleImageFile) {
-        const singleFieldCandidates = ["image", "file", "photo"];
+  const singleFieldCandidates = ["image", "file", "photo", "image_file"]; // broaden accepted field names
         let singleSuccess = false;
-        let lastError: any = null;
+  let lastError: Error | null = null;
         for (const field of singleFieldCandidates) {
           const fd = new FormData();
             fd.append(field, singleImageFile);
           try {
-            await uploadWithStrategies(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id), fd, "изображения");
-            toast.success(`Изображение загружено (${field})`);
+            await uploadWithStrategies(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id), fd, t('admin.products.images.single'));
+            toast.success(t('admin.products.images.uploadSingleSuccess', { field }));
             singleSuccess = true;
             break;
           } catch (err) {
-            lastError = err;
+            lastError = err as Error;
           }
         }
         if (!singleSuccess && lastError) throw lastError;
@@ -371,21 +416,20 @@ export default function AdminProductsPage() {
 
         // Upload pool with limited concurrency to avoid server overload / 413 spikes
         const CONCURRENCY = 2; // safe middle-ground
-        let inFlight = 0;
+  // removed inFlight variable (was unused)
         let index = 0;
         let completed = 0;
-        let lastError: any = null;
+  let lastError: Error | null = null;
 
-        const fieldCandidates = ["image", "file", "photo"];
+  const fieldCandidates = ["image", "file", "photo", "files", "images"]; // include plural forms for backend flexibility
 
         const next = async (): Promise<void> => {
           const i = index++;
           if (i >= compressed.length) return;
-          inFlight++;
           const original = originals[i];
           let file = compressed[i];
           let uploaded = false;
-          let attemptErr: any = null;
+          let attemptErr: Error | null = null;
           for (const field of fieldCandidates) {
             const fd = new FormData();
             fd.append(field, file);
@@ -393,29 +437,29 @@ export default function AdminProductsPage() {
               await uploadWithStrategies(
                 API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id),
                 fd,
-                `изображения ${i + 1}`
+                `${t('admin.products.images.single')} ${i + 1}`
               );
               uploaded = true;
               break;
-            } catch (e: any) {
+            } catch (e) {
               // If 413 try harder compression one time
-              if (e.message && e.message.includes("413")) {
+              if ((e as Error).message && (e as Error).message.includes("413")) {
                 try {
-                  file = await prepareImageForUpload(original, 0.5, 900);
+                  // Aggressive recompress attempt (lower quality & dimension)
+                  file = await prepareImageForUpload(original, 0.55, 1300);
                   const fd2 = new FormData();
                   fd2.append(field, file);
                   await uploadWithStrategies(
                     API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id),
                     fd2,
-                    `изображения ${i + 1}`
+                    `${t('admin.products.images.single')} ${i + 1}`
                   );
                   uploaded = true;
                   break;
-                } catch (e2: any) {
-                  attemptErr = e2;
+              } catch {
                 }
               }
-              attemptErr = e;
+              attemptErr = e as Error;
             }
           }
           if (!uploaded) {
@@ -423,18 +467,17 @@ export default function AdminProductsPage() {
           }
           completed++;
           setUploadProgress({ current: completed, total });
-          inFlight--;
           if (index < compressed.length) await next();
         };
 
         const starters = Array.from({ length: Math.min(CONCURRENCY, compressed.length) }, () => next());
         await Promise.all(starters);
-        if (lastError) throw lastError;
-        toast.success("Все изображения загружены");
+  if (lastError) throw lastError;
+  toast.success(t('admin.products.images.uploadAllSuccess'));
       }
-    } catch (e: any) {
-      console.error("Upload error", e);
-      toast.error(e?.message || "Ошибка загрузки изображений");
+    } catch (e) {
+      const msg = (e as Error)?.message || t('admin.products.images.uploadError');
+      toast.error(msg);
     } finally {
       setUploading(false);
       setSingleImageFile(null);
@@ -446,7 +489,7 @@ export default function AdminProductsPage() {
   // Advanced helper: try various strategies (methods + toggle trailing slash)
   const uploadWithStrategies = async (endpoint: string, formData: FormData, label: string) => {
     // If this looks like an image upload endpoint, most APIs only allow POST
-    const looksLikeImageEndpoint = /upload-image|upload-images|\/images\/?$/i.test(endpoint);
+  const looksLikeImageEndpoint = /upload-image|upload-images|\/images\/?$/i.test(endpoint);
     const baseMethods: Array<"POST" | "PUT"> = looksLikeImageEndpoint ? ["POST"] : ["POST", "PUT"];
 
     // Build endpoint variants (toggle slash + common alternate patterns)
@@ -481,15 +524,15 @@ export default function AdminProductsPage() {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    let firstError: any = null;
+  let firstError: Error | null = null;
     for (const ep of variants) {
       for (const method of baseMethods) {
         try {
           const url = `/api/proxy?endpoint=${encodeURIComponent(ep)}`;
           // Rebuild form data each attempt (some runtimes may lock previous FormData streams)
           const fresh = new FormData();
-            for (const [k, v] of (formData as any).entries()) {
-              fresh.append(k, v);
+            for (const [k, v] of (formData as FormData).entries()) {
+              fresh.append(k, v as File | string | Blob);
             }
           const res = await fetch(url, { method, body: fresh, headers });
           if (!res.ok) {
@@ -504,45 +547,94 @@ export default function AdminProductsPage() {
               }
             } catch {}
             const msg = detail || `Ошибка загрузки ${label} (status ${res.status})`;
-            console.warn("Upload attempt failed", { endpoint: ep, method, status: res.status, msg });
+            // Upload attempt failed
             // 405 means wrong method; if we tried PUT on non-image endpoint continue; for POST 400 we keep error
             if (!firstError) firstError = new Error(msg);
             continue;
           }
           return res.json().catch(() => ({}));
-        } catch (err: any) {
-          console.warn("Upload network/error", { endpoint: ep, method, err });
-          if (!firstError) firstError = err;
+        } catch (err) {
+          // Upload network/error
+          if (!firstError) firstError = err as Error;
         }
       }
     }
-    throw firstError || new Error(`Не удалось загрузить ${label}`);
+  throw firstError || new Error(`${t('admin.products.images.uploadError')}: ${label}`);
   };
 
-  // Compress & validate image before upload
-  const prepareImageForUpload = async (file: File, quality = 0.75, maxDim = 1280): Promise<File> => {
-    const MAX_SIZE_MB = 4; // client threshold before compress attempt
-    if (file.size / (1024*1024) <= MAX_SIZE_MB) return file; // small enough
-    try {
-      const img = await new Promise<HTMLImageElement>((res, rej) => {
-        const url = URL.createObjectURL(file);
-        const image = new Image();
-        image.onload = () => { URL.revokeObjectURL(url); res(image); };
-        image.onerror = (e) => { URL.revokeObjectURL(url); rej(e); };
-        image.src = url;
+  // Adaptive compression pipeline: aim for <900KB per image with multiple passes
+  const prepareImageForUpload = async (
+    file: File,
+    initialQuality = 0.75,
+    initialMaxDim = 1600
+  ): Promise<File> => {
+    const TARGET_BYTES = 900 * 1024;
+    const MIN_QUALITY = 0.25;
+    if (file.size <= TARGET_BYTES) return file;
+
+    const steps: Array<{ q: number; max: number }> = [
+      { q: initialQuality, max: initialMaxDim },
+      { q: 0.65, max: 1500 },
+      { q: 0.55, max: 1400 },
+      { q: 0.5, max: 1280 },
+      { q: 0.42, max: 1150 },
+      { q: 0.35, max: 1000 },
+      { q: 0.3, max: 900 },
+    ];
+
+    const load = (f: File) =>
+      new Promise<HTMLImageElement>((res, rej) => {
+        const url = URL.createObjectURL(f);
+        const img = document.createElement("img");
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          res(img);
+        };
+        img.onerror = (e) => {
+          URL.revokeObjectURL(url);
+          rej(e);
+        };
+        img.src = url;
       });
-      const canvas = document.createElement('canvas');
-      let { width, height } = img;
-      if (width > height && width > maxDim) { height = Math.round(height * (maxDim/width)); width = maxDim; }
-      else if (height >= width && height > maxDim) { width = Math.round(width * (maxDim/height)); height = maxDim; }
-      canvas.width = width; canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return file;
-      ctx.drawImage(img,0,0,width,height);
-      const blob: Blob = await new Promise((res) => canvas.toBlob(b => res(b || file), 'image/jpeg', quality));
-      if ((blob.size || file.size) >= file.size) return file; // compression not better
-      return new File([blob], file.name.replace(/\.(png|webp|gif)$/i,'.jpg'), { type: 'image/jpeg' });
-    } catch { return file; }
+
+    let current = file;
+    try {
+      for (const { q, max } of steps) {
+        const img = await load(current);
+        let { width, height } = img;
+        if (width > height && width > max) {
+          height = Math.round((height * max) / width);
+          width = max;
+        } else if (height >= width && height > max) {
+          width = Math.round((width * max) / height);
+          height = max;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) break;
+        ctx.drawImage(img, 0, 0, width, height);
+        const blob: Blob = await new Promise((res) =>
+          canvas.toBlob(
+            (b) => res(b || current),
+            "image/jpeg",
+            Math.max(MIN_QUALITY, q)
+          )
+        );
+        if (blob.size < current.size) {
+          current = new File(
+            [blob],
+            current.name.replace(/\.(png|webp|gif)$/i, ".jpg"),
+            { type: "image/jpeg" }
+          );
+        }
+        if (current.size <= TARGET_BYTES) break;
+      }
+    } catch {
+      // swallow errors
+    }
+    return current;
   };
 
   const renderPagination = () => {
@@ -551,7 +643,7 @@ export default function AdminProductsPage() {
     return (
       <div className="flex justify-between items-center mt-8">
         <div className="text-sm text-gray-600">
-          Показано {products.length} из {pagination.total} товаров
+          {t('admin.products.pagination.shown', { count: products.length.toString(), total: pagination.total.toString() })}
         </div>
         <div className="flex space-x-2">
           <button
@@ -602,15 +694,15 @@ export default function AdminProductsPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Управление товарами
+              {t('admin.products.title')}
             </h1>
             <p className="text-gray-600 mt-2">
-              Просмотр и управление товарами в каталоге
+              {t('admin.products.subtitle')}
             </p>
           </div>
           <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
             <Plus className="h-4 w-4" />
-            <span onClick={openCreateModal}>Добавить товар</span>
+            <span onClick={openCreateModal}>{t('admin.products.add')}</span>
           </button>
         </div>
 
@@ -624,19 +716,19 @@ export default function AdminProductsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Товар
+                      {t('admin.products.table.product')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Цена
+                      {t('admin.products.table.price')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Размеры
+                      {t('admin.products.table.size')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Статус
+                      {t('admin.products.table.status')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Действия
+                      {t('admin.products.table.actions')}
                     </th>
                   </tr>
                 </thead>
@@ -646,13 +738,12 @@ export default function AdminProductsPage() {
                       key={product.id}
                       onClick={() => router.push(`/products/${product.id}`)}
                       className="hover:bg-gray-50 cursor-pointer"
-                      title="Открыть страницу товара"
+                      title={t('admin.products.table.product')}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-12 w-12 relative group">
                             {product.images && product.images.length > 0 ? (
-<<<<<<< HEAD
                               (() => {
                                 const list = product.images;
                                 const currentIdx = imageIndexMap[product.id] ?? 0;
@@ -660,11 +751,12 @@ export default function AdminProductsPage() {
                                 const img = list[safeIdx];
                                 return (
                                   <>
-                                    <img
-                                      loading="lazy"
+                                    <Image
                                       className="h-12 w-12 rounded-lg object-cover transition-opacity duration-200"
                                       src={getFullImageUrl(img.image_url)}
                                       alt={product.name}
+                                      width={48}
+                                      height={48}
                                     />
                                     {list.length > 1 && (
                                       <>
@@ -695,13 +787,13 @@ export default function AdminProductsPage() {
                                           ›
                                         </button>
                                         <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-0.5 pb-0.5 opacity-0 group-hover:opacity-100 transition">
-                                          {list.slice(0,4).map((_, dotIdx) => (
+                                          {list.slice(0, 4).map((_, dotIdx) => (
                                             <span
                                               key={dotIdx}
                                               className={`h-1.5 w-1.5 rounded-full ${dotIdx === safeIdx ? 'bg-white' : 'bg-white/50'}`}
                                             />
                                           ))}
-                                          {list.length > 4 && safeIdx >=4 && (
+                                          {list.length > 4 && safeIdx >= 4 && (
                                             <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
                                           )}
                                         </div>
@@ -711,21 +803,7 @@ export default function AdminProductsPage() {
                                 );
                               })()
                             ) : product.image ? (
-                              <img
-                                loading="lazy"
-=======
                               <Image
-                                className="h-12 w-12 rounded-lg object-cover"
-                                src={getFullImageUrl(
-                                  product.images[0].image_url
-                                )}
-                                alt={product.name}
-                                width={48}
-                                height={48}
-                              />
-                            ) : product.image ? (
-                              <Image
->>>>>>> 098e82c8096eedbcbcf13f6c0c9419d4aa02c08a
                                 className="h-12 w-12 rounded-lg object-cover"
                                 src={getFullImageUrl(product.image)}
                                 alt={product.name}
@@ -755,7 +833,7 @@ export default function AdminProductsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {product.size || "Не указано"}
+                          {product.size || t('admin.common.unspecified')}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -769,11 +847,11 @@ export default function AdminProductsPage() {
                               ? "bg-green-100 text-green-800 hover:bg-green-200"
                               : "bg-red-100 text-red-700 hover:bg-red-200"
                           }`}
-                          title="Переключить доступность"
+                          title={t('admin.common.toggleAvailability')}
                         >
                           {product.is_available !== false
-                            ? "Активный"
-                            : "Неактивный"}
+                            ? t('admin.products.status.active')
+                            : t('admin.products.status.inactive')}
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -807,10 +885,10 @@ export default function AdminProductsPage() {
             <div className="text-center py-12">
               <Package className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">
-                Товары не найдены
+                {t('admin.products.empty.title')}
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Попробуйте изменить параметры поиска или добавьте новый товар
+                {t('admin.products.empty.subtitle')}
               </p>
             </div>
           )}
@@ -830,30 +908,30 @@ export default function AdminProductsPage() {
               <button
                 onClick={closeModal}
                 className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-                aria-label="Закрыть"
+                aria-label={t('admin.common.close')}
               >
                 <X className="h-5 w-5" />
               </button>
               <div className="p-6 space-y-5">
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {editingProduct ? "Редактировать товар" : "Создать товар"}
+                  {editingProduct ? t('admin.products.form.editTitle') : t('admin.products.form.createTitle')}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Название
+                      {t('admin.products.form.fields.name')}
                     </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Введите название"
+                      placeholder={t('admin.products.form.fields.namePlaceholder')}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Цена
+                      {t('admin.products.form.fields.price')}
                     </label>
                     <input
                       type="number"
@@ -866,7 +944,7 @@ export default function AdminProductsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Количество
+                      {t('admin.products.form.fields.quantity')}
                     </label>
                     <input
                       type="number"
@@ -879,14 +957,14 @@ export default function AdminProductsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Размеры
+                      {t('admin.products.form.fields.size')}
                     </label>
                     <input
                       type="text"
                       value={formData.size}
                       onChange={(e) => setFormData((f) => ({ ...f, size: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Например 36-40"
+                      placeholder={t('admin.products.form.fields.sizePlaceholder')}
                     />
                   </div>
                   {/* Category field removed */}
@@ -899,7 +977,7 @@ export default function AdminProductsPage() {
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <label htmlFor="is_available" className="text-sm text-gray-700">
-                      Активный товар
+                      {t('admin.products.form.fields.active')}
                     </label>
                   </div>
                 </div>
@@ -909,26 +987,26 @@ export default function AdminProductsPage() {
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                     disabled={isSaving}
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleSave}
                     className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
                     disabled={isSaving}
                   >
-                    {isSaving ? "Сохранение..." : editingProduct ? "Обновить" : "Создать"}
+                    {isSaving ? t('admin.products.form.buttons.saving') : editingProduct ? t('admin.products.form.buttons.update') : t('admin.products.form.buttons.create')}
                   </button>
                 </div>
                 {/* Image upload section (available once product is being created or edited; will upload after save) */}
                 <div className="pt-4 space-y-4 border-t">
                   <h3 className="text-sm font-semibold text-gray-800 flex items-center space-x-2">
                     <ImagePlus className="h-4 w-4 text-blue-600" />
-                    <span>Изображения (опционально)</span>
+                    <span>{t('admin.products.images.section')}</span>
                   </h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Одно изображение
+                        {t('admin.products.images.single')}
                       </label>
                       <input
                         type="file"
@@ -943,7 +1021,7 @@ export default function AdminProductsPage() {
                     <div>
                       <label className="text-xs font-medium text-gray-600 mb-1 flex items-center space-x-1">
                         <Images className="h-4 w-4 text-blue-600" />
-                        <span>Несколько изображений</span>
+                        <span>{t('admin.products.images.multiple')}</span>
                       </label>
                       <input
                         type="file"
@@ -953,13 +1031,13 @@ export default function AdminProductsPage() {
                         className="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:border-gray-300 file:text-xs file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                       />
                       {multiImageFiles && multiImageFiles.length > 0 && (
-                        <p className="mt-1 text-xs text-gray-500">Выбрано файлов: {multiImageFiles.length}</p>
+                        <p className="mt-1 text-xs text-gray-500">{t('admin.products.images.selectedFiles', { count: multiImageFiles.length.toString() })}</p>
                       )}
                     </div>
                   </div>
                   {uploading && (
                     <div className="text-xs text-blue-600 flex flex-col space-y-1">
-                      <span>Загрузка изображений...</span>
+                      <span>{t('admin.products.images.uploading')}</span>
                       {uploadProgress && (
                         <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
                           <div
@@ -969,14 +1047,51 @@ export default function AdminProductsPage() {
                         </div>
                       )}
                       {uploadProgress && (
-                        <span className="text-[10px] text-gray-500">{uploadProgress.current} / {uploadProgress.total}</span>
+                        <span className="text-[10px] text-gray-500">{t('admin.products.images.progress', { current: uploadProgress.current.toString(), total: uploadProgress.total.toString() })}</span>
                       )}
                     </div>
                   )}
                   {!editingProduct && (
                     <p className="text-xs text-gray-500">
-                      Изображения будут загружены после создания товара.
+                      {t('admin.products.images.willUploadAfterCreate')}
                     </p>
+                  )}
+                  {editingProduct && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-gray-700">{t('admin.products.images.current')}</h4>
+                        {loadingImages && <span className="text-[10px] text-gray-500">{t('admin.products.images.loading')}</span>}
+                      </div>
+                      {!loadingImages && editingImages.length === 0 && (
+                        <div className="text-[11px] text-gray-500 border border-dashed rounded p-2">{t('admin.products.images.none')}</div>
+                      )}
+                      {editingImages.length > 0 && (
+                        <ul className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {editingImages.map(img => {
+                            const full = getFullImageUrl(img.image_url);
+                            const deleting = deletingImageIds.includes(img.id);
+                            return (
+                              <li key={img.id} className="relative group rounded border overflow-hidden bg-gray-50">
+                                <Image src={full} alt={img.alt_text || 'image'} width={150} height={150} className="object-cover w-full h-20" />
+                                {img.is_primary && (
+                                  <span className="absolute top-1 left-1 bg-blue-600 text-white text-[9px] px-1 py-0.5 rounded">{t('admin.products.images.primaryBadge')}</span>
+                                )}
+                                <button
+                                  type="button"
+                                  aria-label={t('admin.products.images.removeImageAria')}
+                                  disabled={deleting}
+                                  onClick={() => handleDeleteExistingImage(img.id)}
+                                  className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition disabled:opacity-60"
+                                >
+                                  {deleting ? <span className="animate-pulse text-[10px]">…</span> : <Trash2 className="h-3 w-3" />}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                      <p className="text-[10px] text-gray-500">{t('admin.products.images.addingHint')}</p>
+                    </div>
                   )}
                 </div>
               </div>

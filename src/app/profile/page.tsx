@@ -7,69 +7,70 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { User, Edit2, Save, X, Eye, EyeOff } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { ProfileSkeleton } from "@/components/ui/skeleton";
 import { apiClient } from "@/lib/apiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";
 
-const profileSchema = z
-  .object({
-    name: z.string().min(1, "Имя обязательно"),
-    surname: z.string().min(1, "Фамилия обязательна"),
-    phone_number: z
-      .string()
-      .min(1, "Номер телефона обязателен")
-      .regex(
-        /^\+\d{10,15}$/,
-        "Номер телефона должен начинаться с + и содержать 10-15 цифр"
-      ),
-    current_password: z.string().optional(),
-    new_password: z.string().optional(),
-    confirm_new_password: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.new_password || data.confirm_new_password) {
-        return data.current_password && data.current_password.length >= 6;
-      }
-      return true;
-    },
-    {
-      message: "Текущий пароль обязателен для смены пароля",
-      path: ["current_password"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.new_password) {
-        return data.new_password.length >= 6;
-      }
-      return true;
-    },
-    {
-      message: "Новый пароль должен содержать минимум 6 символов",
-      path: ["new_password"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.new_password || data.confirm_new_password) {
-        return data.new_password === data.confirm_new_password;
-      }
-      return true;
-    },
-    {
-      message: "Пароли не совпадают",
-      path: ["confirm_new_password"],
-    }
-  );
-
-type ProfileFormData = z.infer<typeof profileSchema>;
+// Schema will be built inside component to access t()
 
 export default function ProfilePage() {
   const { user, updateUser, isLoading } = useAuth();
   const router = useRouter();
+  const { t } = useI18n();
+
+  const profileSchema = z
+    .object({
+      name: z.string().min(1, t('auth.validation.nameRequired')),
+      surname: z.string().min(1, t('auth.validation.surnameRequired')),
+      phone_number: z
+        .string()
+        .min(1, t('auth.validation.phoneRequired'))
+        .regex(/^\+\d{10,15}$/, t('auth.validation.phoneFormat')),
+      current_password: z.string().optional(),
+      new_password: z.string().optional(),
+      confirm_new_password: z.string().optional(),
+    })
+    .refine(
+      (data) => {
+        if (data.new_password || data.confirm_new_password) {
+          return data.current_password && data.current_password.length >= 8;
+        }
+        return true;
+      },
+      {
+        message: t('profilePage.validation.currentPasswordRequired'),
+        path: ['current_password'],
+      }
+    )
+    .refine(
+      (data) => {
+        if (data.new_password) {
+          return data.new_password.length >= 8;
+        }
+        return true;
+      },
+      {
+        message: t('profilePage.validation.newPasswordMin'),
+        path: ['new_password'],
+      }
+    )
+    .refine(
+      (data) => {
+        if (data.new_password || data.confirm_new_password) {
+          return data.new_password === data.confirm_new_password;
+        }
+        return true;
+      },
+      {
+        message: t('auth.validation.passwordsMismatch'),
+        path: ['confirm_new_password'],
+      }
+    );
+
+  type ProfileFormData = z.infer<typeof profileSchema>;
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
@@ -80,9 +81,8 @@ export default function ProfilePage() {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-    watch,
+  formState: { errors, isSubmitting },
+  reset,
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -108,8 +108,6 @@ export default function ProfilePage() {
     }
   }, [user, reset]);
 
-  const watchedPasswords = watch(["new_password", "confirm_new_password"]);
-  const hasPasswordFields = watchedPasswords[0] || watchedPasswords[1];
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
@@ -141,7 +139,7 @@ export default function ProfilePage() {
 
       updateUser(response.data);
       setIsEditing(false);
-      toast.success("Профиль успешно обновлен!");
+  toast.success(t('profilePage.toasts.updateSuccess'));
 
       // Reset password fields
       reset({
@@ -153,7 +151,7 @@ export default function ProfilePage() {
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { detail?: string } } };
       const message =
-        axiosError.response?.data?.detail || "Ошибка обновления профиля";
+  axiosError.response?.data?.detail || t('profilePage.toasts.updateError');
       toast.error(message);
     }
   };
@@ -194,9 +192,9 @@ export default function ProfilePage() {
                 <User className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Мой профиль</h1>
+                <h1 className="text-xl font-bold text-gray-900">{t('profilePage.title')}</h1>
                 <p className="text-sm text-gray-600">
-                  {user.is_admin ? "Администратор" : "Пользователь"}
+                  {user.is_admin ? t('profilePage.roleAdmin') : t('profilePage.roleUser')}
                 </p>
               </div>
             </div>
@@ -206,7 +204,7 @@ export default function ProfilePage() {
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
                 <Edit2 className="h-4 w-4" />
-                <span>Редактировать</span>
+                <span>{t('common.edit')}</span>
               </button>
             )}
           </div>
@@ -217,12 +215,12 @@ export default function ProfilePage() {
             {/* Basic Information */}
             <div>
               <h2 className="text-lg font-medium text-gray-900 mb-4">
-                Основная информация
+                {t('profilePage.basicInfo')}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Имя
+                    {t('auth.name')}
                   </label>
                   <input
                     {...register("name")}
@@ -244,7 +242,7 @@ export default function ProfilePage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Фамилия
+                    {t('auth.validation.surnameRequired').replace(' обязательна','')}
                   </label>
                   <input
                     {...register("surname")}
@@ -267,7 +265,7 @@ export default function ProfilePage() {
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Номер телефона
+                  {t('profilePage.phoneNumber')}
                 </label>
                 <input
                   {...register("phone_number")}
@@ -291,12 +289,12 @@ export default function ProfilePage() {
             {/* Password Change */}
             <div>
               <h2 className="text-lg font-medium text-gray-900 mb-4">
-                Смена пароля (необязательно)
+                {t('profilePage.passwordChangeOptional')}
               </h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Текущий пароль
+                    {t('profilePage.currentPassword')}
                   </label>
                   <div className="relative">
                     <input
@@ -338,13 +336,13 @@ export default function ProfilePage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Новый пароль
+                    {t('profilePage.newPassword')}
                   </label>
                   <div className="relative">
                     <input
                       {...register("new_password")}
                       type={showPasswords.new ? "text" : "password"}
-                      placeholder="Оставьте пустым, если не хотите менять"
+                      placeholder={t('profilePage.newPasswordPlaceholder')}
                       disabled={!isEditing}
                       className={cn(
                         "w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
@@ -381,13 +379,13 @@ export default function ProfilePage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Подтверждение нового пароля
+                    {t('profilePage.confirmNewPassword')}
                   </label>
                   <div className="relative">
                     <input
                       {...register("confirm_new_password")}
                       type={showPasswords.confirm ? "text" : "password"}
-                      placeholder="Повторите новый пароль"
+                      placeholder={t('profilePage.confirmNewPasswordPlaceholder')}
                       disabled={!isEditing}
                       className={cn(
                         "w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
@@ -434,7 +432,7 @@ export default function ProfilePage() {
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
                 <X className="h-4 w-4" />
-                <span>Отменить</span>
+                <span>{t('common.cancel')}</span>
               </button>
               <button
                 type="submit"
@@ -442,7 +440,7 @@ export default function ProfilePage() {
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Save className="h-4 w-4" />
-                <span>{isSubmitting ? "Сохранение..." : "Сохранить"}</span>
+                <span>{isSubmitting ? t('profilePage.updating') : t('common.save')}</span>
               </button>
             </div>
           )}

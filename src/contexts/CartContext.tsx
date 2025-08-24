@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { Slipper } from "@/types";
+import { useI18n } from "@/i18n";
 
 interface CartItem {
   id: number;
@@ -37,6 +38,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const { t } = useI18n();
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -84,7 +86,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         newItems[existingItemIndex].quantity = newQty;
         return newItems;
       });
-      toast.success(`Увеличено количество в корзине: ${product.name}`);
+  toast.success(`${product.name}: +${addQty}`);
     } else {
       const cartItem: CartItem = {
         id: product.id,
@@ -97,7 +99,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         color,
       };
       setItems((prevItems) => [...prevItems, cartItem]);
-      toast.success(`Добавлено в корзину: ${product.name}`);
+  toast.success(`${product.name}: +${addQty}`);
     }
   };
 
@@ -107,7 +109,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return prevItems.filter((item) => item.id !== productId);
     });
     if (removedItem) {
-      toast.success(`Удалено из корзины: ${removedItem.name}`);
+  toast.success(`${removedItem.name}: 0`);
     }
   };
 
@@ -127,7 +129,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
-    toast.success("Корзина очищена");
+  toast.success(t('common.cart') + ' - 0');
   };
 
   const isInCart = (productId: number) => {

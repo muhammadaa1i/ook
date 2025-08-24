@@ -1,23 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/products/ProductCard";
 import ErrorPage from "@/components/common/ErrorPage";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
-import { Slipper, Category, SearchParams as FilterParams } from "@/types";
+import { Slipper, SearchParams as FilterParams } from "@/types";
 import { useCart } from "@/contexts/CartContext";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 // Performance instrumentation removed for production optimization
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useI18n } from "@/i18n";
 
 function CatalogContent() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const { addToCart } = useCart();
   const [products, setProducts] = useState<Slipper[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  // Removed categories state (unused)
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -43,29 +45,14 @@ function CatalogContent() {
   const isRequestInProgressRef = useRef<boolean>(false);
   const mountedRef = useRef<boolean>(true); // Track if component is mounted
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     // Only fetch categories once per session
     if (categoriesCachedRef.current || !mountedRef.current) {
       return;
     }
 
     try {
-      const response = await modernApiClient.get(
-        API_ENDPOINTS.CATEGORIES,
-        undefined,
-        {
-          cache: true,
-          ttl: 30 * 60 * 1000, // 30 minutes
-          timeout: 6000,
-        }
-      );
-
-      // modernApiClient returns direct data, not axios-wrapped response
-      const categoriesData =
-        (response as { data?: Category[] })?.data ||
-        (response as Category[]) ||
-        [];
-      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+  // Categories fetch removed (unused)
       setHasError(false);
       categoriesCachedRef.current = true; // Mark as cached
     } catch (error: unknown) {
@@ -73,21 +60,19 @@ function CatalogContent() {
       const axiosError = error as { response?: { status?: number } };
       if (axiosError.response?.status === 503) {
         setHasError(true);
-        setErrorMessage("Сервер временно недоступен");
-        toast.error("Сервер временно недоступен. Попробуйте позже.");
+        setErrorMessage(t('errors.serverUnavailable'));
+        toast.error(t('errors.serverUnavailableLong'));
       } else {
-        toast.error("Ошибка загрузки категорий");
+        toast.error(t('errors.categoriesLoad'));
       }
-      setCategories([]);
+  // categories removed
     }
-  };
+  }, [t]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     // Prevent duplicate requests and check if component is mounted
     if (isRequestInProgressRef.current || !mountedRef.current) {
-      console.log(
-        "Request blocked - already in progress or component unmounted"
-      );
+  // Request blocked - already in progress or component unmounted
       return;
     }
 
@@ -95,7 +80,7 @@ function CatalogContent() {
       // Check if this request is a duplicate
       const currentParams = JSON.stringify(filters);
       if (lastRequestParamsRef.current === currentParams) {
-        console.log("Identical request detected, skipping...");
+  // Identical request detected, skip
         return;
       }
 
@@ -188,7 +173,7 @@ function CatalogContent() {
     } catch (error: unknown) {
       const abortError = error as { name?: string };
       if (abortError.name === "AbortError") {
-        console.log("Request was cancelled");
+  // Request was cancelled
         return;
       }
       console.error("Error fetching products:", error);
@@ -200,28 +185,24 @@ function CatalogContent() {
 
       if (apiError.status === 503) {
         setHasError(true);
-        setErrorMessage("Сервер временно недоступен");
-        toast.error(
-          "Сервер временно недоступен. Попробуйте обновить страницу через несколько минут."
-        );
+        setErrorMessage(t('errors.serverUnavailable'));
+        toast.error(t('errors.serverUnavailableRetry'));
       } else if (apiError.status === 502) {
         setHasError(true);
-        setErrorMessage("Ошибка шлюза сервера");
-        toast.error("Ошибка подключения к серверу. Попробуйте позже.");
+        setErrorMessage(t('errors.badGateway'));
+        toast.error(t('errors.badGatewayLong'));
       } else if (apiError.status && apiError.status >= 500) {
         setHasError(true);
-        setErrorMessage("Ошибка сервера");
-        toast.error("Ошибка сервера. Попробуйте позже.");
+        setErrorMessage(t('errors.serverError'));
+        toast.error(t('errors.serverErrorLong'));
       } else if (apiError.status === 429) {
         setHasError(true);
-        setErrorMessage("Слишком много запросов");
-        toast.error(
-          "Слишком много запросов. Подождите немного и попробуйте снова."
-        );
+        setErrorMessage(t('errors.tooManyRequests'));
+        toast.error(t('errors.tooManyRequestsLong'));
       } else {
         setHasError(true);
-        setErrorMessage("Ошибка загрузки товаров");
-        toast.error(apiError.message || "Ошибка загрузки товаров");
+        setErrorMessage(t('errors.productsLoad'));
+        toast.error(apiError.message || t('errors.productsLoad'));
       }
       setProducts([]);
       setIsLoading(false);
@@ -230,7 +211,7 @@ function CatalogContent() {
       isRequestInProgressRef.current = false;
       abortControllerRef.current = null;
     }
-  };
+  }, [filters, isInitialLoading, t]);
 
   // Single optimized effect for initial load
   useEffect(() => {
@@ -253,7 +234,7 @@ function CatalogContent() {
       // Clean up cache if component unmounts
       isRequestInProgressRef.current = false;
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, [fetchCategories, fetchProducts]); // Run once (stable deps) unless fetch functions change
 
   // Initialize filters from URL params (only when searchParams change)
   useEffect(() => {
@@ -301,14 +282,9 @@ function CatalogContent() {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [filters]); // Only trigger when filters actually change
+  }, [filters, fetchProducts, isInitialLoading]); // Only trigger when filters actually change
 
-  const handleFiltersChange = (newFilters: FilterParams) => {
-    setFilters((prev) => ({
-      ...prev,
-      ...newFilters,
-    }));
-  };
+  // Removed unused handleFiltersChange to reduce bundle size
 
   const handlePageChange = (page: number) => {
     const skip = (page - 1) * pagination.limit;
@@ -421,24 +397,14 @@ function CatalogContent() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen bg-gray-50">
       <div className="mb-8 bg-white p-6 rounded-lg shadow-sm">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Каталог товаров
-        </h1>
-        <p className="text-gray-600">
-          Найдите идеальные тапочки из нашей коллекции качественной домашней
-          обуви
-        </p>
+  <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('catalog.title')}</h1>
+  <p className="text-gray-600">{t('catalog.subtitle')}</p>
       </div>
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <p className="text-sm text-gray-600">
-            Найдено товаров: {pagination.total}
-          </p>
           {pagination.total > 0 && (
-            <p className="text-sm text-gray-600">
-              Страница {pagination.page} из {pagination.totalPages}
-            </p>
+            <p className="text-sm text-gray-600">{t('catalog.pageStatus', { page: String(pagination.page), totalPages: String(pagination.totalPages) })}</p>
           )}
         </div>
 
@@ -487,12 +453,8 @@ function CatalogContent() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Товары не найдены
-            </h3>
-            <p className="text-gray-600">
-              Попробуйте изменить параметры поиска или фильтры
-            </p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('catalog.notFoundTitle')}</h3>
+            <p className="text-gray-600">{t('catalog.notFoundSubtitle')}</p>
           </div>
         ) : null}
       </div>

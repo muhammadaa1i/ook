@@ -9,43 +9,43 @@ import { z } from "zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
-const registerSchema = z
-  .object({
-    name: z.string().min(1, "Имя обязательно"),
-    surname: z.string().min(1, "Фамилия обязательна"),
-    phone_number: z
-      .string()
-      .min(1, "Номер телефона обязателен")
-      .regex(
-        /^\+\d{10,15}$/,
-        "Номер телефона должен начинаться с + и содержать 10-15 цифр"
-      ),
-    password: z.string().min(6, "Пароль должен содержать минимум 6 символов"),
-    confirm_password: z.string().min(6, "Подтверждение пароля обязательно"),
-  })
-  .refine((data) => data.password === data.confirm_password, {
-    message: "Пароли не совпадают",
-    path: ["confirm_password"],
-  });
+// Schema defined inside component with translations
 
-type RegisterFormData = z.infer<typeof registerSchema>;
 
 const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register: registerUser } = useAuth();
+  const { t } = useI18n();
+  const registerSchema = z
+    .object({
+      name: z.string().min(1, t('auth.validation.nameRequired')),
+      surname: z.string().min(1, t('auth.validation.surnameRequired')),
+      phone_number: z
+        .string()
+        .min(1, t('auth.validation.phoneRequired'))
+        .regex(/^\+\d{10,15}$/, t('auth.validation.phoneFormat')),
+      password: z.string().min(8, t('auth.validation.passwordMin')),
+      confirm_password: z.string().min(8, t('auth.validation.confirmPasswordMin')),
+    })
+    .refine((data) => data.password === data.confirm_password, {
+      message: t('auth.validation.passwordsMismatch'),
+      path: ['confirm_password'],
+    });
+  type FormSchema = z.infer<typeof registerSchema>;
   const router = useRouter();
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterFormData>({
+  } = useForm<FormSchema>({
     resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: FormSchema) => {
     try {
       await registerUser(data);
       router.push("/");
@@ -59,15 +59,15 @@ const RegisterForm = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Создать аккаунт
+            {t('auth.register')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Или{" "}
+            {t('auth.orLogin').split(' ').slice(0,1).join(' ')}{" "}
             <Link
               href="/auth/login"
               className="font-medium text-blue-600 hover:text-blue-500"
             >
-              войдите в существующий
+              {t('auth.login')}
             </Link>
           </p>
         </div>
@@ -80,7 +80,7 @@ const RegisterForm = () => {
                   htmlFor="name"
                   className="block text-sm font-medium text-gray-700"
                 >
-                  Имя
+                  {t('auth.name')}
                 </label>
                 <input
                   {...register("name")}
@@ -91,7 +91,7 @@ const RegisterForm = () => {
                     errors.name &&
                       "border-red-300 focus:border-red-500 focus:ring-red-500"
                   )}
-                  placeholder="Имя"
+                  placeholder={t('auth.name')}
                 />
                 {errors.name && (
                   <p className="mt-1 text-sm text-red-600">
@@ -105,7 +105,7 @@ const RegisterForm = () => {
                   htmlFor="surname"
                   className="block text-sm font-medium text-gray-700"
                 >
-                  Фамилия
+                  {t('auth.validation.surnameRequired').split(' ')[0]}
                 </label>
                 <input
                   {...register("surname")}
@@ -116,7 +116,7 @@ const RegisterForm = () => {
                     errors.surname &&
                       "border-red-300 focus:border-red-500 focus:ring-red-500"
                   )}
-                  placeholder="Фамилия"
+                  placeholder={t('auth.validation.surnameRequired').split(' ')[0]}
                 />
                 {errors.surname && (
                   <p className="mt-1 text-sm text-red-600">
@@ -131,7 +131,7 @@ const RegisterForm = () => {
                 htmlFor="phone_number"
                 className="block text-sm font-medium text-gray-700"
               >
-                Номер телефона
+                {t('auth.phone')}
               </label>
               <input
                 {...register("phone_number")}
@@ -142,7 +142,7 @@ const RegisterForm = () => {
                   errors.phone_number &&
                     "border-red-300 focus:border-red-500 focus:ring-red-500"
                 )}
-                placeholder="+7 999 123 4567"
+                placeholder={t('auth.phonePlaceholder')}
               />
               {errors.phone_number && (
                 <p className="mt-1 text-sm text-red-600">
@@ -156,7 +156,7 @@ const RegisterForm = () => {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700"
               >
-                Пароль
+                {t('auth.password')}
               </label>
               <div className="mt-1 relative">
                 <input
@@ -168,7 +168,7 @@ const RegisterForm = () => {
                     errors.password &&
                       "border-red-300 focus:border-red-500 focus:ring-red-500"
                   )}
-                  placeholder="Минимум 6 символов"
+                  placeholder={t('auth.passwordPlaceholder')}
                 />
                 <button
                   type="button"
@@ -194,7 +194,7 @@ const RegisterForm = () => {
                 htmlFor="confirm_password"
                 className="block text-sm font-medium text-gray-700"
               >
-                Подтверждение пароля
+                {t('auth.confirmPassword')}
               </label>
               <div className="mt-1 relative">
                 <input
@@ -206,7 +206,7 @@ const RegisterForm = () => {
                     errors.confirm_password &&
                       "border-red-300 focus:border-red-500 focus:ring-red-500"
                   )}
-                  placeholder="Повторите пароль"
+                  placeholder={t('auth.confirmPasswordPlaceholder')}
                 />
                 <button
                   type="button"
@@ -237,10 +237,10 @@ const RegisterForm = () => {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Регистрация...
+                  {t('auth.registerProgress')}
                 </>
               ) : (
-                "Зарегистрироваться"
+                t('auth.register')
               )}
             </button>
           </div>

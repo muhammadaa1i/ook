@@ -21,7 +21,7 @@ const ConfirmDialogContext = createContext<
 
 export const useConfirm = () => useContext(ConfirmDialogContext);
 
-export const ConfirmDialogProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
+export const ConfirmDialogProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [state, setState] = useState<InternalState>({ open: false });
   const previousActiveElement = useRef<HTMLElement | null>(null);
 

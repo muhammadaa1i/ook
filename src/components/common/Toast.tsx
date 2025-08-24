@@ -40,6 +40,9 @@ interface ToastProviderProps {
 
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   const addToast = useCallback((toast: Omit<Toast, "id">) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -53,11 +56,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         removeToast(id);
       }, toast.duration || 5000);
     }
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
+  }, [removeToast]);
 
   const clearAll = useCallback(() => {
     setToasts([]);
@@ -83,7 +82,7 @@ const ToastContainer: React.FC<ToastContainerProps> = ({
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+  <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 space-y-2 w-full max-w-sm flex flex-col items-center">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}

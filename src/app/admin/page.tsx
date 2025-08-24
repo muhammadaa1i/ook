@@ -6,6 +6,7 @@ import { Users, Package, ShoppingCart, TrendingUp } from "lucide-react";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { toast } from "react-toastify";
+import { useI18n } from "@/i18n";
 
 interface DashboardStats {
   totalUsers: number;
@@ -15,6 +16,7 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
+  const { t } = useI18n();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalProducts: 0,
@@ -71,53 +73,29 @@ export default function AdminDashboard() {
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
-      toast.error("Ошибка загрузки статистики");
+  toast.error(t('admin.dashboard.loadError'));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
 
   const statCards = [
-    {
-      title: "Всего пользователей",
-      value: stats.totalUsers,
-      icon: Users,
-      color: "bg-blue-500",
-    },
-    {
-      title: "Всего товаров",
-      value: stats.totalProducts,
-      icon: Package,
-      color: "bg-green-500",
-    },
-    {
-      title: "Всего заказов",
-      value: stats.totalOrders,
-      icon: ShoppingCart,
-      color: "bg-purple-500",
-    },
-    {
-      title: "Ожидающие заказы",
-      value: stats.pendingOrders,
-      icon: TrendingUp,
-      color: "bg-orange-500",
-    },
+    { title: t('admin.dashboard.stats.totalUsers'), value: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
+    { title: t('admin.dashboard.stats.totalProducts'), value: stats.totalProducts, icon: Package, color: 'bg-green-500' },
+    { title: t('admin.dashboard.stats.totalOrders'), value: stats.totalOrders, icon: ShoppingCart, color: 'bg-purple-500' },
+    { title: t('admin.dashboard.stats.pendingOrders'), value: stats.pendingOrders, icon: TrendingUp, color: 'bg-orange-500' },
   ];
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Панель администратора
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Добро пожаловать в панель управления интернет-магазином
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('admin.dashboard.title')}</h1>
+          <p className="text-gray-600 mt-2">{t('admin.dashboard.welcome')}</p>
         </div>
 
         {/* Stats Cards */}
@@ -146,9 +124,7 @@ export default function AdminDashboard() {
 
         {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Быстрые действия
-          </h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">{t('admin.dashboard.quickActions.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <a
               href="/admin/products"
@@ -156,10 +132,8 @@ export default function AdminDashboard() {
             >
               <Package className="h-8 w-8 text-gray-400 mr-3" />
               <div>
-                <p className="font-medium text-gray-900">Управление товарами</p>
-                <p className="text-sm text-gray-600">
-                  Добавить, редактировать товары
-                </p>
+                <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.products.title')}</p>
+                <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.products.subtitle')}</p>
               </div>
             </a>
 
@@ -169,10 +143,8 @@ export default function AdminDashboard() {
             >
               <ShoppingCart className="h-8 w-8 text-gray-400 mr-3" />
               <div>
-                <p className="font-medium text-gray-900">Управление заказами</p>
-                <p className="text-sm text-gray-600">
-                  Просмотр и обработка заказов
-                </p>
+                <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.orders.title')}</p>
+                <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.orders.subtitle')}</p>
               </div>
             </a>
 
@@ -182,10 +154,8 @@ export default function AdminDashboard() {
             >
               <Users className="h-8 w-8 text-gray-400 mr-3" />
               <div>
-                <p className="font-medium text-gray-900">
-                  Управление пользователями
-                </p>
-                <p className="text-sm text-gray-600">Просмотр пользователей</p>
+                <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.users.title')}</p>
+                <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.users.subtitle')}</p>
               </div>
             </a>
           </div>

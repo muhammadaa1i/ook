@@ -9,6 +9,7 @@ import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight, Eye, Package, Check, X, Clock, Truck } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 const statusIcons = {
   pending: <Clock className="h-4 w-4 text-yellow-500" />,
@@ -26,15 +27,10 @@ const statusColors = {
   cancelled: "bg-red-100 text-red-800",
 };
 
-const statusLabels = {
-  pending: "Ожидает",
-  processing: "Обрабатывается",
-  shipped: "Отправлен",
-  delivered: "Доставлен",
-  cancelled: "Отменен",
-};
+// statusLabels removed (localized through t)
 
 export default function AdminOrdersPage() {
+  const { t } = useI18n();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -54,7 +50,7 @@ export default function AdminOrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-  const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, filters);
+  const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, filters as unknown as Record<string, unknown>);
 
       // Handle response data structure
       const data =
@@ -107,12 +103,12 @@ export default function AdminOrdersPage() {
       });
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast.error("Ошибка загрузки заказов");
+  toast.error(t('admin.orders.toasts.loadError'));
       setOrders([]);
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, t]);
 
   useEffect(() => {
     fetchOrders();
@@ -134,14 +130,14 @@ export default function AdminOrdersPage() {
         await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(orderId), {
           status: newStatus,
         });
-        toast.success("Статус заказа обновлен");
+  toast.success(t('admin.orders.toasts.statusUpdateSuccess'));
         fetchOrders();
       } catch (error) {
         console.error("Error updating order status:", error);
-        toast.error("Ошибка обновления статуса заказа");
+  toast.error(t('admin.orders.toasts.statusUpdateError'));
       }
     },
-    [fetchOrders]
+  [fetchOrders, t]
   );
 
   const renderPagination = () => {
@@ -150,7 +146,7 @@ export default function AdminOrdersPage() {
     return (
       <div className="flex justify-between items-center mt-8">
         <div className="text-sm text-gray-600">
-          Показано {orders.length} из {pagination.total} заказов
+          {t('admin.products.pagination.shown', { count: orders.length.toString(), total: pagination.total.toString() })}
         </div>
         <div className="flex space-x-2">
           <button
@@ -200,23 +196,17 @@ export default function AdminOrdersPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Управление заказами
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Просмотр и управление заказами клиентов
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900">{t('admin.orders.title')}</h1>
+            <p className="text-gray-600 mt-2">{t('admin.orders.subtitle')}</p>
           </div>
         </div>
 
         {/* Info bar (search & global status filter removed) */}
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex justify-between text-sm text-gray-600">
-            <span>Заказов: {pagination.total}</span>
+            <span>{t('admin.orders.info.orders', { total: pagination.total.toString() })}</span>
             {pagination.total > 0 && (
-              <span>
-                Страница {pagination.page} из {pagination.totalPages}
-              </span>
+              <span>{t('admin.orders.info.page', { page: pagination.page.toString(), pages: pagination.totalPages.toString() })}</span>
             )}
           </div>
         </div>
@@ -231,25 +221,25 @@ export default function AdminOrdersPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Заказ
+                      {t('admin.orders.table.order')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Клиент
+                      {t('admin.orders.table.client')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Товары
+                      {t('admin.orders.table.items')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Сумма
+                      {t('admin.orders.table.amount')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Статус
+                      {t('admin.orders.table.status')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Дата
+                      {t('admin.orders.table.date')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Действия
+                      {t('admin.orders.table.actions')}
                     </th>
                   </tr>
                 </thead>
@@ -263,7 +253,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {order.user?.name || "Не указано"}{" "}
+                          {order.user?.name || t('admin.orders.unspecifiedUser')}{" "}
                           {order.user?.surname || ""}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -272,7 +262,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {order.items?.length || 0} товар(ов)
+                          {t('admin.orders.itemsCount', { count: (order.items?.length || 0).toString() })}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -288,7 +278,7 @@ export default function AdminOrdersPage() {
                         >
                           {statusIcons[order.status]}
                           <span className="ml-1">
-                            {statusLabels[order.status]}
+                            {t(`admin.orders.status.${order.status}`)}
                           </span>
                         </span>
                       </td>
@@ -307,11 +297,11 @@ export default function AdminOrdersPage() {
                             }
                             className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-900"
                           >
-                            <option value="pending">Ожидает</option>
-                            <option value="processing">Обрабатывается</option>
-                            <option value="shipped">Отправлен</option>
-                            <option value="delivered">Доставлен</option>
-                            <option value="cancelled">Отменен</option>
+                            <option value="pending">{t('admin.orders.status.pending')}</option>
+                            <option value="processing">{t('admin.orders.status.processing')}</option>
+                            <option value="shipped">{t('admin.orders.status.shipped')}</option>
+                            <option value="delivered">{t('admin.orders.status.delivered')}</option>
+                            <option value="cancelled">{t('admin.orders.status.cancelled')}</option>
                           </select>
                         </div>
                       </td>
@@ -323,12 +313,8 @@ export default function AdminOrdersPage() {
           ) : (
             <div className="text-center py-12">
               <Package className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
-                Заказы не найдены
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Попробуйте изменить параметры поиска
-              </p>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">{t('admin.orders.empty.title')}</h3>
+              <p className="mt-1 text-sm text-gray-500">{t('admin.orders.empty.subtitle')}</p>
             </div>
           )}
         </div>

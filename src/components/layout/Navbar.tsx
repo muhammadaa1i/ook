@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,12 +17,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useI18n } from "@/i18n";
 
 const Navbar = React.memo(() => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { t, locale, setLocale } = useI18n();
   const confirm = useConfirm();
   const { user, logout, isAuthenticated } = useAuth();
-  const { itemCount, distinctCount } = useCart();
+  const { distinctCount } = useCart();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -34,26 +36,26 @@ const Navbar = React.memo(() => {
   // Memoize navigation items
   const navigation = useMemo(() => {
     const baseNavigation = [
-      { name: "Главная", href: "/", icon: Home },
-      { name: "Каталог", href: "/catalog", icon: Package },
+      { name: t('common.home'), href: "/", icon: Home },
+      { name: t('common.catalog'), href: "/catalog", icon: Package },
     ];
 
-  const userNavigation: { name: string; href: string; icon: React.ElementType }[] = [];
+    const userNavigation: { name: string; href: string; icon: React.ElementType }[] = [];
 
     const adminNavigation = isAdmin
-      ? [{ name: "Админ панель", href: "/admin", icon: Settings }]
+      ? [{ name: t('common.adminPanel'), href: "/admin", icon: Settings }]
       : [];
 
     return [...baseNavigation, ...userNavigation, ...adminNavigation];
-  }, [isAuthenticated, isAdmin]);
+  }, [isAdmin, t]);
 
   // Optimize callbacks with useCallback
   const handleLogout = useCallback(async () => {
     const ok = await confirm({
-      title: "Выйти из аккаунта?",
-      message: "Вы уверены, что хотите завершить сессию?",
-      confirmText: "Выйти",
-      cancelText: "Отмена",
+      title: t('auth.logoutConfirmTitle'),
+      message: t('auth.logoutConfirmMessage'),
+      confirmText: t('auth.logoutConfirmButton'),
+      cancelText: t('common.cancel'),
       variant: "danger",
     });
     if (ok) {
@@ -61,7 +63,7 @@ const Navbar = React.memo(() => {
       router.push("/");
       setIsMenuOpen(false);
     }
-  }, [confirm, logout, router]);
+  }, [confirm, logout, router, t]);
 
   const toggleMenu = useCallback(() => {
     setIsMenuOpen((prev) => !prev);
@@ -70,6 +72,15 @@ const Navbar = React.memo(() => {
   const closeMenu = useCallback(() => {
     setIsMenuOpen(false);
   }, []);
+
+  // Lock body scroll when mobile menu open
+  useEffect(() => {
+    if (isMenuOpen) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = original; };
+    }
+  }, [isMenuOpen]);
 
   // Memoize user greeting
   const userGreeting = useMemo(() => user?.name, [user?.name]);
@@ -102,20 +113,20 @@ const Navbar = React.memo(() => {
 
     return (
       <Link
-    href="/cart"
-    aria-label={distinctCount > 0 ? `Корзина: ${distinctCount} позиций` : "Корзина"}
+        href="/cart"
+        aria-label={distinctCount > 0 ? `Корзина: ${distinctCount} позиций` : "Корзина"}
         onClick={onClick}
         className={baseClasses}
       >
         <ShoppingCart className={iconClasses} />
-    {distinctCount > 0 && (
+        {distinctCount > 0 && (
           <span
             className={cn(
               "absolute -top-1.5 -right-1.5 min-w-[1.15rem] h-5 px-1.5 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-semibold shadow-md ring-1 ring-white/70 select-none",
               "animate-[fadeIn_120ms_ease-out]"
             )}
           >
-      {formatCartCount(distinctCount)}
+            {formatCartCount(distinctCount)}
           </span>
         )}
       </Link>
@@ -131,7 +142,7 @@ const Navbar = React.memo(() => {
             <div className="bg-blue-600 text-white p-2 rounded-lg">
               <Package className="h-6 w-6" />
             </div>
-            <span className="text-xl font-bold text-gray-900">Optom oyoq kiyim</span>
+            <span className="text-xl font-bold text-gray-900">{t('brand.name')}</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -158,7 +169,7 @@ const Navbar = React.memo(() => {
             })}
           </div>
 
-          {/* User Menu + Profile */}
+          {/* User Menu + Profile + Language Switcher (desktop) */}
           <div className="hidden md:flex items-center space-x-4">
             {/* Cart Icon (only for non-admin users and not on admin pages) */}
             <CartIcon />
@@ -175,7 +186,7 @@ const Navbar = React.memo(() => {
                   )}
                 >
                   <User className="h-4 w-4 text-blue-600" />
-                  <span>{userGreeting || "Профиль"}</span>
+                  <span>{userGreeting || t('common.profile')}</span>
                   <span className="ml-0.5 text-[10px] font-normal text-blue-600/70 group-hover:text-blue-700">▼</span>
                 </button>
                 <div
@@ -190,7 +201,7 @@ const Navbar = React.memo(() => {
                       role="menuitem"
                     >
                       <User className="h-4 w-4" />
-                      <span>Профиль</span>
+                      <span>{t('common.profile')}</span>
                     </Link>
                     <div className="my-2 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
                     <button
@@ -199,7 +210,7 @@ const Navbar = React.memo(() => {
                       role="menuitem"
                     >
                       <LogOut className="h-4 w-4" />
-                      <span>Выйти</span>
+                      <span>{t('common.logout')}</span>
                     </button>
                   </div>
                 </div>
@@ -211,7 +222,7 @@ const Navbar = React.memo(() => {
                   className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
                 >
                   <LogOut className="h-4 w-4" />
-                  <span>Выйти</span>
+                  <span>{t('common.logout')}</span>
                 </button>
               </div>
             ) : (
@@ -220,16 +231,29 @@ const Navbar = React.memo(() => {
                   href="/auth/login"
                   className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
-                  Войти
+                  {t('auth.login')}
                 </Link>
                 <Link
                   href="/auth/register"
                   className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
-                  Регистрация
+                  {t('auth.register')}
                 </Link>
               </div>
             )}
+
+            {/* Language Switcher (desktop) */}
+            <div className="flex items-center space-x-1 ml-2">
+              {(['ru', 'uz'] as const).map(code => (
+                <button
+                  key={code}
+                  onClick={() => setLocale(code)}
+                  className={cn('px-2 py-1 text-xs rounded border transition', locale === code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100')}
+                  aria-pressed={locale === code}
+                  aria-label={`Switch language to ${code.toUpperCase()}`}
+                >{code.toUpperCase()}</button>
+              ))}
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -249,8 +273,11 @@ const Navbar = React.memo(() => {
 
         {/* Mobile menu */}
         {isMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
+          <div className="fixed inset-x-0 top-16 bottom-0 md:hidden z-40" role="dialog" aria-modal="true">
+            {/* Overlay (navbar remains visible above) */}
+            <div className="absolute inset-0 bg-opacity-10" onClick={closeMenu} />
+            {/* Slide-down panel */}
+            <div className="relative z-50 max-h-full overflow-y-auto bg-white shadow-xl animate-[fadeIn_120ms_ease-out] px-2 pt-2 pb-4 space-y-1 sm:px-3">
               {navigation.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -277,14 +304,14 @@ const Navbar = React.memo(() => {
               {isAuthenticated ? (
                 <div className="border-t pt-3 mt-3">
                   <div className="px-3 py-2 text-sm text-gray-600">
-                    Привет, {userGreeting}
+                    {userGreeting && `${userGreeting}`}
                   </div>
                   <button
                     onClick={handleLogout}
                     className="flex items-center space-x-2 w-full px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
                   >
                     <LogOut className="h-5 w-5" />
-                    <span>Выйти</span>
+                    <span>{t('common.logout')}</span>
                   </button>
                 </div>
               ) : (
@@ -294,17 +321,32 @@ const Navbar = React.memo(() => {
                     onClick={closeMenu}
                     className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   >
-                    Войти
+                    {t('auth.login')}
                   </Link>
                   <Link
                     href="/auth/register"
                     onClick={closeMenu}
                     className="block px-3 py-2 rounded-md text-base font-medium bg-blue-600 text-white hover:bg-blue-700"
                   >
-                    Регистрация
+                    {t('auth.register')}
                   </Link>
                 </div>
               )}
+
+              {/* Language Switcher (mobile) */}
+              <div className="border-t pt-3 mt-3">
+                <div className="px-3 flex items-center space-x-2">
+                  {(['ru', 'uz'] as const).map(code => (
+                    <button
+                      key={code}
+                      onClick={() => { setLocale(code); }}
+                      className={cn('px-3 py-1.5 text-sm rounded-md border font-medium transition w-full text-center', locale === code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100')}
+                      aria-pressed={locale === code}
+                      aria-label={`Switch language to ${code.toUpperCase()}`}
+                    >{code.toUpperCase()}</button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}

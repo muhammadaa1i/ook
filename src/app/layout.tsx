@@ -8,6 +8,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
+import { I18nProvider } from "@/i18n";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,7 +36,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col bg-white text-gray-900`}
       >
-        <AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
           <ConfirmDialogProvider>
             <CartProvider>
               <Navbar />
@@ -43,7 +45,7 @@ export default function RootLayout({
               <Footer />
             </CartProvider>
             <ToastContainer
-              position="top-right"
+              position="top-center"
               autoClose={5000}
               hideProgressBar={false}
               newestOnTop={false}
@@ -56,6 +58,7 @@ export default function RootLayout({
             />
           </ConfirmDialogProvider>
         </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

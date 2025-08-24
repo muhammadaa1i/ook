@@ -15,6 +15,8 @@ interface RequestConfig {
   ttl?: number;
   retries?: number;
   timeout?: number;
+  /** Force network fetch (skip reading existing cache) but still write result if cache=true */
+  force?: boolean;
 }
 
 class ModernApiClient {
@@ -81,8 +83,8 @@ class ModernApiClient {
       params?: Record<string, unknown>;
       timeout?: number;
     } = {}
-  ): Promise<any> {
-    const { params, headers: optionHeaders, timeout = 8000, ...fetchOptions } = options;
+  ): Promise<unknown> {
+  const { params, headers: optionHeaders, timeout = 8000, ...fetchOptions } = options;
 
     const attemptRequest = async (): Promise<Response> => {
       const url = new URL(this.baseURL, window.location.origin);
@@ -98,13 +100,18 @@ class ModernApiClient {
       // Get auth token from cookies each attempt (may change after refresh)
       const token = Cookies.get("access_token");
       const defaultHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
         Accept: "application/json",
       };
       if (token) {
         defaultHeaders.Authorization = `Bearer ${token}`;
       }
       const headers = { ...defaultHeaders, ...(optionHeaders as Record<string, string>) };
+
+      // Only set Content-Type automatically for non-GET requests when a body is present
+      const method = (options.method || "GET").toUpperCase();
+      if (method !== "GET" && !(headers["Content-Type"])) {
+        headers["Content-Type"] = "application/json";
+      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -164,7 +171,7 @@ class ModernApiClient {
         throw error;
       }
       return response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof DOMException && error.name === "AbortError") {
         throw new Error("Request timeout - Please check your connection and try again");
       }
@@ -202,16 +209,18 @@ class ModernApiClient {
           console.warn("Token refresh failed", response.status, response.statusText);
           throw new Error("Failed to refresh token");
         }
-        let data: any = {};
+        let data: Record<string, unknown> = {};
         try { data = await response.json(); } catch {}
-        if (data.access_token) {
-          Cookies.set("access_token", data.access_token, { expires: 1 });
+        const access = data["access_token"];
+        if (typeof access === 'string' && access) {
+          Cookies.set("access_token", access, { expires: 1 });
         }
-        if (data.refresh_token) {
-          Cookies.set("refresh_token", data.refresh_token, { expires: 30 });
+        const refresh = data["refresh_token"];
+        if (typeof refresh === 'string' && refresh) {
+          Cookies.set("refresh_token", refresh, { expires: 30 });
         }
-        return !!data.access_token;
-      } catch (err) {
+        return typeof access === 'string' && !!access;
+  } catch {
         // Clear auth data & notify app to logout
         Cookies.remove("access_token");
         Cookies.remove("refresh_token");
@@ -236,11 +245,11 @@ class ModernApiClient {
     params?: Record<string, unknown>,
     config: RequestConfig = {}
   ): Promise<unknown> {
-    const { cache = true, ttl, retries = 2, timeout = 10000 } = config;
+  const { cache = true, ttl, retries = 2, timeout = 10000, force = false } = config;
     const cacheKey = this.getCacheKey(endpoint, params);
 
     // Check cache first
-    if (cache) {
+  if (cache && !force) {
       const cached = this.cache.get(cacheKey);
       if (cached && this.isValidCache(cached)) {
         return cached.data;
@@ -266,7 +275,7 @@ class ModernApiClient {
       const data = await requestPromise;
 
       // Cache the result
-      if (cache) {
+  if (cache) {
         const cacheTTL = ttl || this.getCacheTTL(endpoint);
         this.setCache(cacheKey, data, cacheTTL);
       }

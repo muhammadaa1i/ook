@@ -10,8 +10,10 @@ import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 export default function AdminUsersPage() {
+  const { t } = useI18n();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user: currentUser } = useAuth();
@@ -29,7 +31,7 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
-  const response = await modernApiClient.get(API_ENDPOINTS.USERS, filters);
+  const response = await modernApiClient.get(API_ENDPOINTS.USERS, filters as unknown as Record<string, unknown>);
 
       // modernApiClient returns direct data, not axios-wrapped response
       const data =
@@ -63,12 +65,12 @@ export default function AdminUsersPage() {
       });
     } catch (error) {
       console.error("Error fetching users:", error);
-      toast.error("Ошибка загрузки пользователей");
+  toast.error(t('admin.users.toasts.loadError'));
       setUsers([]);
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, t]);
 
   useEffect(() => {
     fetchUsers();
@@ -172,10 +174,10 @@ export default function AdminUsersPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Управление пользователями
+            {t('admin.users.title')}
           </h1>
           <p className="text-gray-600 mt-2">
-            Просмотр и управление пользователями системы
+            {t('admin.users.subtitle')}
           </p>
         </div>
 
@@ -192,16 +194,16 @@ export default function AdminUsersPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Пользователь
+                        {t('admin.users.table.user')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Телефон
+                        {t('admin.users.table.phone')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Роль
+                        {t('admin.users.table.role')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Дата регистрации
+                        {t('admin.users.table.registeredAt')}
                       </th>
                       {/* Actions column removed */}
                     </tr>
@@ -239,13 +241,13 @@ export default function AdminUsersPage() {
                                   : "bg-green-100 text-green-800"
                               }`}
                             >
-                              {user.is_admin ? "Администратор" : "Пользователь"}
+                              {user.is_admin ? t('admin.users.role.admin') : t('admin.users.role.user')}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {user.created_at
                               ? formatDate(user.created_at)
-                              : "Н/Д"}
+                              : t('admin.users.dateNA')}
                           </td>
                           {/* Actions cell removed */}
                         </tr>
@@ -273,10 +275,10 @@ export default function AdminUsersPage() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Пользователи не найдены
+                {t('admin.users.empty.title')}
               </h3>
               <p className="text-gray-600">
-                Попробуйте изменить параметры поиска или фильтры
+                {t('admin.users.empty.subtitle')}
               </p>
             </div>
           )}

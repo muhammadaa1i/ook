@@ -16,6 +16,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useI18n } from "@/i18n";
 
 // Component for handling product images with error fallback
 const ProductImage = ({
@@ -24,6 +25,7 @@ const ProductImage = ({
   item: { images?: { image_url: string }[]; image?: string; name: string };
 }) => {
   const [imageError, setImageError] = useState(false);
+  const { t } = useI18n();
 
   // Get the image URL
   let imageUrl = "";
@@ -37,9 +39,7 @@ const ProductImage = ({
     return (
       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
         <span className="text-gray-400 text-xs text-center">
-          No Image
-          <br />
-          Available
+          {t('common.imageUnavailable')}
         </span>
       </div>
     );
@@ -74,13 +74,15 @@ export default function CartPage() {
   } = useCart();
   const { isAuthenticated } = useAuth();
 
+  const { t } = useI18n();
+
   const handleCheckout = () => {
     if (!isAuthenticated) {
-      toast.error("Для оформления заказа необходимо войти в систему");
+      toast.error(t('auth.login'));
       return;
     }
 
-    toast.info("Функция оформления заказа будет доступна в ближайшее время");
+    toast.info('Coming soon'); // TODO: add translation key if needed
   };
 
   if (items.length === 0) {
@@ -90,17 +92,17 @@ export default function CartPage() {
           <div className="text-center">
             <ShoppingBag className="h-24 w-24 text-gray-400 mx-auto mb-6" />
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Ваша корзина пуста
+              {t('cartPage.emptyTitle')}
             </h1>
             <p className="text-gray-600 mb-8">
-              Добавьте товары из каталога, чтобы начать покупки
+              {t('cartPage.emptySubtitle')}
             </p>
             <Link
               href="/catalog"
               className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
-              Перейти к покупкам
+              {t('cartPage.continueShopping')}
             </Link>
           </div>
         </div>
@@ -117,21 +119,21 @@ export default function CartPage() {
             className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
-            Продолжить покупки
+            {t('cartPage.continue')}
           </Link>
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900 flex items-center">
               <ShoppingCart className="h-8 w-8 mr-3" />
-              Корзина ({itemCount} товаров)
+              {t('cartPage.heading')} ({t('cartPage.itemsCount', { count: String(itemCount) })})
             </h1>
             <button className="flex items-center bg-blue-100 text-blue-900 px-4 py-2 rounded-lg font-semibold text-lg mb-6">
-              <ShoppingCart className="mr-2" /> Мои заказы
+              <ShoppingCart className="mr-2" /> {t('home.myOrders')}
             </button>
             <button
               onClick={clearCart}
               className="text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1 rounded-md font-medium transition-colors"
             >
-              Очистить корзину
+              {t('cartPage.clear')}
             </button>
           </div>
         </div>
@@ -162,13 +164,13 @@ export default function CartPage() {
                       </h3>
                       {(item.size || item.color) && (
                         <div className="text-sm text-gray-600 mb-2">
-                          {item.size && <span>Размер: {item.size}</span>}
+                          {item.size && <span>{t('product.size')}: {item.size}</span>}
                           {item.size && item.color && <span> • </span>}
-                          {item.color && <span>Цвет: {item.color}</span>}
+                          {item.color && <span>{t('cartPage.color')}: {item.color}</span>}
                         </div>
                       )}
                       <p className="text-xl font-bold text-blue-600 mb-4">
-                        {formatPrice(item.price)}
+                        {formatPrice(item.price, t('common.currencySom'))}
                       </p>
 
                       {/* Quantity Controls */}
@@ -207,7 +209,7 @@ export default function CartPage() {
                     {/* Item Total */}
                     <div className="text-right">
                       <p className="text-lg font-bold text-gray-900">
-                        {formatPrice(item.price * item.quantity)}
+                        {formatPrice(item.price * item.quantity, t('common.currencySom'))}
                       </p>
                     </div>
                   </div>
@@ -220,16 +222,16 @@ export default function CartPage() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
               <h2 className="text-xl font-bold text-gray-900 mb-6">
-                Итого по заказу
+                {t('cartPage.orderSummary')}
               </h2>
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-gray-600">
-                    Товары ({itemCount} шт.)
+                    {t('cartPage.productsLine', { count: String(itemCount) })}
                   </span>
                   <span className="font-semibold">
-                    {formatPrice(totalAmount)}
+                    {formatPrice(totalAmount, t('common.currencySom'))}
                   </span>
                 </div>
                 {/* <div className="flex justify-between">
@@ -240,9 +242,9 @@ export default function CartPage() {
                 </div> */}
                 <div className="border-t pt-3">
                   <div className="flex justify-between">
-                    <span className="text-lg font-bold">Общая сумма</span>
+                    <span className="text-lg font-bold">{t('cartPage.total')}</span>
                     <span className="text-lg font-bold text-blue-600">
-                      {formatPrice(totalAmount)}
+                      {formatPrice(totalAmount, t('common.currencySom'))}
                     </span>
                   </div>
                 </div>
@@ -253,7 +255,7 @@ export default function CartPage() {
                 className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center"
               >
                 <CreditCard className="h-5 w-5 mr-2" />
-                Оформить заказ
+                {t('cartPage.checkout')}
               </button>
 
               {!isAuthenticated && (
@@ -262,9 +264,9 @@ export default function CartPage() {
                     href="/auth/login"
                     className="text-blue-600 hover:underline"
                   >
-                    Войдите в систему
-                  </Link>{" "}
-                  для оформления заказа
+                    {t('cartPage.loginForCheckout')}
+                  </Link>{' '}
+                  {t('cartPage.loginForCheckoutSuffix')}
                 </p>
               )}
             </div>

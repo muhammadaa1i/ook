@@ -5,29 +5,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import {
-  BarChart3,
-  Users,
-  Package,
-  ShoppingCart,
-  Tag,
-  Home,
-} from "lucide-react";
+import { BarChart3, Users, Package, ShoppingCart, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-const adminNavigation = [
-  { name: "Главная", href: "/admin", icon: BarChart3 },
-  { name: "Пользователи", href: "/admin/users", icon: Users },
-  { name: "Товары", href: "/admin/products", icon: Package },
-  { name: "Заказы", href: "/admin/orders", icon: ShoppingCart },
+type TFunc = (k: string, vars?: Record<string, string | number>) => string;
+const adminNavigation = (t: TFunc) => [
+  { name: t('admin.nav.home'), href: "/admin", icon: BarChart3 },
+  { name: t('admin.nav.users'), href: "/admin/users", icon: Users },
+  { name: t('admin.nav.products'), href: "/admin/products", icon: Package },
+  { name: t('admin.nav.orders'), href: "/admin/orders", icon: ShoppingCart },
 ];
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user, isLoading } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -61,14 +57,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
               >
                 <Home className="h-5 w-5" />
-                <span className="text-sm font-medium">На сайт</span>
+                <span className="text-sm font-medium">{t('admin.header.backToSite')}</span>
               </Link>
               <h1 className="text-xl font-semibold text-gray-900">
-                Административная панель
+                {t('admin.header.title')}
               </h1>
             </div>
             <div className="text-sm text-gray-600">
-              Добро пожаловать, {user.name}
+              {t('admin.header.welcome', { name: user.name })}
             </div>
           </div>
         </div>
@@ -80,7 +76,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <div className="w-64 flex-shrink-0">
             <div className="py-8">
               <nav className="space-y-1">
-                {adminNavigation.map((item) => {
+                {adminNavigation(t).map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
 

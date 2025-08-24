@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import modernApiClient from "@/lib/modernApiClient";
@@ -17,6 +17,8 @@ import {
   CreditCard,
   MapPin,
 } from "lucide-react";
+import { useI18n } from "@/i18n";
+import { useRouter } from "next/navigation";
 
 interface OrderItem {
   id: number;
@@ -80,18 +82,10 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy] = useState<"date" | "amount">("date");
   const [sortOrder] = useState<"asc" | "desc">("desc");
+  const { t } = useI18n();
+  const router = useRouter();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchOrders();
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    filterAndSortOrders();
-  }, [orders, searchTerm, statusFilter, sortBy, sortOrder]);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await modernApiClient.get(
@@ -99,26 +93,24 @@ export default function OrdersPage() {
         {},
         { ttl: 60000 }
       );
-
-      // Ensure we always set an array
-      const ordersData =
-        (response as { data?: Order[] })?.data || (response as Order[]) || [];
+      const ordersData = (response as { data?: Order[] })?.data || (response as Order[]) || [];
       const ordersArray = Array.isArray(ordersData) ? ordersData : [];
       setOrders(ordersArray);
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast.error("Ошибка при загрузке заказов");
+      toast.error(t('errors.productsLoad'));
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
-  const filterAndSortOrders = () => {
-    // Ensure orders is always an array
+  useEffect(() => {
+    if (isAuthenticated) fetchOrders();
+  }, [isAuthenticated, fetchOrders]);
+
+  const filterAndSortOrders = useCallback(() => {
     const ordersArray = Array.isArray(orders) ? orders : [];
     let filtered = [...ordersArray];
-
-    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(
         (order) =>
@@ -128,16 +120,11 @@ export default function OrdersPage() {
           )
       );
     }
-
-    // Filter by status
     if (statusFilter !== "all") {
       filtered = filtered.filter((order) => order.status === statusFilter);
     }
-
-    // Sort orders
     filtered.sort((a, b) => {
-      let aValue, bValue;
-
+      let aValue: number, bValue: number;
       if (sortBy === "date") {
         aValue = new Date(a.created_at).getTime();
         bValue = new Date(b.created_at).getTime();
@@ -145,12 +132,16 @@ export default function OrdersPage() {
         aValue = a.total_amount;
         bValue = b.total_amount;
       }
-
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
-
     setFilteredOrders(filtered);
-  };
+  }, [orders, searchTerm, statusFilter, sortBy, sortOrder]);
+
+  useEffect(() => {
+    filterAndSortOrders();
+  }, [filterAndSortOrders]);
+
+  // (Removed original fetchOrders and filterAndSortOrders implementations)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("ru-RU", {
@@ -178,7 +169,7 @@ export default function OrdersPage() {
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              Заказ #{order.order_number}
+              {t('ordersPage.title')} #{order.order_number}
             </h3>
             <div className="flex items-center text-sm text-gray-500">
               <Calendar className="h-4 w-4 mr-1" />
@@ -338,10 +329,10 @@ export default function OrdersPage() {
         <div className="text-center">
           <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Необходима авторизация
+            {t('ordersPage.authRequiredTitle')}
           </h1>
           <p className="text-gray-600">
-            Войдите в систему для просмотра ваших заказов
+            {t('ordersPage.authRequiredMessage')}
           </p>
         </div>
       </div>
@@ -353,12 +344,12 @@ export default function OrdersPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Мои заказы</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('ordersPage.title')}</h1>
           <p className="text-gray-600">
-            Отслеживайте статус ваших заказов и просматривайте историю покупок
+            {t('ordersPage.subtitle')}
           </p>
         </div>
-        <p className="text-lg text-gray-500 mb-6">История заказов недоступна</p>
+        <p className="text-lg text-gray-500 mb-6">{t('ordersPage.historyUnavailable')}</p>
 
         {/* Orders List */}
         {isLoading ? (
@@ -382,24 +373,28 @@ export default function OrdersPage() {
             <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
               {searchTerm || statusFilter !== "all"
-                ? "Заказы не найдены"
-                : "У вас пока нет заказов"}
+                ? t('ordersPage.notFound')
+                : t('ordersPage.noneYet')}
             </h2>
             <p className="text-gray-600 mb-6">
               {searchTerm || statusFilter !== "all"
-                ? "Попробуйте изменить критерии поиска"
-                : "Начните покупки в нашем каталоге"}
+                ? t('ordersPage.tryAdjustSearch')
+                : t('ordersPage.startShopping')}
             </p>
             <button
               onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
+                if (searchTerm || statusFilter !== "all") {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                } else {
+                  router.push("/catalog");
+                }
               }}
               className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
             >
               {searchTerm || statusFilter !== "all"
-                ? "Сбросить фильтры"
-                : "Перейти в каталог"}
+                ? t('ordersPage.resetFilters')
+                : t('ordersPage.goToCatalog')}
             </button>
           </div>
         )}

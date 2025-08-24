@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE_URL = "https://oyoqkiyim.duckdns.org";
 
+// Common payload types
+type ErrorPayload = { error: string } & Record<string, unknown>;
+type JsonPayload = Record<string, unknown> | string | null;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -24,7 +28,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log("Proxying request to:", url.toString());
+  // Request forwarded (log removed for performance)
 
     // Forward Authorization header from client request
     const headers: Record<string, string> = {
@@ -98,32 +102,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For testing purposes, if backend is unavailable and it's a login request, return a test response
-    if (endpoint === "/auth/login") {
-      const body = await request.json();
-      console.log("Login attempt with:", body);
-      
-      // Test credentials - in a real app, this would be validated against a database
-      if (body.name === "admin" && body.password === "password") {
-        return NextResponse.json({
-          access_token: "test_access_token",
-          refresh_token: "test_refresh_token",
-          user: {
-            id: 1,
-            name: "admin",
-            email: "admin@test.com",
-            role: "admin"
-          }
-        });
-      } else {
+  // Check if we should use test data or proxy to real server.
+  // Previously always true due to constant API_BASE_URL comparison causing unintended 401s.
+  const useTestData = process.env.USE_TEST_AUTH === "true"; // enable explicitly via env var only
+    
+    // For testing purposes or when backend is unavailable, return test response for login
+  if (endpoint === "/auth/login" && useTestData) {
+      try {
+        const body = await request.json();
+  // Removed login attempt log for performance
+        
+        // Test credentials - in a real app, this would be validated against a database
+        if (body.name === "admin" && body.password === "password") {
+          return NextResponse.json({
+            access_token: "test_access_token",
+            refresh_token: "test_refresh_token",
+            user: {
+              id: 1,
+              name: "admin",
+              surname: "Administrator",
+              phone_number: "+1234567890",
+              is_admin: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          });
+        } else {
+          return NextResponse.json(
+            { error: "Invalid credentials" },
+            { status: 401 }
+          );
+        }
+      } catch (error) {
+        console.error("Error processing login request:", error);
         return NextResponse.json(
-          { error: "Invalid credentials" },
-          { status: 401 }
+          { error: "Invalid request body" },
+          { status: 400 }
         );
       }
     }
 
-  const url = new URL(endpoint, API_BASE_URL);
+    // Continue with normal proxy logic for other endpoints
+    const url = new URL(endpoint, API_BASE_URL);
 
     // Copy all search params except 'endpoint' to the API request
     searchParams.forEach((value, key) => {
@@ -132,7 +152,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("Proxying POST request to:", url.toString());
+  // Forwarding POST request (log removed)
 
     // Forward Authorization header from client request
     const incomingContentType = request.headers.get("content-type") || "";
@@ -167,7 +187,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       console.error("API Error:", response.status, response.statusText);
       // Try to capture text body for diagnostics
-      let errPayload: any = { error: `API Error: ${response.status} ${response.statusText}` };
+  let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
         if (ct.includes("application/json")) {
@@ -181,7 +201,7 @@ export async function POST(request: NextRequest) {
     }
 
     const contentType = response.headers.get("content-type") || "";
-    let data: any = {};
+  let data: JsonPayload = {};
     if (response.status === 204) {
       data = {};
     } else if (contentType.includes("application/json")) {
@@ -221,7 +241,7 @@ export async function PUT(request: NextRequest) {
 
   const url = new URL(endpoint, API_BASE_URL);
 
-    console.log("Proxying PUT request to:", url.toString());
+  // Forwarding PUT request (log removed)
 
     // Forward Authorization header from client request
     const incomingContentType = request.headers.get("content-type") || "";
@@ -255,7 +275,7 @@ export async function PUT(request: NextRequest) {
     });
     if (!response.ok) {
       console.error("API Error:", response.status, response.statusText);
-      let errPayload: any = { error: `API Error: ${response.status} ${response.statusText}` };
+  let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
         if (ct.includes("application/json")) {
@@ -269,7 +289,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const contentType = response.headers.get("content-type") || "";
-    let data: any = {};
+  let data: JsonPayload = {};
     if (response.status === 204) {
       data = {};
     } else if (contentType.includes("application/json")) {
@@ -309,7 +329,7 @@ export async function DELETE(request: NextRequest) {
 
     const url = new URL(endpoint, API_BASE_URL);
 
-    console.log("Proxying DELETE request to:", url.toString());
+  // Forwarding DELETE request (log removed)
 
     // Forward Authorization header from client request
     const headers: Record<string, string> = {
@@ -329,7 +349,7 @@ export async function DELETE(request: NextRequest) {
     });
     if (!response.ok) {
       console.error("API Error:", response.status, response.statusText);
-      let errPayload: any = { error: `API Error: ${response.status} ${response.statusText}` };
+  let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
         if (ct.includes("application/json")) {
@@ -343,7 +363,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const contentType = response.headers.get("content-type") || "";
-    let data: any = {};
+  let data: JsonPayload = {};
     if (response.status === 204) {
       data = {};
     } else if (contentType.includes("application/json")) {
