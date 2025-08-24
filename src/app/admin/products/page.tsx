@@ -1,9 +1,14 @@
 "use client";
 
+<<<<<<< HEAD
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+=======
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import Image from "next/image";
+>>>>>>> 098e82c8096eedbcbcf13f6c0c9419d4aa02c08a
 import AdminLayout from "@/components/admin/AdminLayout";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { Slipper, SearchParams } from "@/types";
@@ -78,11 +83,17 @@ export default function AdminProductsPage() {
       );
 
       // modernApiClient returns direct data, not axios-wrapped response
-      const data = response.data || response;
+      const data =
+        (response as { data?: Slipper[] })?.data || (response as Slipper[]);
 
       // Handle both response structures: {data: [...]} and {items: [...]}
-      const productsData = data.items || data.data || data || [];
+      const productsData = Array.isArray(data)
+        ? data
+        : (data as { items?: Slipper[]; data?: Slipper[] })?.items ||
+          (data as { items?: Slipper[]; data?: Slipper[] })?.data ||
+          [];
 
+<<<<<<< HEAD
       let list = Array.isArray(productsData) ? productsData : [];
       // Filter out any items pending deletion to keep UI consistent even if backend hasn't finished yet
       if (pendingDeletions.size) {
@@ -97,18 +108,25 @@ export default function AdminProductsPage() {
         }
       }
       setProducts(list as Slipper[]);
+=======
+      setProducts(Array.isArray(productsData) ? productsData : []);
+      const responseData = response as {
+        data?: { total?: number; pages?: number; total_pages?: number };
+      };
+>>>>>>> 098e82c8096eedbcbcf13f6c0c9419d4aa02c08a
       setPagination({
-        total: data.total || 0,
+        total: responseData.data?.total || 0,
         page:
           Math.floor(
             (filters.skip || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ) + 1,
         limit: Number(filters.limit || PAGINATION.DEFAULT_LIMIT),
         totalPages:
-          data.pages ||
-          data.total_pages ||
+          responseData.data?.pages ||
+          responseData.data?.total_pages ||
           Math.ceil(
-            (data.total || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
+            (responseData.data?.total || 0) /
+              (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ),
       });
     } catch (error) {
@@ -634,6 +652,7 @@ export default function AdminProductsPage() {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-12 w-12 relative group">
                             {product.images && product.images.length > 0 ? (
+<<<<<<< HEAD
                               (() => {
                                 const list = product.images;
                                 const currentIdx = imageIndexMap[product.id] ?? 0;
@@ -694,9 +713,24 @@ export default function AdminProductsPage() {
                             ) : product.image ? (
                               <img
                                 loading="lazy"
+=======
+                              <Image
+                                className="h-12 w-12 rounded-lg object-cover"
+                                src={getFullImageUrl(
+                                  product.images[0].image_url
+                                )}
+                                alt={product.name}
+                                width={48}
+                                height={48}
+                              />
+                            ) : product.image ? (
+                              <Image
+>>>>>>> 098e82c8096eedbcbcf13f6c0c9419d4aa02c08a
                                 className="h-12 w-12 rounded-lg object-cover"
                                 src={getFullImageUrl(product.image)}
                                 alt={product.name}
+                                width={48}
+                                height={48}
                               />
                             ) : (
                               <div className="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center">

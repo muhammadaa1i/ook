@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
@@ -15,10 +16,6 @@ import {
   Calendar,
   CreditCard,
   MapPin,
-  Filter,
-  Search,
-  Download,
-  RefreshCw,
 } from "lucide-react";
 
 interface OrderItem {
@@ -74,15 +71,15 @@ const statusConfig = {
 };
 
 export default function OrdersPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"date" | "amount">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortBy] = useState<"date" | "amount">("date");
+  const [sortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -104,7 +101,8 @@ export default function OrdersPage() {
       );
 
       // Ensure we always set an array
-      const ordersData = response?.data || response || [];
+      const ordersData =
+        (response as { data?: Order[] })?.data || (response as Order[]) || [];
       const ordersArray = Array.isArray(ordersData) ? ordersData : [];
       setOrders(ordersArray);
     } catch (error) {
@@ -289,11 +287,13 @@ export default function OrdersPage() {
                     key={item.id}
                     className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg"
                   >
-                    <img
+                    <Image
                       src={getFullImageUrl(
                         item.slipper.images?.[0]?.image_url || ""
                       )}
                       alt={item.slipper.name}
+                      width={64}
+                      height={64}
                       className="h-16 w-16 object-cover rounded-md"
                     />
                     <div className="flex-1">

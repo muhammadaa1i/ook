@@ -5,7 +5,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { modernApiClient } from "@/lib/modernApiClient";
 import { BarChart3, Activity, Clock, Zap, X } from "lucide-react";
 
 interface PerformanceMonitorProps {

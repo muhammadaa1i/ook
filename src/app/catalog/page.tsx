@@ -61,7 +61,10 @@ function CatalogContent() {
       );
 
       // modernApiClient returns direct data, not axios-wrapped response
-      const categoriesData = response?.data || response || [];
+      const categoriesData =
+        (response as { data?: Category[] })?.data ||
+        (response as Category[]) ||
+        [];
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
       setHasError(false);
       categoriesCachedRef.current = true; // Mark as cached
@@ -137,10 +140,15 @@ function CatalogContent() {
       }
 
       // modernApiClient returns direct data, not axios-wrapped response
-      const data = response.data || response;
+      const data =
+        (response as { data?: Slipper[] })?.data || (response as Slipper[]);
 
       // Handle both response structures: {data: [...]} and {items: [...]}
-      const productsData = data.items || data.data || data || [];
+      const productsData = Array.isArray(data)
+        ? data
+        : (data as { items?: Slipper[]; data?: Slipper[] })?.items ||
+          (data as { items?: Slipper[]; data?: Slipper[] })?.data ||
+          [];
 
       setProducts(
         Array.isArray(productsData) ? (productsData as Slipper[]) : []
@@ -153,19 +161,28 @@ function CatalogContent() {
         setIsInitialLoading(false);
       }
 
+      const responseData = response as {
+        data?: {
+          total?: number;
+          page?: number;
+          pages?: number;
+          total_pages?: number;
+        };
+      };
       setPagination({
-        total: data.total || 0,
+        total: responseData.data?.total || 0,
         page:
-          data.page ||
+          responseData.data?.page ||
           Math.floor(
             (filters.skip || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ) + 1,
         limit: Number(filters.limit || PAGINATION.DEFAULT_LIMIT),
         totalPages:
-          data.pages ||
-          data.total_pages ||
+          responseData.data?.pages ||
+          responseData.data?.total_pages ||
           Math.ceil(
-            (data.total || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
+            (responseData.data?.total || 0) /
+              (filters.limit || PAGINATION.DEFAULT_LIMIT)
           ),
       });
     } catch (error: unknown) {

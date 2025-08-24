@@ -123,7 +123,3 @@ export function useIntersectionObserver(
 export const LazyProductCard = createPreloadableLazyComponent(
   () => import("../components/products/ProductCard")
 );
-
-export const LazyProductFilters = createPreloadableLazyComponent(
-  () => import("../components/products/ProductFilters")
-);

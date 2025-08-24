@@ -8,6 +8,7 @@ import { ShoppingCart, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 
+
 interface ProductCardProps {
   slipper: Slipper;
   onAddToCart?: (slipper: Slipper) => void;
