@@ -61,6 +61,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
+  // Listen for logout event to clear cart
+  useEffect(() => {
+    const handleCartClear = () => {
+      setItems([]);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("cart:clear", handleCartClear);
+      return () => window.removeEventListener("cart:clear", handleCartClear);
+    }
+  }, []);
+
   const addToCart = (
     product: Slipper,
     quantity = 50,

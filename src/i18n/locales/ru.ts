@@ -113,7 +113,8 @@ export default {
   cart: {
     inCart: 'В корзине',
     alreadyInCartAddMore: 'Товар уже в корзине. Нажмите чтобы добавить ещё',
-    addToCartHint: 'В корзину (минимум 50, шаг 5)'
+    addToCartHint: 'В корзину (минимум 50, шаг 5)',
+    addMore: 'Добавить еще'
   },
   ordersPage: {
     title: 'Мои заказы',

@@ -270,6 +270,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = useCallback(() => {
     clearAuthData();
+    // Dispatch custom event to clear cart
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cart:clear"));
+    }
   toast.success(t('auth.toasts.logoutSuccess'));
   }, [clearAuthData, t]);
 

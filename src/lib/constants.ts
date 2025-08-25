@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
   SLIPPER_UPLOAD_IMAGE: (id: number) => `/slippers/${id}/upload-image/`,
   SLIPPER_UPLOAD_IMAGES: (id: number) => `/slippers/${id}/upload-images/`,
   SLIPPER_IMAGES: (id: number) => `/slippers/${id}/images`,
+  SLIPPER_UPDATE_IMAGE: (slipperId: number, imageId: number) => `/slippers/${slipperId}/images/${imageId}`,
   SLIPPER_DELETE_IMAGE: (slipperId: number, imageId: number) =>
     `/slippers/${slipperId}/images/${imageId}`,
 

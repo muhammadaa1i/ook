@@ -21,6 +21,7 @@ import { useI18n } from "@/i18n";
 
 const Navbar = React.memo(() => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const { t, locale, setLocale } = useI18n();
   const confirm = useConfirm();
   const { user, logout, isAuthenticated } = useAuth();
@@ -81,6 +82,21 @@ const Navbar = React.memo(() => {
       return () => { document.body.style.overflow = original; };
     }
   }, [isMenuOpen]);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isProfileDropdownOpen && !target.closest('[data-profile-dropdown]')) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    if (isProfileDropdownOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [isProfileDropdownOpen]);
 
   // Memoize user greeting
   const userGreeting = useMemo(() => user?.name, [user?.name]);
@@ -176,10 +192,11 @@ const Navbar = React.memo(() => {
 
             {/* Profile dropdown with logout */}
             {isAuthenticated && !isAdmin ? (
-              <div className="relative group">
+              <div className="relative" data-profile-dropdown>
                 <button
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                   aria-haspopup="menu"
-                  aria-expanded="false"
+                  aria-expanded={isProfileDropdownOpen}
                   className={cn(
                     "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors",
                     "bg-white border border-blue-200/60 text-gray-700 hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
@@ -187,33 +204,39 @@ const Navbar = React.memo(() => {
                 >
                   <User className="h-4 w-4 text-blue-600" />
                   <span>{userGreeting || t('common.profile')}</span>
-                  <span className="ml-0.5 text-[10px] font-normal text-blue-600/70 group-hover:text-blue-700">▼</span>
+                  <span className={cn("ml-0.5 text-[10px] font-normal text-blue-600/70 transition-transform", isProfileDropdownOpen ? "rotate-180" : "")}>▼</span>
                 </button>
-                <div
-                  className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl border border-blue-200/60 bg-white/95 backdrop-blur shadow-lg shadow-blue-100/40 ring-1 ring-black/5 opacity-0 scale-95 group-hover:scale-100 group-hover:opacity-100 group-focus-within:opacity-100 group-focus-within:scale-100 transition-all z-50 pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto"
-                  role="menu"
-                  aria-label="Меню профиля"
-                >
-                  <div className="py-2 px-2">
-                    <Link
-                      href="/profile"
-                      className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50 focus:text-blue-700 transition-colors"
-                      role="menuitem"
-                    >
-                      <User className="h-4 w-4" />
-                      <span>{t('common.profile')}</span>
-                    </Link>
-                    <div className="my-2 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:bg-red-50 focus:text-red-700 transition-colors"
-                      role="menuitem"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span>{t('common.logout')}</span>
-                    </button>
+                {isProfileDropdownOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl border border-blue-200/60 bg-white/95 backdrop-blur shadow-lg shadow-blue-100/40 ring-1 ring-black/5 z-50"
+                    role="menu"
+                    aria-label="Меню профиля"
+                  >
+                    <div className="py-2 px-2">
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                        className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:bg-blue-50 focus:text-blue-700 transition-colors"
+                        role="menuitem"
+                      >
+                        <User className="h-4 w-4" />
+                        <span>{t('common.profile')}</span>
+                      </Link>
+                      <div className="my-2 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
+                      <button
+                        onClick={() => {
+                          setIsProfileDropdownOpen(false);
+                          handleLogout();
+                        }}
+                        className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:bg-red-50 focus:text-red-700 transition-colors"
+                        role="menuitem"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>{t('common.logout')}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ) : isAuthenticated && isAdmin ? (
               <div className="flex items-center space-x-2">

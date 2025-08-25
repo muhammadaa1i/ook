@@ -115,7 +115,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
       <div
         className={
           `relative bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer border ${
-            inCart ? "border-blue-500 ring-1 ring-blue-400/50" : "border-transparent"
+            inCart && !isAdmin ? "border-blue-500 ring-1 ring-blue-400/50" : "border-transparent"
           }`
         }
         onClick={onViewDetails ? handleViewDetails : undefined}
@@ -130,7 +130,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
         }
       >
         <div className="relative h-48 bg-gray-200">
-          {inCart && (
+          {inCart && !isAdmin && (
             <div className="absolute top-2 left-2 z-10 bg-blue-600 text-white text-[11px] font-semibold px-2 py-1 rounded-md shadow-sm flex items-center space-x-1">
               <Check className="h-3.5 w-3.5" />
               <span>{t('cart.inCart')}{cartItem ? `: ${cartItem.quantity}` : ""}</span>
@@ -222,17 +222,17 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
                   }}
                   disabled={!availabilityInfo.isAvailable}
                   className={`p-2 rounded-lg transition-colors flex items-center justify-center ${
-                    inCart
+                    inCart && !isAdmin
                       ? "bg-green-600 text-white hover:bg-green-700"
                       : "bg-blue-600 text-white hover:bg-blue-700"
                   } disabled:bg-gray-300 disabled:cursor-not-allowed`}
                   title={
-                    inCart
+                    inCart && !isAdmin
                       ? t('cart.alreadyInCartAddMore')
                       : t('cart.addToCartHint')
                   }
                 >
-                  {inCart ? (
+                  {inCart && !isAdmin ? (
                     <Check className="h-5 w-5" />
                   ) : (
                     <ShoppingCart className="h-5 w-5" />

@@ -52,6 +52,9 @@ export default function AdminProductsPage() {
   }[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [deletingImageIds, setDeletingImageIds] = useState<number[]>([]);
+  // Preview URLs for newly selected files
+  const [singleImagePreview, setSingleImagePreview] = useState<string | null>(null);
+  const [multiImagePreviews, setMultiImagePreviews] = useState<string[]>([]);
   // Track current image index for mini carousel per product id
   const [imageIndexMap, setImageIndexMap] = useState<Record<number, number>>({});
   const confirm = useConfirm();
@@ -67,6 +70,16 @@ export default function AdminProductsPage() {
       };
     }
   }, [showModal]);
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (singleImagePreview) {
+        URL.revokeObjectURL(singleImagePreview);
+      }
+      multiImagePreviews.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [singleImagePreview, multiImagePreviews]);
 
   // Debounced search removed
 
@@ -231,6 +244,16 @@ export default function AdminProductsPage() {
       is_available: true,
     });
     setEditingProduct(null);
+    setSingleImageFile(null);
+    setMultiImageFiles(null);
+    setEditingImages([]);
+    // Clean up preview URLs
+    if (singleImagePreview) {
+      URL.revokeObjectURL(singleImagePreview);
+      setSingleImagePreview(null);
+    }
+    multiImagePreviews.forEach(url => URL.revokeObjectURL(url));
+    setMultiImagePreviews([]);
   };
 
   const openCreateModal = () => {
@@ -260,19 +283,25 @@ export default function AdminProductsPage() {
     setEditingImages([]);
     try {
       setLoadingImages(true);
+      console.log("Fetching images for slipper:", slipperId);
       interface ImageRecord { id: number; image_url: string; is_primary?: boolean; alt_text?: string }
       const resp = await modernApiClient.get(API_ENDPOINTS.SLIPPER_IMAGES(slipperId), undefined, { cache: false });
+      console.log("Images response:", resp);
       const data = ((resp as { data?: ImageRecord[] })?.data || resp) as ImageRecord[];
       if (Array.isArray(data)) {
+        console.log("Setting editing images:", data);
         setEditingImages(data.map(d => ({
           id: d.id,
           image_url: d.image_url,
           is_primary: d.is_primary,
           alt_text: d.alt_text
         })));
+      } else {
+        console.log("Data is not an array:", data);
       }
-    } catch {
-      // Failed to load images
+    } catch (error) {
+      console.error("Failed to load images:", error);
+      toast.error("Не удалось загрузить изображения товара");
     } finally {
       setLoadingImages(false);
     }
@@ -297,6 +326,23 @@ export default function AdminProductsPage() {
       toast.error("Ошибка удаления изображения");
     } finally {
       setDeletingImageIds(ids => ids.filter(id => id !== imageId));
+    }
+  };
+
+  const handleSetPrimaryImage = async (imageId: number) => {
+    if (!editingProduct) return;
+    try {
+      await modernApiClient.put(API_ENDPOINTS.SLIPPER_UPDATE_IMAGE(editingProduct.id, imageId), {
+        is_primary: true
+      });
+      // Update local state
+      setEditingImages(imgs => imgs.map(img => ({
+        ...img,
+        is_primary: img.id === imageId
+      })));
+      toast.success("Изображение установлено как основное");
+    } catch {
+      toast.error("Ошибка установки основного изображения");
     }
   };
 
@@ -483,6 +529,17 @@ export default function AdminProductsPage() {
       setSingleImageFile(null);
       setMultiImageFiles(null);
       setUploadProgress(null);
+      // Clean up preview URLs
+      if (singleImagePreview) {
+        URL.revokeObjectURL(singleImagePreview);
+        setSingleImagePreview(null);
+      }
+      multiImagePreviews.forEach(url => URL.revokeObjectURL(url));
+      setMultiImagePreviews([]);
+      // Refresh images after upload
+      if (editingProduct) {
+        fetchEditingImages(editingProduct.id);
+      }
     }
   };
 
@@ -1011,11 +1068,36 @@ export default function AdminProductsPage() {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => setSingleImageFile(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setSingleImageFile(file);
+                          // Create preview URL
+                          if (singleImagePreview) {
+                            URL.revokeObjectURL(singleImagePreview);
+                          }
+                          if (file) {
+                            setSingleImagePreview(URL.createObjectURL(file));
+                          } else {
+                            setSingleImagePreview(null);
+                          }
+                        }}
                         className="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:border-gray-300 file:text-xs file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                       />
                       {singleImageFile && (
-                        <p className="mt-1 text-xs text-gray-500 truncate">{singleImageFile.name}</p>
+                        <div className="mt-2 space-y-2">
+                          <p className="text-xs text-gray-500 truncate">{singleImageFile.name}</p>
+                          {singleImagePreview && (
+                            <div className="relative w-20 h-20 border rounded overflow-hidden bg-gray-50">
+                              <Image
+                                src={singleImagePreview}
+                                alt="Preview"
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1027,11 +1109,40 @@ export default function AdminProductsPage() {
                         type="file"
                         accept="image/*"
                         multiple
-                        onChange={(e) => setMultiImageFiles(e.target.files)}
+                        onChange={(e) => {
+                          const files = e.target.files;
+                          setMultiImageFiles(files);
+                          // Clean up old previews
+                          multiImagePreviews.forEach(url => URL.revokeObjectURL(url));
+                          // Create new preview URLs
+                          if (files && files.length > 0) {
+                            const previews = Array.from(files).map(file => URL.createObjectURL(file));
+                            setMultiImagePreviews(previews);
+                          } else {
+                            setMultiImagePreviews([]);
+                          }
+                        }}
                         className="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:border-gray-300 file:text-xs file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                       />
                       {multiImageFiles && multiImageFiles.length > 0 && (
-                        <p className="mt-1 text-xs text-gray-500">{t('admin.products.images.selectedFiles', { count: multiImageFiles.length.toString() })}</p>
+                        <div className="mt-2 space-y-2">
+                          <p className="text-xs text-gray-500">{t('admin.products.images.selectedFiles', { count: multiImageFiles.length.toString() })}</p>
+                          {multiImagePreviews.length > 0 && (
+                            <div className="grid grid-cols-4 gap-2">
+                              {multiImagePreviews.map((preview, index) => (
+                                <div key={index} className="relative w-full h-16 border rounded overflow-hidden bg-gray-50">
+                                  <Image
+                                    src={preview}
+                                    alt={`Preview ${index + 1}`}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1063,7 +1174,7 @@ export default function AdminProductsPage() {
                         {loadingImages && <span className="text-[10px] text-gray-500">{t('admin.products.images.loading')}</span>}
                       </div>
                       {!loadingImages && editingImages.length === 0 && (
-                        <div className="text-[11px] text-gray-500 border border-dashed rounded p-2">{t('admin.products.images.none')}</div>
+                        <div className="text-[11px] text-gray-z500 border border-dashed rounded p-2">{t('admin.products.images.none')}</div>
                       )}
                       {editingImages.length > 0 && (
                         <ul className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -1072,19 +1183,48 @@ export default function AdminProductsPage() {
                             const deleting = deletingImageIds.includes(img.id);
                             return (
                               <li key={img.id} className="relative group rounded border overflow-hidden bg-gray-50">
-                                <Image src={full} alt={img.alt_text || 'image'} width={150} height={150} className="object-cover w-full h-20" />
+                                <div className="relative w-full h-20">
+                                  <Image 
+                                    src={full} 
+                                    alt={img.alt_text || 'product image'} 
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                    onError={(e) => {
+                                      console.error("Image failed to load:", full);
+                                      const target = e.target as HTMLImageElement;
+                                      target.src = "/placeholder-product.svg";
+                                    }}
+                                    onLoad={() => {
+                                      console.log("Image loaded successfully:", full);
+                                    }}
+                                  />
+                                </div>
                                 {img.is_primary && (
                                   <span className="absolute top-1 left-1 bg-blue-600 text-white text-[9px] px-1 py-0.5 rounded">{t('admin.products.images.primaryBadge')}</span>
                                 )}
-                                <button
-                                  type="button"
-                                  aria-label={t('admin.products.images.removeImageAria')}
-                                  disabled={deleting}
-                                  onClick={() => handleDeleteExistingImage(img.id)}
-                                  className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition disabled:opacity-60"
-                                >
-                                  {deleting ? <span className="animate-pulse text-[10px]">…</span> : <Trash2 className="h-3 w-3" />}
-                                </button>
+                                <div className="absolute top-1 right-1 flex gap-1">
+                                  {!img.is_primary && (
+                                    <button
+                                      type="button"
+                                      aria-label="Сделать основным"
+                                      onClick={() => handleSetPrimaryImage(img.id)}
+                                      className="bg-green-500 hover:bg-green-600 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition"
+                                      title="Сделать основным изображением"
+                                    >
+                                      <span className="text-[10px]">★</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    aria-label={t('admin.products.images.removeImageAria')}
+                                    disabled={deleting}
+                                    onClick={() => handleDeleteExistingImage(img.id)}
+                                    className="bg-black/50 hover:bg-black/70 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition disabled:opacity-60"
+                                  >
+                                    {deleting ? <span className="animate-pulse text-[10px]">…</span> : <Trash2 className="h-3 w-3" />}
+                                  </button>
+                                </div>
                               </li>
                             );
                           })}

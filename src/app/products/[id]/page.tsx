@@ -10,23 +10,22 @@ import { Slipper } from "@/types";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatPrice, getFullImageUrl } from "@/lib/utils";
-import { ArrowLeft, ShoppingCart, Minus, Plus } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Check } from "lucide-react";
 import { ProductDetailSkeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { addToCart } = useCart();
+  const { addToCart, getCartItem } = useCart();
   const { user } = useAuth();
   const { t } = useI18n();
   const [product, setProduct] = useState<Slipper | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  // Quantity logic: minimum order 50, step 5
+  // Quantity logic: minimum order 50
   const MIN_ORDER = 50;
-  const STEP = 5;
-  const [quantity, setQuantity] = useState(MIN_ORDER);
+  const quantity = MIN_ORDER;
   const [imageError, setImageError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -34,6 +33,10 @@ export default function ProductDetailPage() {
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
 
   const productId = params.id as string;
+
+  // Check if product is in cart and get cart quantity
+  const cartItem = product ? getCartItem(product.id) : null;
+  const cartQuantity = cartItem?.quantity || 0;
 
   const fetchProduct = useCallback(async () => {
     try {
@@ -100,14 +103,6 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (productId) fetchProduct();
   }, [productId, fetchProduct]);
-  const handleQuantityChange = (deltaSteps: number) => {
-    if (!product) return;
-    const newQuantity = quantity + deltaSteps * STEP;
-    const max = product.quantity || 0;
-    if (newQuantity >= MIN_ORDER && newQuantity <= max) {
-      setQuantity(newQuantity);
-    }
-  };
 
   const handleAddToCart = () => {
     if (product) {
@@ -319,18 +314,23 @@ export default function ProductDetailPage() {
 
           {/* Product Details */}
           <div className="bg-white rounded-lg shadow-md p-6">
+            {/* Cart Status Indicator */}
+            {cartItem && (
+              <div className="flex items-center justify-between mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                <div className="flex items-center space-x-2">
+                  <Check className="h-5 w-5 text-green-600" />
+                  <span className="text-green-800 font-medium">
+                    {t('cart.inCart')}: {cartQuantity}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
               {product.name}
             </h1>
 
             <div className="space-y-4 mb-6">
-              <div className="flex items-center justify-between">
-                <span className="text-lg text-gray-600">{t('product.size')}:</span>
-                <span className="text-lg font-medium text-gray-900">
-                  {product.size}
-                </span>
-              </div>
-
               <div className="flex items-center justify-between">
                 <span className="text-lg text-gray-600">{t('product.price')}:</span>
                 <span className="text-2xl font-bold text-blue-600">
@@ -366,33 +366,32 @@ export default function ProductDetailPage() {
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <span className="text-lg text-gray-600">{t('product.quantityLabel')}:</span>
-                  <div className="flex items-center border border-gray-300 rounded-md">
-                    <button
-                      onClick={() => handleQuantityChange(-1)}
-                      disabled={quantity <= MIN_ORDER}
-                      className="p-2 hover:bg-gray-100 disabled:opacity-50 text-gray-700"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <span className="px-4 py-2 font-medium text-gray-900 bg-gray-50">
+                  <div className="border border-gray-300 rounded-md">
+                    <span className="px-4 py-2 font-medium text-gray-900 bg-gray-50 block">
                       {quantity}
                     </span>
-                    <button
-                      onClick={() => handleQuantityChange(1)}
-                      disabled={quantity + STEP > product.quantity}
-                      className="p-2 hover:bg-gray-100 disabled:opacity-50 text-gray-700"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
                   </div>
                 </div>
 
                 <button
                   onClick={handleAddToCart}
-                  className="w-full bg-blue-500 text-white py-3 px-6 rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm"
+                  className={`w-full py-3 px-6 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm ${
+                    cartItem 
+                      ? 'bg-green-500 hover:bg-green-600 text-white' 
+                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
                 >
-                  <ShoppingCart className="h-5 w-5" />
-                  <span>{t('product.addToCart')}</span>
+                  {cartItem ? (
+                    <>
+                      <Check className="h-5 w-5" />
+                      <span>{t('product.addToCart')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="h-5 w-5" />
+                      <span>{t('product.addToCart')}</span>
+                    </>
+                  )}
                 </button>
               </div>
             )}
