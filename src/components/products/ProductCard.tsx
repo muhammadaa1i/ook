@@ -7,7 +7,6 @@ import { formatPrice, getFullImageUrl } from "@/lib/utils";
 import { ShoppingCart, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
-import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
 
 
@@ -96,10 +95,13 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
     }, []);
 
     const handleAddToCart = useCallback(() => {
-      // Always add min 50 or step of 5
-      addToCart(slipper, 50);
-      if (onAddToCart) onAddToCart(slipper);
-      toast.success(`${slipper.name} +50`);
+      if (onAddToCart) {
+        // Use the callback provided by parent component
+        onAddToCart(slipper);
+      } else {
+        // Fallback to direct cart context usage
+        addToCart(slipper, 50);
+      }
     }, [addToCart, onAddToCart, slipper]);
 
     const handleViewDetails = useCallback(() => {

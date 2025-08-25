@@ -144,7 +144,7 @@ export default function CartPage() {
             <div className="bg-white rounded-lg shadow-sm">
               {items.map((item, index) => (
                 <div
-                  key={`${item.id}-${item.size}-${item.color}`}
+                  key={`${item.id}-${item.size || 'no-size'}-${item.color || 'no-color'}-${index}`}
                   className={`p-6 ${
                     index !== items.length - 1 ? "border-b border-gray-200" : ""
                   }`}

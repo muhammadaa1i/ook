@@ -182,9 +182,9 @@ export default {
     rights: 'Barcha huquqlar himoyalangan.'
   },
   home: {
-    heroLine1: 'Qulaylik',
-    heroLine2: 'oyoqlaringiz uchun',
-    heroSubtitle: 'Mukammal qulaylik va uslub uchun yaratilgan premium tapochkalar to‘plamini kashf qiling',
+    heroLine1: 'Oyoqlaringiz uchun',
+    heroLine2: 'Qulaylik',
+    heroSubtitle: 'Mukammal qulaylik va uslub uchun yaratilgan oyoq kiyimlar to‘plamini kashf qiling',
     heroSubtitleAlt: 'Sifatli va zamonaviy tapochkalar to‘plamini kashf qiling',
     viewCatalog: 'Katalogni ko‘rish',
     myOrders: 'Buyurtmalarim',

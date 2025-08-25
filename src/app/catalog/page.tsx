@@ -430,7 +430,7 @@ function CatalogContent() {
                   key={product.id}
                   slipper={product}
                   onViewDetails={handleViewProduct}
-                  onAddToCart={(slipper) => addToCart(slipper, 1)}
+                  onAddToCart={(slipper) => addToCart(slipper, 50)}
                 />
               ))}
             </div>
