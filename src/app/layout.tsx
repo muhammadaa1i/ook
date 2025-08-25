@@ -9,6 +9,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
 import { I18nProvider } from "@/i18n";
+import GlobalSWRConfig from "@/lib/swrConfig";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col bg-white text-gray-900`}
       >
         <I18nProvider>
+          <GlobalSWRConfig>
           <AuthProvider>
           <ConfirmDialogProvider>
             <CartProvider>
@@ -58,6 +60,7 @@ export default function RootLayout({
             />
           </ConfirmDialogProvider>
         </AuthProvider>
+          </GlobalSWRConfig>
         </I18nProvider>
       </body>
     </html>

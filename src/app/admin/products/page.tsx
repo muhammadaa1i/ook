@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -11,14 +11,14 @@ import { Slipper, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import { ChevronLeft, ChevronRight, Edit, Trash2, Plus, Package, X, ImagePlus, Images } from "lucide-react";
-import { formatPrice, getFullImageUrl } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, Plus, X, ImagePlus, Images, Package, Trash2 } from "lucide-react";
+import ProductRow from "@/components/admin/products/ProductRow";
+import { getFullImageUrl } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
 export default function AdminProductsPage() {
   const { t } = useI18n();
   const [products, setProducts] = useState<Slipper[]>([]);
-  const [pendingDeletions, setPendingDeletions] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({
     total: 0,
@@ -83,7 +83,7 @@ export default function AdminProductsPage() {
 
   // Debounced search removed
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (bypassCache = false) => {
     try {
       setIsLoading(true);
       const params = {
@@ -94,7 +94,7 @@ export default function AdminProductsPage() {
       const response = await modernApiClient.get(
         API_ENDPOINTS.SLIPPERS,
         params,
-        { cache: false } // always fetch fresh to avoid stale rows after mutations
+        { cache: !bypassCache, force: bypassCache } // Force fresh data when needed
       );
 
       // modernApiClient returns direct data, not axios-wrapped response
@@ -108,20 +108,9 @@ export default function AdminProductsPage() {
           (data as { items?: Slipper[]; data?: Slipper[] })?.data ||
           [];
 
-  let list: Slipper[] = Array.isArray(productsData) ? (productsData as Slipper[]) : [];
-      // Filter out any items pending deletion to keep UI consistent even if backend hasn't finished yet
-      if (pendingDeletions.size) {
-  list = list.filter((p: Slipper) => !pendingDeletions.has(p.id));
-        // Clean up pending deletions that no longer exist in backend response
-        const stillPending = new Set<number>();
-        pendingDeletions.forEach((id) => {
-          if (list.find((p: Slipper) => p.id === id)) stillPending.add(id);
-        });
-        if (stillPending.size !== pendingDeletions.size) {
-          setPendingDeletions(stillPending);
-        }
-      }
-      setProducts(list as Slipper[]);
+          const list: Slipper[] = Array.isArray(productsData) ? (productsData as Slipper[]) : [];
+          
+          setProducts(list as Slipper[]);
       const responseData = response as {
         data?: { total?: number; pages?: number; total_pages?: number };
       };
@@ -141,16 +130,34 @@ export default function AdminProductsPage() {
           ),
       });
   } catch {
-  toast.error(t('admin.products.toasts.loadError'));
+  toast.error(t('admin.products.toasts.loadError'), { autoClose: 2000 });
       setProducts([]);
     } finally {
       setIsLoading(false);
     }
-  }, [filters, pendingDeletions, t]);
+  }, [filters, t]);
+
+  // Force complete refresh of product data
+  const forceRefreshProducts = useCallback(async () => {
+    console.log("Forcing complete product refresh...");
+    
+    // Clear all related cache entries to ensure all pages get fresh data
+    modernApiClient.clearCache("/slippers"); // Clears all cache entries that contain "/slippers"
+    modernApiClient.clearCache("/slipper"); // Individual product cache
+    modernApiClient.clearCache("/images"); // Image cache
+    
+    // Wait for any pending operations
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Force fetch with cache bypass
+    await fetchProducts(true);
+    
+    console.log("Product refresh completed");
+  }, [fetchProducts]);
 
 
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(false); // Use cache for initial load
   }, [fetchProducts]);
 
     // Category fetching removed
@@ -178,10 +185,19 @@ export default function AdminProductsPage() {
       variant: "danger",
     });
     if (!ok) return;
+    
+    // Store original product data for potential restoration
+    const originalProduct = products.find(p => p.id === productId);
+    const originalIndex = products.findIndex(p => p.id === productId);
+    
     try {
-  // mark deleting (state removed)
+      // Immediately remove from UI for instant feedback
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+      
       // Capture current count for page adjustment logic
       const currentCount = products.length;
+      
       try {
         await modernApiClient.delete(API_ENDPOINTS.SLIPPER_BY_ID(productId));
       } catch (err) {
@@ -194,46 +210,47 @@ export default function AdminProductsPage() {
           throw err;
         }
       }
-  toast.success(t('admin.products.toasts.deleteSuccess'));
-  // Optimistically remove from UI
-  setPendingDeletions((prev) => new Set(prev).add(productId));
-  setProducts((prev) => prev.filter((p) => p.id !== productId));
-      setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+      
+      toast.success(t('admin.products.toasts.deleteSuccess'), { autoClose: 2000 });
+      
+      // Clear cache to ensure consistency across all pages and parameters
+      modernApiClient.clearCache("/slippers"); // Clears all cache entries that contain "/slippers"
+      modernApiClient.clearCache("/slipper"); // Individual product cache  
+      
       // Adjust page if last item removed
       if (currentCount === 1 && pagination.page > 1) {
         handlePageChange(pagination.page - 1);
       }
-      // Clear cache and trigger background refresh
-      modernApiClient.clearCache("/slippers");
-      // Delay background refresh slightly to allow backend to finalize deletion
-  // background refresh trigger removed
-  } catch (error) {
-  const status = (error as { status?: number })?.status;
-    if (status === 404) {
-  toast.warn(t('admin.products.toasts.deleteAlreadyRemoved'));
-        // Remove optimistically if still present
-        setPendingDeletions((prev) => new Set(prev).add(productId));
-        setProducts((prev) => prev.filter((p) => p.id !== productId));
-        modernApiClient.clearCache("/slippers");
-  // background refresh trigger removed
+      
+    } catch (error) {
+      const status = (error as { status?: number })?.status;
+      if (status === 404) {
+        toast.warn(t('admin.products.toasts.deleteAlreadyRemoved'), { autoClose: 2000 });
+        // Keep the product removed from UI since it's already gone from backend
+        modernApiClient.clearCache("/slippers"); // Clears all cache entries that contain "/slippers"
+        modernApiClient.clearCache("/slipper"); // Individual product cache
       } else {
-  toast.error(t('admin.products.toasts.deleteError'));
-        // If error other than 404, rollback optimistic removal
-        setProducts((prev) => {
-          // If product already removed, we can't restore its full data unless cached earlier; skip rollback
-          return prev;
-        });
-        setPendingDeletions((prev) => {
-          const clone = new Set(prev);
-          clone.delete(productId);
-          return clone;
-        });
+        toast.error(t('admin.products.toasts.deleteError'), { autoClose: 2000 });
+        // Restore the product in UI if delete failed
+        if (originalProduct) {
+          setProducts(prev => {
+            const newList = [...prev];
+            // Restore to original position
+            if (originalIndex !== -1 && originalIndex < newList.length) {
+              newList.splice(originalIndex, 0, originalProduct);
+            } else {
+              newList.unshift(originalProduct); // Add to beginning if position unknown
+            }
+            return newList;
+          });
+          setPagination(prev => ({ ...prev, total: prev.total + 1 }));
+        } else {
+          // If we don't have the product data locally, refresh from server
+          fetchProducts(true).catch(console.error);
+        }
       }
     }
-    finally {
-  // clear deleting marker
-    }
-  }, [confirm, pagination.page, handlePageChange, products, t]);
+  }, [confirm, pagination.page, handlePageChange, products, t, fetchProducts]);
 
   const resetForm = () => {
     setFormData({
@@ -274,9 +291,34 @@ export default function AdminProductsPage() {
     setShowModal(true);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    resetForm();
+  // Prevent stacked refresh loops; optional flag to skip forced fetch
+  const refreshLockRef = useRef(false);
+
+  const closeModal = (skipRefresh: boolean = false) => {
+    try {
+      setShowModal(false);
+      resetForm();
+      
+      if (!skipRefresh) {
+        modernApiClient.clearCache("/slippers");
+        // Debounce / lock to avoid loops if multiple closeModal calls happen rapidly
+        if (!refreshLockRef.current) {
+          refreshLockRef.current = true;
+          setTimeout(() => {
+            fetchProducts(true).catch((error) => {
+              console.error("Error refreshing products after modal close:", error);
+            }).finally(() => {
+              // release lock after a short delay
+              setTimeout(() => { refreshLockRef.current = false; }, 300);
+            });
+          }, 80);
+        }
+      }
+    } catch (error) {
+      console.error("Error in closeModal:", error);
+      // Ensure modal still closes even if there's an error
+      setShowModal(false);
+    }
   };
 
   const fetchEditingImages = async (slipperId: number) => {
@@ -284,6 +326,10 @@ export default function AdminProductsPage() {
     try {
       setLoadingImages(true);
       console.log("Fetching images for slipper:", slipperId);
+      
+      // Clear cache first for fresh data
+      modernApiClient.clearCache(API_ENDPOINTS.SLIPPER_IMAGES(slipperId));
+      
       interface ImageRecord { id: number; image_url: string; is_primary?: boolean; alt_text?: string }
       const resp = await modernApiClient.get(API_ENDPOINTS.SLIPPER_IMAGES(slipperId), undefined, { cache: false });
       console.log("Images response:", resp);
@@ -301,7 +347,7 @@ export default function AdminProductsPage() {
       }
     } catch (error) {
       console.error("Failed to load images:", error);
-      toast.error("Не удалось загрузить изображения товара");
+      toast.error("Не удалось загрузить изображения товара", { autoClose: 2000 });
     } finally {
       setLoadingImages(false);
     }
@@ -321,9 +367,23 @@ export default function AdminProductsPage() {
       setDeletingImageIds(ids => [...ids, imageId]);
       await modernApiClient.delete(API_ENDPOINTS.SLIPPER_DELETE_IMAGE(editingProduct.id, imageId));
       setEditingImages(imgs => imgs.filter(i => i.id !== imageId));
-      toast.success("Изображение удалено");
+      toast.success("Изображение удалено", { autoClose: 2000 });
+      
+      // Immediately update the products list to reflect the change
+      modernApiClient.clearCache("/slippers");
+      setProducts(currentProducts => 
+        currentProducts.map(product => {
+          if (product.id === editingProduct.id && product.images) {
+            return {
+              ...product,
+              images: product.images.filter(img => img.id !== imageId)
+            };
+          }
+          return product;
+        })
+      );
   } catch {
-      toast.error("Ошибка удаления изображения");
+      toast.error("Ошибка удаления изображения", { autoClose: 2000 });
     } finally {
       setDeletingImageIds(ids => ids.filter(id => id !== imageId));
     }
@@ -340,15 +400,34 @@ export default function AdminProductsPage() {
         ...img,
         is_primary: img.id === imageId
       })));
-      toast.success("Изображение установлено как основное");
+      toast.success("Изображение установлено как основное", { autoClose: 2000 });
+      
+      // Immediately update the products list to reflect the change
+      modernApiClient.clearCache("/slippers");
+      setProducts(currentProducts => 
+        currentProducts.map(product => {
+          if (product.id === editingProduct.id && product.images) {
+            return {
+              ...product,
+              images: product.images.map(img => ({
+                ...img,
+                is_primary: img.id === imageId
+              }))
+            };
+          }
+          return product;
+        })
+      );
     } catch {
-      toast.error("Ошибка установки основного изображения");
+      toast.error("Ошибка установки основного изображения", { autoClose: 2000 });
     }
   };
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
+      
+      // Fast validation
       const payload = {
         name: formData.name.trim(),
         size: formData.size.trim(),
@@ -358,18 +437,19 @@ export default function AdminProductsPage() {
       };
 
       if (!payload.name || !payload.price) {
-  toast.error(t('admin.products.toasts.saveError'));
+        console.warn('Product validation failed: missing name or price');
+        setIsSaving(false);
         return;
       }
 
   let productId = editingProduct?.id;
-      if (editingProduct) {
+  if (editingProduct) {
         await modernApiClient.put(
           API_ENDPOINTS.SLIPPER_BY_ID(editingProduct.id),
           payload
         );
         productId = editingProduct.id;
-  toast.success(t('admin.products.toasts.updateSuccess'));
+  toast.success(t('admin.products.toasts.updateSuccess'), { autoClose: 2000 });
         // Update in-place optimistically
   setProducts((prev) => prev.map((p) => (p.id === productId ? ({ ...p, ...payload } as Slipper) : p)));
       } else {
@@ -382,169 +462,605 @@ export default function AdminProductsPage() {
   const cObj = created as CreatedWrap | Slipper;
   const createdData = ((cObj as CreatedWrap).data || (cObj as Slipper)) as Slipper;
         productId = createdData.id;
-  toast.success(t('admin.products.toasts.createSuccess'));
-        // Prepend new product locally (basic shape)
+        // Prepend new product locally (basic shape) - no toast needed
         if (productId) {
-          const newItem: Slipper = { ...createdData, ...payload, id: productId } as Slipper;
+          const newItem: Slipper = { 
+            ...createdData, 
+            ...payload, 
+            id: productId,
+            images: [], // Will be updated when images upload
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          } as Slipper;
+          
+          // Immediately add product to state for instant visibility
           setProducts((prev) => [newItem, ...prev]);
+          
+          // Update pagination immediately
+          setPagination((prev) => ({ ...prev, total: prev.total + 1 }));
+          
+          // Simple immediate product list update - no setTimeout chains
+          setProducts((prev) => {
+            const filtered = prev.filter(p => p.id !== productId);
+            return [newItem, ...filtered];
+          });
         }
-        // Update totals & ensure we are on first page to see new product
-        setPagination((prev) => ({ ...prev, total: prev.total + 1 }));
+        
+        // Ensure we are on first page to see new product
         if (pagination.page !== 1) {
           handlePageChange(1);
         }
+        // Do NOT immediately clear + refetch here; defer to controlled refresh after modal close / uploads
+        modernApiClient.clearCache("/slippers");
       }
 
-      // If images picked during create or edit, upload them sequentially
+      // If images picked during create or edit, handle them optimally
       if (productId && (singleImageFile || (multiImageFiles && multiImageFiles.length))) {
-        await handleImageUploads(productId);
+        if (editingProduct) {
+          await handleImageUploads(productId); // sync for edit
+          closeModal();
+        } else {
+          // New product: close modal without triggering immediate fetch (skipRefresh)
+            closeModal(true);
+          setIsSaving(false);
+          // Background upload; perform ONE controlled refresh at the end
+          handleImageUploads(productId)
+            .catch((err) => console.error("Background image upload failed:", err))
+            .finally(() => {
+              modernApiClient.clearCache("/slippers");
+              // Single refresh guarded by lock
+              if (!refreshLockRef.current) {
+                refreshLockRef.current = true;
+                fetchProducts(true).finally(() => setTimeout(() => { refreshLockRef.current = false; }, 300));
+              }
+            });
+          return;
+        }
+      } else {
+        modernApiClient.clearCache("/slippers");
+        if (!editingProduct && productId && pagination.page !== 1) {
+          handlePageChange(1);
+        }
+        closeModal(true); // skip duplicate fetch; we already updated state
+        // Trigger a single fetch (debounced by lock)
+        if (!refreshLockRef.current) {
+          refreshLockRef.current = true;
+          fetchProducts(true).finally(() => setTimeout(() => { refreshLockRef.current = false; }, 300));
+        }
+        return;
       }
-  modernApiClient.clearCache("/slippers");
-  // trigger background refetch removed
-      closeModal();
     } catch (e) {
-      const msg = (e as Error)?.message || t('admin.products.toasts.saveError');
-      toast.error(msg);
+      console.error('Product save failed:', e);
+      // Don't show error toast to admin - just log it
+      closeModal(true);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleToggleAvailable = async (product: Slipper) => {
+    // Immediately update UI for instant feedback
+    const newAvailability = !product.is_available;
+    setProducts(prev => prev.map(p => 
+      p.id === product.id 
+        ? { ...p, is_available: newAvailability }
+        : p
+    ));
+
     try {
       await modernApiClient.put(API_ENDPOINTS.SLIPPER_BY_ID(product.id), {
         ...product,
-        is_available: !product.is_available,
+        is_available: newAvailability,
       });
-  toast.success(t('admin.products.toasts.statusUpdateSuccess'));
-  // Optimistic toggle
-  setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, is_available: !product.is_available } : p));
-  modernApiClient.clearCache("/slippers");
-  // trigger background refetch removed
-  } catch {
-      toast.error(t('admin.products.toasts.statusUpdateError'));
+      toast.success(t('admin.products.toasts.statusUpdateSuccess'), { autoClose: 2000 });
+      modernApiClient.clearCache("/slippers");
+    } catch {
+      // Revert the change if API call failed
+      setProducts(prev => prev.map(p => 
+        p.id === product.id 
+          ? { ...p, is_available: product.is_available }
+          : p
+      ));
+      toast.error(t('admin.products.toasts.statusUpdateError'), { autoClose: 2000 });
     }
+  };
+
+  // Helper function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data:image/jpeg;base64, part
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
   };
 
   const handleImageUploads = async (id: number) => {
     try {
       setUploading(true);
       setUploadProgress(null);
-      // Adaptive single image upload
+      let uploadSuccess = false;
+      
+      // Check file sizes and formats first
+      const MAX_ORIGINAL_SIZE = 10 * 1024 * 1024; // 10MB max original size
+      
+      // Supported image formats (very comprehensive list)
+      const SUPPORTED_FORMATS = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+        'image/bmp', 'image/tiff', 'image/tif', 'image/svg+xml', 'image/avif',
+        'image/heic', 'image/heif', 'image/ico', 'image/x-icon'
+      ];
+      
+      const validateImageFile = (file: File, index?: number): boolean => {
+        const fileLabel = index !== undefined ? `Image ${index + 1}` : 'Image';
+        
+        // Check file size
+        if (file.size > MAX_ORIGINAL_SIZE) {
+          console.warn(`${fileLabel} is too large (${Math.round(file.size / 1024 / 1024)}MB). Skipping this file.`);
+          // Don't show toast error to admin - just log and skip
+          return false;
+        }
+        
+        // Check file format - be very permissive
+        if (!SUPPORTED_FORMATS.includes(file.type.toLowerCase()) && !file.type.startsWith('image/')) {
+          console.warn(`${fileLabel} has unsupported format: ${file.type}. Attempting upload anyway...`);
+          // Don't block upload, just warn - let the backend decide
+        }
+        
+        return true;
+      };
+      
+      if (singleImageFile && !validateImageFile(singleImageFile)) {
+        return;
+      }
+      
+      if (multiImageFiles) {
+        for (let i = 0; i < multiImageFiles.length; i++) {
+          if (!validateImageFile(multiImageFiles[i], i)) {
+            return;
+          }
+        }
+      }
+      
+      // Adaptive single image upload with aggressive compression for large files
       if (singleImageFile) {
-  const singleFieldCandidates = ["image", "file", "photo", "image_file"]; // broaden accepted field names
-        let singleSuccess = false;
-  let lastError: Error | null = null;
-        for (const field of singleFieldCandidates) {
-          const fd = new FormData();
-            fd.append(field, singleImageFile);
+        console.log(`Attempting to upload single image for product ${id}:`, {
+          fileName: singleImageFile.name,
+          fileSize: singleImageFile.size,
+          fileType: singleImageFile.type
+        });
+        
+        // Compress image more aggressively if it's large
+        const TARGET_SIZE = 500 * 1024; // 500KB target
+        let processedFile = singleImageFile;
+        
+        if (singleImageFile.size > TARGET_SIZE) {
+          console.log(`File is large (${Math.round(singleImageFile.size / 1024)}KB), compressing...`);
           try {
+            processedFile = await prepareImageForUpload(singleImageFile, 0.6, 1200); // More aggressive compression
+            console.log(`Compressed from ${Math.round(singleImageFile.size / 1024)}KB to ${Math.round(processedFile.size / 1024)}KB`);
+          } catch (compressionError) {
+            console.error('Compression failed:', compressionError);
+            toast.error('Failed to compress image. Please try a smaller image.', { autoClose: 2000 });
+            return;
+          }
+        }
+        
+        const singleFieldCandidates = [
+          "file",        // Most common
+          "image",       // Standard 
+          "upload",      // Generic
+          "media",       // Media upload
+          "attachment",  // Attachment style
+          "photo",       // Photo specific
+          "image_file",  // Underscored
+          "picture",     // Alternative
+          "data"         // Generic data
+        ]; // broaden accepted field names
+        
+        let singleSuccess = false;
+        let lastError: Error | null = null;
+        
+        for (const field of singleFieldCandidates) {
+          // Try with just the file first
+          let fd = new FormData();
+          fd.append(field, processedFile);
+          
+          // Debug: log what we're actually sending
+          console.log(`Creating FormData with:`, {
+            fieldName: field,
+            fileName: processedFile.name,
+            fileSize: processedFile.size,
+            fileType: processedFile.type,
+            lastModified: processedFile.lastModified
+          });
+          
+          try {
+            console.log(`Trying field name: "${field}" for single image upload (${Math.round(processedFile.size / 1024)}KB)`);
             await uploadWithStrategies(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id), fd, t('admin.products.images.single'));
-            toast.success(t('admin.products.images.uploadSingleSuccess', { field }));
+            console.log(`Successfully uploaded with field name: "${field}"`);
             singleSuccess = true;
+            uploadSuccess = true;
             break;
           } catch (err) {
+            console.log(`Failed with field name "${field}":`, err);
+            const errorMsg = (err as Error).message;
+            
+            // If it's a parsing error, try converting to base64 approach
+            if (errorMsg.includes('parsing the body') || errorMsg.includes('parsing') || errorMsg.includes('process the image')) {
+              console.log(`Parsing error with "${field}", trying base64 approach...`);
+              try {
+                // Convert file to base64 and send as JSON
+                const base64 = await fileToBase64(processedFile);
+                const jsonData = {
+                  [field]: base64,
+                  filename: processedFile.name,
+                  content_type: processedFile.type,
+                  size: processedFile.size
+                };
+                
+                await modernApiClient.post(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id), jsonData);
+                console.log(`Successfully uploaded with base64 using field: "${field}"`);
+                singleSuccess = true;
+                uploadSuccess = true;
+                break;
+              } catch (base64Err) {
+                console.error(`Base64 approach also failed for "${field}":`, base64Err);
+              }
+              
+              // Try with minimal FormData and different Content-Type handling
+              try {
+                console.log(`Trying with custom headers for "${field}"...`);
+                fd = new FormData();
+                fd.append(field, processedFile, processedFile.name);
+                
+                // Try direct fetch with different approach
+                const response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id))}`, {
+                  method: 'POST',
+                  body: fd
+                  // Let browser set Content-Type automatically
+                });
+                
+                if (response.ok) {
+                  console.log(`Successfully uploaded with direct fetch using field: "${field}"`);
+                  singleSuccess = true;
+                  uploadSuccess = true;
+                  break;
+                } else {
+                  const errorText = await response.text();
+                  console.error(`Direct fetch failed: ${response.status} - ${errorText}`);
+                }
+              } catch (directErr) {
+                console.error(`Direct fetch approach also failed for "${field}":`, directErr);
+              }
+            }
+            
+            console.error(`Field "${field}" failed:`, errorMsg);
+            
+            // If still getting 413, try even more aggressive compression
+            if (errorMsg.includes('413') || errorMsg.includes('Payload Too Large')) {
+              console.log('Got 413 error, trying more aggressive compression...');
+              try {
+                const superCompressed = await prepareImageForUpload(singleImageFile, 0.4, 800);
+                console.log(`Super compressed to ${Math.round(superCompressed.size / 1024)}KB`);
+                
+                const fd2 = new FormData();
+                fd2.append(field, superCompressed);
+                await uploadWithStrategies(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id), fd2, t('admin.products.images.single'));
+                console.log(`Successfully uploaded with super compression using field: "${field}"`);
+                singleSuccess = true;
+                uploadSuccess = true;
+                break;
+              } catch (superCompressionError) {
+                console.error('Super compression also failed:', superCompressionError);
+              }
+            }
+            
+            // Show detailed error for the first field attempt to help debugging
+            if (field === singleFieldCandidates[0]) {
+              console.warn(`Upload failed with primary field "${field}": ${errorMsg}`);
+              // Don't show toast errors to admin - just log them
+            }
+            
             lastError = err as Error;
           }
         }
-        if (!singleSuccess && lastError) throw lastError;
+        if (!singleSuccess && lastError) {
+          console.error('All single image upload attempts failed:', lastError);
+          // Don't throw error - just log it. Product creation should not fail because of image upload.
+          console.warn('Image upload failed but continuing with product creation/update.');
+        }
       }
-      // Multiple images: pre-compress all, then upload with limited concurrency (faster than strict sequence)
+      // Multiple images: Try bulk upload first, fallback to individual uploads if needed
       if (multiImageFiles && multiImageFiles.length) {
         const originals = Array.from(multiImageFiles);
         const total = originals.length;
         setUploadProgress({ current: 0, total });
 
-        // Pre-compress in parallel (promise all) with moderate quality to reduce payload & speed uploads
+        // Pre-compress all files in parallel
         const compressed: File[] = await Promise.all(
-          originals.map((f) => prepareImageForUpload(f, 0.7, 1280))
+          originals.map((f) => prepareImageForUpload(f, 0.5, 1000))
         );
 
-        // Upload pool with limited concurrency to avoid server overload / 413 spikes
-        const CONCURRENCY = 2; // safe middle-ground
-  // removed inFlight variable (was unused)
-        let index = 0;
-        let completed = 0;
-  let lastError: Error | null = null;
-
-  const fieldCandidates = ["image", "file", "photo", "files", "images"]; // include plural forms for backend flexibility
-
-        const next = async (): Promise<void> => {
-          const i = index++;
-          if (i >= compressed.length) return;
-          const original = originals[i];
-          let file = compressed[i];
-          let uploaded = false;
-          let attemptErr: Error | null = null;
-          for (const field of fieldCandidates) {
+        console.log(`Attempting bulk upload of ${compressed.length} images for product ${id}`);
+        
+        // Try bulk upload first (all images in one request to /upload-images endpoint)
+        const bulkFieldCandidates = ["images", "files", "photos", "uploads", "media"];
+        let bulkSuccess = false;
+        
+        for (const field of bulkFieldCandidates) {
+          try {
             const fd = new FormData();
-            fd.append(field, file);
-            try {
-              await uploadWithStrategies(
-                API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id),
-                fd,
-                `${t('admin.products.images.single')} ${i + 1}`
-              );
-              uploaded = true;
-              break;
-            } catch (e) {
-              // If 413 try harder compression one time
-              if ((e as Error).message && (e as Error).message.includes("413")) {
-                try {
-                  // Aggressive recompress attempt (lower quality & dimension)
-                  file = await prepareImageForUpload(original, 0.55, 1300);
-                  const fd2 = new FormData();
-                  fd2.append(field, file);
-                  await uploadWithStrategies(
-                    API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id),
-                    fd2,
-                    `${t('admin.products.images.single')} ${i + 1}`
-                  );
-                  uploaded = true;
-                  break;
-              } catch {
-                }
+            
+            // Add all files with the same field name (backend expects array)
+            compressed.forEach((file) => {
+              fd.append(field, file);
+            });
+            
+            console.log(`Trying bulk upload with field name: "${field}" (${compressed.length} files)`);
+            await uploadWithStrategies(
+              API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id), // Use the multiple images endpoint
+              fd,
+              `${t('admin.products.images.multiple')} (${compressed.length} files)`
+            );
+            
+            console.log(`Successfully uploaded ${compressed.length} images with bulk field: "${field}"`);
+            bulkSuccess = true;
+            uploadSuccess = true;
+            setUploadProgress({ current: compressed.length, total });
+            break;
+            
+          } catch (err) {
+            console.log(`Bulk upload failed with field "${field}":`, err);
+            
+            // If it's a parsing error, try adding metadata
+            const errorMsg = (err as Error).message;
+            if (errorMsg.includes('parsing the body') || errorMsg.includes('parsing')) {
+              console.log(`Parsing error with "${field}", trying bulk upload with metadata...`);
+              try {
+                const fd = new FormData();
+                compressed.forEach((file, index) => {
+                  fd.append(field, file);
+                  // Add metadata for each file
+                  fd.append(`is_primary_${index}`, index === 0 ? 'true' : 'false');
+                  fd.append(`alt_text_${index}`, file.name.replace(/\.[^/.]+$/, ""));
+                });
+                
+                await uploadWithStrategies(
+                  API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id),
+                  fd,
+                  `${t('admin.products.images.multiple')} (${compressed.length} files with metadata)`
+                );
+                console.log(`Successfully uploaded ${compressed.length} images with metadata using field: "${field}"`);
+                bulkSuccess = true;
+                uploadSuccess = true;
+                setUploadProgress({ current: compressed.length, total });
+                break;
+              } catch (metadataErr) {
+                console.error(`Metadata approach also failed for bulk field "${field}":`, metadataErr);
               }
-              attemptErr = e as Error;
             }
           }
-          if (!uploaded) {
-            lastError = attemptErr;
-          }
-          completed++;
-          setUploadProgress({ current: completed, total });
-          if (index < compressed.length) await next();
-        };
+        }
+        
+        // If bulk upload failed, fallback to individual uploads using single image endpoint
+        if (!bulkSuccess) {
+          console.log("Bulk upload failed, falling back to individual uploads...");
+          
+          const CONCURRENCY = 2;
+          let index = 0;
+          let completed = 0;
+          let lastError: Error | null = null;
+          const individualFieldCandidates = ["image", "file", "photo", "upload", "media"];
 
-        const starters = Array.from({ length: Math.min(CONCURRENCY, compressed.length) }, () => next());
-        await Promise.all(starters);
-  if (lastError) throw lastError;
-  toast.success(t('admin.products.images.uploadAllSuccess'));
+          const next = async (): Promise<void> => {
+            const i = index++;
+            if (i >= compressed.length) return;
+            const original = originals[i];
+            let file = compressed[i];
+            let uploaded = false;
+            let attemptErr: Error | null = null;
+            
+            for (const field of individualFieldCandidates) {
+              const fd = new FormData();
+              fd.append(field, file);
+              try {
+                await uploadWithStrategies(
+                  API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id), // Use single image endpoint for individual uploads
+                  fd,
+                  `${t('admin.products.images.single')} ${i + 1}`
+                );
+                uploaded = true;
+                uploadSuccess = true;
+                break;
+              } catch (e) {
+                // If 413 try harder compression one time
+                if ((e as Error).message && ((e as Error).message.includes("413") || (e as Error).message.includes("Payload Too Large"))) {
+                  console.log(`Got 413 for image ${i + 1}, trying super compression...`);
+                  try {
+                    file = await prepareImageForUpload(original, 0.3, 800);
+                    console.log(`Super compressed image ${i + 1} to ${Math.round(file.size / 1024)}KB`);
+                    const fd2 = new FormData();
+                    fd2.append(field, file);
+                    await uploadWithStrategies(
+                      API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id),
+                      fd2,
+                      `${t('admin.products.images.single')} ${i + 1}`
+                    );
+                    uploaded = true;
+                    uploadSuccess = true;
+                    break;
+                  } catch (superErr) {
+                    console.error(`Super compression failed for image ${i + 1}:`, superErr);
+                  }
+                }
+                attemptErr = e as Error;
+              }
+            }
+            if (!uploaded) {
+              lastError = attemptErr;
+            }
+            completed++;
+            setUploadProgress({ current: completed, total });
+            if (index < compressed.length) await next();
+          };
+
+          const starters = Array.from({ length: Math.min(CONCURRENCY, compressed.length) }, () => next());
+          await Promise.all(starters);
+          
+  if (lastError && completed === 0) {
+            console.error('All individual image uploads failed:', lastError);
+            console.warn('Multiple image upload failed but continuing with product operation.');
+            // Don't throw - just log the failure
+          } else if (completed > 0) {
+            console.log(`${completed} of ${total} images uploaded successfully`);
+            // Don't show success toast to admin - just log it
+          }
+        }
+      }
+      
+  // Enhanced refresh logic - only if upload was successful
+  if (uploadSuccess && editingProduct) { // Only run heavy refresh path while editing to avoid loops on creation
+        console.log("Starting immediate image refresh process...");
+        
+        // Immediately clear all relevant cache to ensure fresh data
+        modernApiClient.clearCache("/slippers");
+        modernApiClient.clearCache(`/slippers/${id}`);
+        modernApiClient.clearCache(`/slippers/${id}/images`);
+        
+        // For edit modal - refresh images immediately
+        if (editingProduct) {
+          console.log("Refreshing images in edit modal...");
+          await fetchEditingImages(editingProduct.id);
+        }
+        
+        // Immediately refresh the products list with fresh data
+        console.log("Forcing immediate product list refresh...");
+        try {
+          const params = {
+            ...filters,
+            include_images: true,
+          };
+
+          // Force fresh fetch bypassing all cache
+          const response = await modernApiClient.get(
+            API_ENDPOINTS.SLIPPERS,
+            params,
+            { cache: false, force: true }
+          );
+
+          // Process the response exactly like fetchProducts does
+          const data = (response as { data?: Slipper[] })?.data || (response as Slipper[]);
+          const productsData = Array.isArray(data)
+            ? data
+            : (data as { items?: Slipper[]; data?: Slipper[] })?.items ||
+              (data as { items?: Slipper[]; data?: Slipper[] })?.data ||
+              [];
+
+          const list: Slipper[] = Array.isArray(productsData) ? (productsData as Slipper[]) : [];
+          
+          // Update products immediately with safe error handling
+          try {
+            setProducts(list as Slipper[]);
+            
+            // Single controlled re-render to ensure visibility
+            setTimeout(() => {
+              try {
+                setProducts([...list]);
+              } catch (renderError) {
+                console.error("Error in delayed render:", renderError);
+              }
+            }, 100);
+            
+            // Update pagination safely
+            setPagination(prev => {
+              try {
+                return { ...prev, total: list.length };
+              } catch (paginationError) {
+                console.error("Error updating pagination:", paginationError);
+                return prev;
+              }
+            });
+          } catch (updateError) {
+            console.error("Error updating products state:", updateError);
+          }
+          
+          // Also ensure the current editing product reflects the new images
+          if (editingProduct) {
+            const updatedProduct = list.find(p => p.id === editingProduct.id);
+            if (updatedProduct && updatedProduct.images) {
+              setEditingImages(updatedProduct.images.map(img => ({
+                id: img.id,
+                image_url: img.image_url,
+                is_primary: img.is_primary || false,
+                alt_text: img.alt_text
+              })));
+            }
+          }
+          
+          console.log("Products updated immediately after image upload", list.length);
+          
+          // Additional immediate UI refresh
+          setTimeout(() => {
+            setProducts([...list]);
+          }, 100);
+          
+        } catch (error) {
+          console.error("Error in immediate refresh:", error);
+          // Fallback to the regular refresh
+          await forceRefreshProducts();
+        }
+        
+  console.log("Images and products refreshed successfully after upload (edit mode)");
       }
     } catch (e) {
-      const msg = (e as Error)?.message || t('admin.products.images.uploadError');
-      toast.error(msg);
+      console.error('Image upload failed:', e);
+      console.warn('Product operation continues despite image upload failure.');
+      // Don't show toast error to admin - product creation should continue
     } finally {
-      setUploading(false);
-      setSingleImageFile(null);
-      setMultiImageFiles(null);
-      setUploadProgress(null);
-      // Clean up preview URLs
-      if (singleImagePreview) {
-        URL.revokeObjectURL(singleImagePreview);
-        setSingleImagePreview(null);
-      }
-      multiImagePreviews.forEach(url => URL.revokeObjectURL(url));
-      setMultiImagePreviews([]);
-      // Refresh images after upload
-      if (editingProduct) {
-        fetchEditingImages(editingProduct.id);
+      // Always ensure cleanup happens with error handling
+      try {
+        setUploading(false);
+        setSingleImageFile(null);
+        setMultiImageFiles(null);
+        setUploadProgress(null);
+        
+        // Clean up preview URLs safely
+        if (singleImagePreview) {
+          try {
+            URL.revokeObjectURL(singleImagePreview);
+          } catch (urlError) {
+            console.error('Error revoking single image URL:', urlError);
+          }
+          setSingleImagePreview(null);
+        }
+        
+        multiImagePreviews.forEach(url => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch (urlError) {
+            console.error('Error revoking multi image URL:', urlError);
+          }
+        });
+        setMultiImagePreviews([]);
+      } catch (cleanupError) {
+        console.error('Error in image upload cleanup:', cleanupError);
       }
     }
   };
 
   // Advanced helper: try various strategies (methods + toggle trailing slash)
   const uploadWithStrategies = async (endpoint: string, formData: FormData, label: string) => {
+    console.log(`Starting upload with strategies for: ${label}`, {
+      endpoint,
+      formDataKeys: Array.from(formData.keys())
+    });
+    
     // If this looks like an image upload endpoint, most APIs only allow POST
   const looksLikeImageEndpoint = /upload-image|upload-images|\/images\/?$/i.test(endpoint);
     const baseMethods: Array<"POST" | "PUT"> = looksLikeImageEndpoint ? ["POST"] : ["POST", "PUT"];
@@ -561,37 +1077,55 @@ export default function AdminProductsPage() {
         if (!variantSet.has(withSlash)) variantSet.add(withSlash);
       }
     };
+    
     pushVariant(endpoint);
-    // Alternate patterns if endpoint contains upload-image(s)
+    
+    // Prioritize correct upload endpoints first, avoid wrong ones
     if (/upload-image/i.test(endpoint)) {
+      // For single image uploads, try variations
       pushVariant(endpoint.replace(/upload-image/i, "upload-images"));
-      pushVariant(endpoint.replace(/upload-image/i, "images"));
+      // Skip the problematic /images/ endpoint that gives 405
+      // pushVariant(endpoint.replace(/upload-image/i, "images")); // REMOVED - causes 405
+      pushVariant(endpoint.replace(/\/upload-image\//i, "/upload/"));
+      pushVariant(endpoint.replace(/\/upload-image\//i, "/image/"));
     }
     if (/upload-images/i.test(endpoint)) {
+      // For multiple image uploads, try variations
       pushVariant(endpoint.replace(/upload-images/i, "upload-image"));
-      pushVariant(endpoint.replace(/upload-images/i, "images"));
-    }
-    if (/\/images\/?$/i.test(endpoint)) {
-      pushVariant(endpoint.replace(/\/images\/?$/i, "/upload-image/"));
-      pushVariant(endpoint.replace(/\/images\/?$/i, "/upload-images/"));
+      // Skip the problematic /images/ endpoint that gives 405
+      // pushVariant(endpoint.replace(/upload-images/i, "images")); // REMOVED - causes 405
+      pushVariant(endpoint.replace(/\/upload-images\//i, "/upload/"));
+      pushVariant(endpoint.replace(/\/upload-images\//i, "/image/"));
     }
     const variants = Array.from(variantSet.values());
 
     const token = Cookies.get("access_token");
-    const headers: Record<string, string> = { Accept: "application/json" };
+    const headers: Record<string, string> = { 
+      Accept: "application/json"
+    };
     if (token) headers["Authorization"] = `Bearer ${token}`;
+    // IMPORTANT: Don't set Content-Type for FormData - let browser set it with proper boundary
 
   let firstError: Error | null = null;
     for (const ep of variants) {
       for (const method of baseMethods) {
         try {
+          console.log(`Trying upload - Method: ${method}, Endpoint: ${ep}`);
+          console.log(`Full URL will be: ${window.location.origin}/api/proxy?endpoint=${encodeURIComponent(ep)}`);
           const url = `/api/proxy?endpoint=${encodeURIComponent(ep)}`;
-          // Rebuild form data each attempt (some runtimes may lock previous FormData streams)
+          
+          // Rebuild form data each attempt - ensure clean FormData
           const fresh = new FormData();
-            for (const [k, v] of (formData as FormData).entries()) {
-              fresh.append(k, v as File | string | Blob);
-            }
-          const res = await fetch(url, { method, body: fresh, headers });
+          for (const [k, v] of (formData as FormData).entries()) {
+            fresh.append(k, v as File | string | Blob);
+            console.log(`Form data entry: ${k} = ${v instanceof File ? `File(${v.name}, ${v.size}b, ${v.type})` : v}`);
+          }
+          
+          const res = await fetch(url, { 
+            method, 
+            body: fresh, 
+            headers // No Content-Type header - let browser handle it
+          });
           if (!res.ok) {
             let detail = "";
             try {
@@ -599,11 +1133,16 @@ export default function AdminProductsPage() {
               if (ct.includes("application/json")) {
                 const j = await res.json();
                 detail = j.message || j.detail || j.error || JSON.stringify(j);
+                console.log(`Upload failed with JSON response:`, j);
               } else {
                 detail = (await res.text()) || "";
+                console.log(`Upload failed with text response:`, detail);
               }
-            } catch {}
+            } catch (parseErr) {
+              console.log("Could not parse error response:", parseErr);
+            }
             const msg = detail || `Ошибка загрузки ${label} (status ${res.status})`;
+            console.error(`Upload failed - Method: ${method}, Endpoint: ${ep}, Status: ${res.status}, Detail: ${detail}`);
             // Upload attempt failed
             // 405 means wrong method; if we tried PUT on non-image endpoint continue; for POST 400 we keep error
             if (!firstError) firstError = new Error(msg);
@@ -619,24 +1158,24 @@ export default function AdminProductsPage() {
   throw firstError || new Error(`${t('admin.products.images.uploadError')}: ${label}`);
   };
 
-  // Adaptive compression pipeline: aim for <900KB per image with multiple passes
+  // Adaptive compression pipeline: aim for <500KB per image with multiple passes
   const prepareImageForUpload = async (
     file: File,
-    initialQuality = 0.75,
-    initialMaxDim = 1600
+    initialQuality = 0.6,
+    initialMaxDim = 1200
   ): Promise<File> => {
-    const TARGET_BYTES = 900 * 1024;
-    const MIN_QUALITY = 0.25;
+    const TARGET_BYTES = 500 * 1024; // Reduced to 500KB
+    const MIN_QUALITY = 0.2; // Lower minimum quality
     if (file.size <= TARGET_BYTES) return file;
 
     const steps: Array<{ q: number; max: number }> = [
       { q: initialQuality, max: initialMaxDim },
-      { q: 0.65, max: 1500 },
-      { q: 0.55, max: 1400 },
-      { q: 0.5, max: 1280 },
-      { q: 0.42, max: 1150 },
-      { q: 0.35, max: 1000 },
-      { q: 0.3, max: 900 },
+      { q: 0.5, max: 1100 },
+      { q: 0.4, max: 1000 },
+      { q: 0.35, max: 900 },
+      { q: 0.3, max: 800 },
+      { q: 0.25, max: 700 },
+      { q: 0.2, max: 600 },
     ];
 
     const load = (f: File) =>
@@ -672,19 +1211,54 @@ export default function AdminProductsPage() {
         const ctx = canvas.getContext("2d");
         if (!ctx) break;
         ctx.drawImage(img, 0, 0, width, height);
+        
+        // Determine output format - preserve original format when possible
+        let outputMimeType = current.type;
+        let outputExtension = "";
+        const outputQuality = Math.max(MIN_QUALITY, q);
+        
+        // Map MIME types to file extensions and determine if quality is supported
+        const formatMap: Record<string, { ext: string; supportsQuality: boolean }> = {
+          "image/jpeg": { ext: ".jpg", supportsQuality: true },
+          "image/jpg": { ext: ".jpg", supportsQuality: true },
+          "image/png": { ext: ".png", supportsQuality: false },
+          "image/webp": { ext: ".webp", supportsQuality: true },
+          "image/gif": { ext: ".gif", supportsQuality: false },
+          "image/bmp": { ext: ".bmp", supportsQuality: false },
+          "image/tiff": { ext: ".tiff", supportsQuality: false },
+          "image/svg+xml": { ext: ".svg", supportsQuality: false }
+        };
+        
+        const format = formatMap[current.type.toLowerCase()];
+        if (format) {
+          outputExtension = format.ext;
+          // For formats that don't support quality, use JPEG for compression
+          if (!format.supportsQuality && current.size > TARGET_BYTES) {
+            outputMimeType = "image/jpeg";
+            outputExtension = ".jpg";
+          }
+        } else {
+          // Unknown format, default to JPEG for compression
+          outputMimeType = "image/jpeg";
+          outputExtension = ".jpg";
+        }
+        
         const blob: Blob = await new Promise((res) =>
           canvas.toBlob(
             (b) => res(b || current),
-            "image/jpeg",
-            Math.max(MIN_QUALITY, q)
+            outputMimeType,
+            format?.supportsQuality ? outputQuality : undefined
           )
         );
+        
         if (blob.size < current.size) {
-          current = new File(
-            [blob],
-            current.name.replace(/\.(png|webp|gif)$/i, ".jpg"),
-            { type: "image/jpeg" }
-          );
+          // Update filename extension if format changed
+          let newName = current.name;
+          if (outputMimeType !== current.type) {
+            newName = current.name.replace(/\.[^.]+$/i, outputExtension);
+          }
+          
+          current = new File([blob], newName, { type: outputMimeType });
         }
         if (current.size <= TARGET_BYTES) break;
       }
@@ -791,149 +1365,17 @@ export default function AdminProductsPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {products.map((product) => (
-                    <tr
+                    <ProductRow
                       key={product.id}
-                      onClick={() => router.push(`/products/${product.id}`)}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      title={t('admin.products.table.product')}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-12 w-12 relative group">
-                            {product.images && product.images.length > 0 ? (
-                              (() => {
-                                const list = product.images;
-                                const currentIdx = imageIndexMap[product.id] ?? 0;
-                                const safeIdx = currentIdx % list.length;
-                                const img = list[safeIdx];
-                                return (
-                                  <>
-                                    <Image
-                                      className="h-12 w-12 rounded-lg object-cover transition-opacity duration-200"
-                                      src={getFullImageUrl(img.image_url)}
-                                      alt={product.name}
-                                      width={48}
-                                      height={48}
-                                    />
-                                    {list.length > 1 && (
-                                      <>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setImageIndexMap((prev) => ({
-                                              ...prev,
-                                              [product.id]: (safeIdx - 1 + list.length) % list.length,
-                                            }));
-                                          }}
-                                          className="absolute left-0 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full px-1 py-0.5 opacity-0 group-hover:opacity-100 transition text-[10px] leading-none"
-                                          aria-label="Предыдущее изображение"
-                                        >
-                                          ‹
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setImageIndexMap((prev) => ({
-                                              ...prev,
-                                              [product.id]: (safeIdx + 1) % list.length,
-                                            }));
-                                          }}
-                                          className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full px-1 py-0.5 opacity-0 group-hover:opacity-100 transition text-[10px] leading-none"
-                                          aria-label="Следующее изображение"
-                                        >
-                                          ›
-                                        </button>
-                                        <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-0.5 pb-0.5 opacity-0 group-hover:opacity-100 transition">
-                                          {list.slice(0, 4).map((_, dotIdx) => (
-                                            <span
-                                              key={dotIdx}
-                                              className={`h-1.5 w-1.5 rounded-full ${dotIdx === safeIdx ? 'bg-white' : 'bg-white/50'}`}
-                                            />
-                                          ))}
-                                          {list.length > 4 && safeIdx >= 4 && (
-                                            <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
-                                          )}
-                                        </div>
-                                      </>
-                                    )}
-                                  </>
-                                );
-                              })()
-                            ) : product.image ? (
-                              <Image
-                                className="h-12 w-12 rounded-lg object-cover"
-                                src={getFullImageUrl(product.image)}
-                                alt={product.name}
-                                width={48}
-                                height={48}
-                              />
-                            ) : (
-                              <div className="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center">
-                                <Package className="h-6 w-6 text-gray-400" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {product.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              ID: {product.id}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatPrice(product.price)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {product.size || t('admin.common.unspecified')}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleAvailable(product);
-                          }}
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full transition-colors ${
-                            product.is_available !== false
-                              ? "bg-green-100 text-green-800 hover:bg-green-200"
-                              : "bg-red-100 text-red-700 hover:bg-red-200"
-                          }`}
-                          title={t('admin.common.toggleAvailability')}
-                        >
-                          {product.is_available !== false
-                            ? t('admin.products.status.active')
-                            : t('admin.products.status.inactive')}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(product);
-                            }}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteProduct(product.id);
-                            }}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      product={product}
+                      onEdit={openEditModal}
+                      onDelete={handleDeleteProduct}
+                      onToggleAvailability={handleToggleAvailable}
+                      navigate={(id) => router.push(`/products/${id}`)}
+                      imageIndex={imageIndexMap[product.id] ?? 0}
+                      setImageIndex={(id, next) => setImageIndexMap(prev => ({ ...prev, [id]: next }))}
+                      t={t}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -956,14 +1398,14 @@ export default function AdminProductsPage() {
         {showModal && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto"
-            onClick={closeModal}
+            onClick={() => closeModal()}
           >
             <div
               className="bg-white rounded-lg shadow-xl w-full max-w-lg relative max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={closeModal}
+                onClick={() => closeModal()}
                 className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
                 aria-label={t('admin.common.close')}
               >
@@ -1040,7 +1482,7 @@ export default function AdminProductsPage() {
                 </div>
                 <div className="flex justify-end space-x-3 pt-2">
                   <button
-                    onClick={closeModal}
+                    onClick={() => closeModal()}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                     disabled={isSaving}
                   >
@@ -1060,6 +1502,9 @@ export default function AdminProductsPage() {
                     <ImagePlus className="h-4 w-4 text-blue-600" />
                     <span>{t('admin.products.images.section')}</span>
                   </h3>
+                  <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
+                    📁 Рекомендуется: изображения до 2МБ. Большие файлы будут автоматически сжаты.
+                  </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1085,7 +1530,13 @@ export default function AdminProductsPage() {
                       />
                       {singleImageFile && (
                         <div className="mt-2 space-y-2">
-                          <p className="text-xs text-gray-500 truncate">{singleImageFile.name}</p>
+                          <div className="text-xs text-gray-500">
+                            <p className="truncate">{singleImageFile.name}</p>
+                            <p className={`${singleImageFile.size > 2 * 1024 * 1024 ? 'text-orange-600' : 'text-gray-500'}`}>
+                              Size: {Math.round(singleImageFile.size / 1024)}KB
+                              {singleImageFile.size > 2 * 1024 * 1024 && ' (will be compressed)'}
+                            </p>
+                          </div>
                           {singleImagePreview && (
                             <div className="relative w-20 h-20 border rounded overflow-hidden bg-gray-50">
                               <Image
@@ -1126,7 +1577,17 @@ export default function AdminProductsPage() {
                       />
                       {multiImageFiles && multiImageFiles.length > 0 && (
                         <div className="mt-2 space-y-2">
-                          <p className="text-xs text-gray-500">{t('admin.products.images.selectedFiles', { count: multiImageFiles.length.toString() })}</p>
+                          <div className="text-xs text-gray-500">
+                            <p>{t('admin.products.images.selectedFiles', { count: multiImageFiles.length.toString() })}</p>
+                            <div className="space-y-1 max-h-16 overflow-y-auto">
+                              {Array.from(multiImageFiles).map((file, index) => (
+                                <p key={index} className={`text-xs ${file.size > 2 * 1024 * 1024 ? 'text-orange-600' : 'text-gray-500'}`}>
+                                  {file.name} ({Math.round(file.size / 1024)}KB)
+                                  {file.size > 2 * 1024 * 1024 && ' - will compress'}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
                           {multiImagePreviews.length > 0 && (
                             <div className="grid grid-cols-4 gap-2">
                               {multiImagePreviews.map((preview, index) => (
