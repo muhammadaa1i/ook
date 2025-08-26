@@ -122,11 +122,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true);
       
-      // Create a direct axios call without interceptors for login to avoid token refresh attempts
-      const url = new URL("/api/proxy", window.location.origin);
-      url.searchParams.append("endpoint", "/auth/login");
-      
-      const response = await fetch(url.toString(), {
+  // Direct backend login (bypass removed proxy)
+  const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
+  const response = await fetch(base + "/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

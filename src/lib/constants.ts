@@ -1,4 +1,9 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/proxy";
+// Base API URL (direct backend). Provide layered fallbacks.
+export const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_DIRECT_URL ||
+  "https://oyoqkiyim.duckdns.org"
+).replace(/\/$/, "");
 
 export const API_ENDPOINTS = {
   // Auth

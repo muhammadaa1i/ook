@@ -1,11 +1,11 @@
-import { API_ENDPOINTS } from "@/lib/constants";
+import { API_ENDPOINTS, API_BASE_URL } from "@/lib/constants";
 
 // Single image upload
 export async function uploadProductImage(productId: number, file: File, token?: string) {
   const fd = new FormData();
   fd.append("file", file); // backend expected primary field
-  const endpoint = API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(productId); // /slippers/{id}/upload-image/
-  const url = `/api/proxy?endpoint=${encodeURIComponent(endpoint)}`;
+  const endpoint = API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(productId);
+  const url = API_BASE_URL + endpoint.replace(/^(?!\/)/, '/');
   const res = await fetch(url, {
     method: "POST",
     body: fd,
@@ -26,9 +26,9 @@ export async function uploadProductImages(productId: number, files: File[], toke
   try {
     const bulk = new FormData();
     files.forEach(f => bulk.append("images", f)); // conventional plural field
-    const endpoint = API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(productId); // /slippers/{id}/upload-images/
-    const url = `/api/proxy?endpoint=${encodeURIComponent(endpoint)}`;
-    const res = await fetch(url, { method: "POST", body: bulk, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+  const endpoint = API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(productId);
+  const url = API_BASE_URL + endpoint.replace(/^(?!\/)/, '/');
+  const res = await fetch(url, { method: "POST", body: bulk, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
     if (res.ok) {
       try { return await res.json(); } catch { return []; }
     }

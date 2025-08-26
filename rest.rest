@@ -1,0 +1,7 @@
+
+
+
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzU2MjEyMTA5LCJ0eXBlIjoiYWNjZXNzIn0.EVN2xCpqaMCriqBnQMIehXtNOzSmBLZIDwSTYpzhgXQ
+
+DELETE https://oyoqkiyim.duckdns.org/slippers/4 HTTP/1.1
+Authorization: Bearer {{accessToken}}

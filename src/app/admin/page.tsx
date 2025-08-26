@@ -28,19 +28,21 @@ export default function AdminDashboard() {
   const fetchStats = useCallback(async () => {
     try {
       setIsLoading(true);
+      const now = Date.now();
       const [
         usersResponse,
         productsResponse,
         ordersResponse,
         pendingOrdersResponse,
       ] = await Promise.all([
-        modernApiClient.get(API_ENDPOINTS.USERS, { limit: 1 }),
-        modernApiClient.get(API_ENDPOINTS.SLIPPERS, { limit: 1 }),
-        modernApiClient.get(API_ENDPOINTS.ORDERS, { limit: 1 }),
+        modernApiClient.get(API_ENDPOINTS.USERS, { limit: 1, _nc: now }, { cache: false, force: true }),
+        modernApiClient.get(API_ENDPOINTS.SLIPPERS, { limit: 1, _nc: now }, { cache: false, force: true }),
+        modernApiClient.get(API_ENDPOINTS.ORDERS, { limit: 1, _nc: now }, { cache: false, force: true }),
         modernApiClient.get(API_ENDPOINTS.ORDERS, {
           limit: 1,
           status: "pending",
-        }),
+          _nc: now,
+        }, { cache: false, force: true }),
       ]);
 
       // Handle modernApiClient response structure

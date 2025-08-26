@@ -3,6 +3,7 @@
  */
 
 import Cookies from "js-cookie";
+import { API_BASE_URL } from "./constants";
 
 interface CacheEntry<T = unknown> {
   data: T;
@@ -20,9 +21,10 @@ interface RequestConfig {
 }
 
 class ModernApiClient {
+  // Caching disabled: keep empty maps but never read/write
   private cache = new Map<string, CacheEntry>();
   private pendingRequests = new Map<string, Promise<unknown>>();
-  private readonly baseURL = "/api/proxy";
+  private readonly baseURL = API_BASE_URL; // direct backend base URL
   private refreshPromise: Promise<boolean> | null = null; // shared in-flight refresh
 
   // Cache TTL configurations (in milliseconds) - optimized for better performance
@@ -84,16 +86,14 @@ class ModernApiClient {
       timeout?: number;
     } = {}
   ): Promise<unknown> {
-  const { params, headers: optionHeaders, timeout = 8000, ...fetchOptions } = options;
+    const { params, headers: optionHeaders, timeout = 8000, ...fetchOptions } = options;
 
     const attemptRequest = async (): Promise<Response> => {
-      const url = new URL(this.baseURL, window.location.origin);
-      url.searchParams.append("endpoint", endpoint);
+      // Build direct URL: base + endpoint (endpoint begins with /)
+      const url = new URL(endpoint.replace(/^\/+/, '/'), this.baseURL + '/');
       if (params) {
         Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            url.searchParams.append(key, String(value));
-          }
+          if (value !== undefined && value !== null) url.searchParams.append(key, String(value));
         });
       }
 
@@ -116,7 +116,7 @@ class ModernApiClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       try {
-        const response = await fetch(url.pathname + url.search, {
+  const response = await fetch(url.toString(), {
           method: options.method || "GET",
           headers,
           signal: controller.signal,
@@ -188,16 +188,15 @@ class ModernApiClient {
     this.refreshPromise = (async () => {
       try {
         const attempt = async (endpointVariant: string) => {
-          const url = new URL(this.baseURL, window.location.origin);
-            url.searchParams.append("endpoint", endpointVariant);
-            return fetch(url.pathname + url.search, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify({ refresh_token: refreshToken }),
-            });
+          const url = new URL(endpointVariant.replace(/^\/+/, '/'), this.baseURL + '/');
+          return fetch(url.toString(), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
         };
 
         // Try without trailing slash first, then with
@@ -210,7 +209,7 @@ class ModernApiClient {
           throw new Error("Failed to refresh token");
         }
         let data: Record<string, unknown> = {};
-        try { data = await response.json(); } catch {}
+        try { data = await response.json(); } catch { }
         const access = data["access_token"];
         if (typeof access === 'string' && access) {
           Cookies.set("access_token", access, { expires: 1 });
@@ -220,7 +219,7 @@ class ModernApiClient {
           Cookies.set("refresh_token", refresh, { expires: 30 });
         }
         return typeof access === 'string' && !!access;
-  } catch {
+      } catch {
         // Clear auth data & notify app to logout
         Cookies.remove("access_token");
         Cookies.remove("refresh_token");
@@ -245,21 +244,16 @@ class ModernApiClient {
     params?: Record<string, unknown>,
     config: RequestConfig = {}
   ): Promise<unknown> {
-  const { cache = true, ttl, retries = 2, timeout = 10000, force = false } = config;
-    const cacheKey = this.getCacheKey(endpoint, params);
+  // Caching & dedupe disabled: strip related config
+  const { retries = 2, timeout = 10000 } = config;
+    // Global safeguard: disable caching for admin product & order endpoints automatically when on /admin route
+  // Admin override no longer needed since cache fully disabled
 
     // Check cache first
-  if (cache && !force) {
-      const cached = this.cache.get(cacheKey);
-      if (cached && this.isValidCache(cached)) {
-        return cached.data;
-      }
-    }
+  // Cache read disabled globally
 
     // Check if request is already pending (request deduplication)
-    if (this.pendingRequests.has(cacheKey)) {
-      return this.pendingRequests.get(cacheKey);
-    }
+  // Request deduplication disabled (always new network request)
 
     // Create new request
     const requestPromise = this.executeWithRetries(
@@ -268,22 +262,18 @@ class ModernApiClient {
       timeout
     );
 
-    // Store pending request
-    this.pendingRequests.set(cacheKey, requestPromise);
+  // Skip storing pending request (dedupe disabled)
 
     try {
       const data = await requestPromise;
 
       // Cache the result
-  if (cache) {
-        const cacheTTL = ttl || this.getCacheTTL(endpoint);
-        this.setCache(cacheKey, data, cacheTTL);
-      }
+  // Skip cache write
 
       return data;
     } finally {
       // Remove from pending requests
-      this.pendingRequests.delete(cacheKey);
+  // No pending request cleanup needed
     }
   }
 
