@@ -5,10 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { PaymentService, PaymentStatus } from '@/services/paymentService';
 import { useI18n } from '@/i18n';
+import { API_ENDPOINTS } from '@/lib/constants';
+import modernApiClient from '@/lib/modernApiClient';
 
 function PaymentFailureContent() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
+  const backendOrderId = searchParams?.get('backend_order_id');
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,6 +28,17 @@ function PaymentFailureContent() {
       try {
         const status = await PaymentService.getPaymentStatus(transferId);
         setPaymentStatus(status);
+        
+        // Update backend order if backend_order_id is provided
+        if (backendOrderId) {
+          try {
+            await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(parseInt(backendOrderId)), {
+              payment_status: status.cancelled ? 'cancelled' : 'failed'
+            });
+          } catch (error) {
+            console.error('Failed to update order payment status:', error);
+          }
+        }
       } catch (err) {
         console.error('Failed to check payment status:', err);
       } finally {

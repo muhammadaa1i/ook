@@ -7,9 +7,10 @@ import { Order, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import { ChevronLeft, ChevronRight, Eye, Package, Check, X, Clock, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Package, Check, X, Clock, Truck, CreditCard, DollarSign, AlertCircle, RefreshCw } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { usePaymentStatus, useBulkPaymentStatus } from "@/hooks/usePaymentStatus";
 
 const statusIcons = {
   pending: <Clock className="h-4 w-4 text-yellow-500" />,
@@ -25,6 +26,22 @@ const statusColors = {
   shipped: "bg-purple-100 text-purple-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
+};
+
+const paymentStatusIcons = {
+  pending: <Clock className="h-4 w-4 text-yellow-500" />,
+  success: <Check className="h-4 w-4 text-green-500" />,
+  failed: <X className="h-4 w-4 text-red-500" />,
+  cancelled: <X className="h-4 w-4 text-gray-500" />,
+  unknown: <AlertCircle className="h-4 w-4 text-gray-500" />,
+};
+
+const paymentStatusColors = {
+  pending: "bg-yellow-100 text-yellow-800",
+  success: "bg-green-100 text-green-800", 
+  failed: "bg-red-100 text-red-800",
+  cancelled: "bg-gray-100 text-gray-800",
+  unknown: "bg-gray-100 text-gray-800",
 };
 
 // statusLabels removed (localized through t)
@@ -43,6 +60,14 @@ export default function AdminOrdersPage() {
     skip: 0,
     limit: PAGINATION.DEFAULT_LIMIT,
   });
+
+  // Payment status hooks
+  const { checkPaymentStatus, isChecking } = usePaymentStatus();
+  const { 
+    checkMultiplePaymentStatuses, 
+    isChecking: isBulkChecking, 
+    progress 
+  } = useBulkPaymentStatus();
   // Search and global status filter removed
 
   // Debounced search removed
@@ -114,6 +139,47 @@ export default function AdminOrdersPage() {
     fetchOrders();
   }, [fetchOrders]);
 
+  // Automatic payment status checking for orders with pending payments
+  useEffect(() => {
+    const checkPendingPayments = async () => {
+      const pendingPaymentOrders = orders.filter(order => 
+        order.transfer_id && 
+        (order.payment_status === 'pending' || !order.payment_status)
+      );
+
+      if (pendingPaymentOrders.length > 0) {
+        console.log(`Auto-checking payment status for ${pendingPaymentOrders.length} orders`);
+        
+        for (const order of pendingPaymentOrders) {
+          try {
+            await checkPaymentStatus(order.transfer_id!, order.id);
+          } catch (error) {
+            console.error(`Auto payment status check failed for order ${order.id}:`, error);
+          }
+        }
+        
+        // Refresh orders after checking
+        setTimeout(() => {
+          fetchOrders();
+        }, 2000);
+      }
+    };
+
+    // Auto-check payment status when orders are loaded
+    if (orders.length > 0 && !isLoading && !isChecking) {
+      checkPendingPayments();
+    }
+
+    // Set up periodic checking every 30 seconds for pending payments
+    const interval = setInterval(() => {
+      if (!isLoading && !isChecking && !isBulkChecking) {
+        checkPendingPayments();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [orders, isLoading, isChecking, isBulkChecking, checkPaymentStatus, fetchOrders]);
+
   // Search effect removed
 
   const handlePageChange = useCallback(
@@ -139,6 +205,26 @@ export default function AdminOrdersPage() {
     },
   [fetchOrders, t]
   );
+
+  const handleCheckPaymentStatus = useCallback(async (orderId: number, transferId: string) => {
+    try {
+      await checkPaymentStatus(transferId, orderId);
+      toast.success('Payment status updated successfully');
+      fetchOrders();
+    } catch (error) {
+      toast.error('Failed to check payment status');
+    }
+  }, [checkPaymentStatus, fetchOrders]);
+
+  const handleBulkPaymentStatusCheck = useCallback(async () => {
+    try {
+      await checkMultiplePaymentStatuses(orders);
+      toast.success('Payment statuses updated successfully');
+      fetchOrders();
+    } catch (error) {
+      toast.error('Failed to check payment statuses');
+    }
+  }, [checkMultiplePaymentStatuses, orders, fetchOrders]);
 
   const renderPagination = () => {
     if (pagination.totalPages <= 1) return null;
@@ -199,6 +285,25 @@ export default function AdminOrdersPage() {
             <h1 className="text-3xl font-bold text-gray-900">{t('admin.orders.title')}</h1>
             <p className="text-gray-600 mt-2">{t('admin.orders.subtitle')}</p>
           </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleBulkPaymentStatusCheck}
+              disabled={isBulkChecking || isLoading}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBulkChecking ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Checking {Math.round(progress)}%
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Check All Payments
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Info bar (search & global status filter removed) */}
@@ -234,6 +339,9 @@ export default function AdminOrdersPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t('admin.orders.table.status')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Payment Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t('admin.orders.table.date')}
@@ -281,6 +389,30 @@ export default function AdminOrdersPage() {
                             {t(`admin.orders.status.${order.status}`)}
                           </span>
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
+                              paymentStatusColors[order.payment_status || 'unknown']
+                            }`}
+                          >
+                            {paymentStatusIcons[order.payment_status || 'unknown']}
+                            <span className="ml-1">
+                              {order.payment_status || 'Unknown'}
+                            </span>
+                          </span>
+                          {order.transfer_id && (
+                            <button
+                              onClick={() => handleCheckPaymentStatus(order.id, order.transfer_id!)}
+                              disabled={isChecking}
+                              className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                              title="Check payment status"
+                            >
+                              <RefreshCw className={`h-3 w-3 ${isChecking ? 'animate-spin' : ''}`} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(order.created_at).toLocaleDateString("ru-RU")}

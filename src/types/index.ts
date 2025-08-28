@@ -84,6 +84,10 @@ export interface Order {
   items: OrderItem[];
   created_at: string;
   updated_at: string;
+  // Payment tracking fields
+  transfer_id?: string;
+  payment_status?: "pending" | "success" | "failed" | "cancelled" | "unknown";
+  payment_url?: string;
 }
 
 export interface CreateOrderRequest {

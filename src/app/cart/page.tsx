@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
+import { API_ENDPOINTS } from "@/lib/constants";
+import modernApiClient from "@/lib/modernApiClient";
 
 // Component for handling product images with error fallback
 const ProductImage = ({
@@ -93,7 +95,23 @@ export default function CartPage() {
     setIsProcessingPayment(true);
 
     try {
-      const orderId = PaymentService.generateOrderId();
+      // 1. First create the order in the backend
+      const orderRequest = {
+        items: items.map(item => ({
+          slipper_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          notes: `Size: ${item.size}`
+        })),
+        notes: 'Order from cart checkout'
+      };
+
+      const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, orderRequest);
+      const order = orderResponse.data || orderResponse;
+      const backendOrderId = order.id;
+
+      // 2. Generate payment order ID and create payment
+      const paymentOrderId = PaymentService.generateOrderId();
       const { success_url, fail_url } = PaymentService.getReturnUrls();
       
       const description = t('payment.orderDescription', {
@@ -102,25 +120,50 @@ export default function CartPage() {
       });
 
       const paymentRequest = {
-        order_id: orderId,
+        order_id: paymentOrderId,
         amount: PaymentService.formatAmount(totalAmount),
         description,
-        success_url: `${success_url}?order_id=${orderId}`,
-        fail_url: `${fail_url}?order_id=${orderId}`,
+        success_url: `${success_url}?order_id=${paymentOrderId}&backend_order_id=${backendOrderId}`,
+        fail_url: `${fail_url}?order_id=${paymentOrderId}&backend_order_id=${backendOrderId}`,
         expires_in_minutes: 30,
         card_systems: ['uzcard', 'humo', 'visa', 'mastercard']
       };
 
       const paymentResponse = await PaymentService.createPayment(paymentRequest);
       
+      // 3. Update the order with payment information
+      if (paymentResponse.transfer_id) {
+        await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
+          transfer_id: paymentResponse.transfer_id,
+          payment_status: 'pending',
+          payment_url: paymentResponse.payment_url || ''
+        });
+
+        // 4. Start checking payment status
+        setTimeout(async () => {
+          try {
+            const status = await PaymentService.getPaymentStatus(paymentResponse.transfer_id);
+            await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
+              payment_status: status.status === 'success' ? 'success' : 
+                           status.cancelled ? 'cancelled' : 
+                           status.status === 'failed' ? 'failed' : 'pending'
+            });
+          } catch (error) {
+            console.error('Payment status check failed:', error);
+          }
+        }, 5000); // Check after 5 seconds
+      }
+      
       if (paymentResponse.payment_url) {
+        // Clear cart after successful order creation
+        clearCart();
         // Redirect to payment gateway
         window.location.href = paymentResponse.payment_url;
       } else {
         throw new Error('Payment URL not received');
       }
     } catch (error) {
-      console.error('Payment initiation failed:', error);
+      console.error('Checkout failed:', error);
       toast.error(error instanceof Error ? error.message : t('payment.error.initiation'));
     } finally {
       setIsProcessingPayment(false);

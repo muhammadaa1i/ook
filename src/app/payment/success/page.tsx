@@ -6,10 +6,13 @@ import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { PaymentService, PaymentStatus } from '@/services/paymentService';
 import { useI18n } from '@/i18n';
 import { toast } from 'react-toastify';
+import { API_ENDPOINTS } from '@/lib/constants';
+import modernApiClient from '@/lib/modernApiClient';
 
 function PaymentSuccessContent() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
+  const backendOrderId = searchParams?.get('backend_order_id');
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,12 +34,35 @@ function PaymentSuccessContent() {
         
         if (status.status === 'completed' || status.status === 'success') {
           toast.success(t('payment.success.message'));
+          
+          // Update backend order if backend_order_id is provided
+          if (backendOrderId) {
+            try {
+              await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(parseInt(backendOrderId)), {
+                payment_status: 'success'
+              });
+            } catch (error) {
+              console.error('Failed to update order payment status:', error);
+            }
+          }
+          
           // Clear cart after successful payment
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('cart:clear'));
           }
         } else if (status.status === 'failed' || status.status === 'cancelled') {
           setError(t('payment.error.failed'));
+          
+          // Update backend order if backend_order_id is provided
+          if (backendOrderId) {
+            try {
+              await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(parseInt(backendOrderId)), {
+                payment_status: status.cancelled ? 'cancelled' : 'failed'
+              });
+            } catch (error) {
+              console.error('Failed to update order payment status:', error);
+            }
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : t('payment.error.statusCheck'));
