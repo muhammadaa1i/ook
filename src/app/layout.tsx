@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { PaymentProvider } from "@/contexts/PaymentContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Navbar from "@/components/layout/Navbar";
@@ -42,9 +43,11 @@ export default function RootLayout({
           <AuthProvider>
           <ConfirmDialogProvider>
             <CartProvider>
-              <Navbar />
-              <main className="flex-grow">{children}</main>
-              <Footer />
+              <PaymentProvider>
+                <Navbar />
+                <main className="flex-grow">{children}</main>
+                <Footer />
+              </PaymentProvider>
             </CartProvider>
             <ToastContainer
               position="top-center"

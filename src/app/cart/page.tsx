@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePayment } from "@/contexts/PaymentContext";
 import { getFullImageUrl, formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
@@ -14,6 +16,7 @@ import {
   ArrowLeft,
   CreditCard,
   ShoppingCart,
+  Loader2,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
@@ -72,17 +75,51 @@ export default function CartPage() {
     removeFromCart,
     clearCart,
   } = useCart();
-  const { isAuthenticated } = useAuth();
-
+  const { isAuthenticated, user } = useAuth();
+  const { createPayment, isProcessing } = usePayment();
+  const router = useRouter();
   const { t } = useI18n();
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!isAuthenticated) {
       toast.error(t('auth.login'));
       return;
     }
 
-    toast.info('Coming soon'); // TODO: add translation key if needed
+    if (items.length === 0) {
+      toast.error('Корзина пуста');
+      return;
+    }
+
+    try {
+      // Generate a unique order ID
+      const orderId = `order_${Date.now()}_${user?.id || 'guest'}`;
+      
+      // Prepare payment data
+      const paymentData = {
+        amount: totalAmount,
+        order_id: orderId,
+        return_url: `${window.location.origin}/payment/success`,
+        cancel_url: `${window.location.origin}/payment/failure`,
+        description: `Заказ на ${itemCount} товар(ов) на сумму ${formatPrice(totalAmount, t('common.currencySom'))}`,
+      };
+
+      // Create payment
+      const response = await createPayment(paymentData);
+      
+      if (response && response.payment_url) {
+        // Clear cart before redirecting to payment
+        clearCart();
+        
+        // Redirect to payment URL
+        window.location.href = response.payment_url;
+      } else {
+        toast.error('Не удалось создать платеж. Попробуйте еще раз.');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Произошла ошибка при оформлении заказа');
+    }
   };
 
   if (items.length === 0) {
@@ -252,10 +289,20 @@ export default function CartPage() {
 
               <button
                 onClick={handleCheckout}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center"
+                disabled={isProcessing || !isAuthenticated}
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <CreditCard className="h-5 w-5 mr-2" />
-                {t('cartPage.checkout')}
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Обработка...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    {t('cartPage.checkout')}
+                  </>
+                )}
               </button>
 
               {!isAuthenticated && (
