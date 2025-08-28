@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { Slipper } from "@/types";
+import { Slipper, SlipperImage } from "@/types";
 import { useI18n } from "@/i18n";
 
 interface CartItem {
@@ -10,6 +10,7 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  // Normalize product images for cart: use image_url if present or derive from image_path
   images: Array<{ id: number; image_url: string }>;
   image?: string; // Single image URL (alternative format)
   size?: string;
@@ -100,12 +101,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       });
   toast.success(`${product.name}: +${addQty}`);
     } else {
+      type ImageLike = { id: number; image_url?: string; image_path?: string };
       const cartItem: CartItem = {
         id: product.id,
         name: product.name,
         price: product.price,
         quantity: addQty,
-        images: product.images || [],
+        images: (product.images || []).map((img: SlipperImage | ImageLike) => ({
+          id: img.id,
+          image_url: (img as SlipperImage).image_path || (img as ImageLike).image_url || ""
+        })),
         image: product.image,
         size,
         color,
