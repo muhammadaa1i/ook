@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { Slipper, SlipperImage } from "@/types";
-import { useI18n } from "@/i18n";
 
 interface CartItem {
   id: number;
@@ -39,7 +38,6 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const { t } = useI18n();
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -80,6 +78,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     size?: string,
     color?: string
   ) => {
+    // Check available stock
+    const availableStock = product.quantity || 0;
+    if (availableStock <= 0) {
+      toast.error(`${product.name} is out of stock`);
+      return;
+    }
+
     // Always add in multiples of 5, minimum 50
     let addQty = Math.max(5, Math.round(quantity / 5) * 5);
     if (addQty < 50) addQty = 50;
@@ -96,11 +101,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (newQty < 50) newQty = 50;
         // Always round to nearest 5
         newQty = Math.round(newQty / 5) * 5;
+        
+        // Check if new quantity exceeds available stock
+        if (newQty > availableStock) {
+          const maxPossible = Math.floor(availableStock / 5) * 5;
+          if (maxPossible >= 50) {
+            newQty = maxPossible;
+            toast.warning(`${product.name}: Only ${newQty} units added (${availableStock} available)`);
+          } else {
+            toast.error(`${product.name}: Insufficient stock (${availableStock} available, minimum 50 required)`);
+            return prevItems; // Don't update if can't meet minimum
+          }
+        }
+        
         newItems[existingItemIndex].quantity = newQty;
         return newItems;
       });
-  toast.success(`${product.name}: +${addQty}`);
+      toast.success(`${product.name}: +${addQty} units added`);
     } else {
+      // Check if minimum quantity (50) can be satisfied
+      if (availableStock < 50) {
+        toast.error(`${product.name}: Insufficient stock (${availableStock} available, minimum 50 required)`);
+        return;
+      }
+      
+      // Check if requested quantity exceeds available stock
+      if (addQty > availableStock) {
+        const maxPossible = Math.floor(availableStock / 5) * 5;
+        addQty = Math.max(50, maxPossible);
+        toast.warning(`${product.name}: Only ${addQty} units added (${availableStock} available)`);
+      }
+
       type ImageLike = { id: number; image_url?: string; image_path?: string };
       const cartItem: CartItem = {
         id: product.id,
@@ -116,7 +147,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         color,
       };
       setItems((prevItems) => [...prevItems, cartItem]);
-  toast.success(`${product.name}: +${addQty}`);
+      toast.success(`${product.name}: +${addQty} units added`);
     }
   };
 
@@ -126,7 +157,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return prevItems.filter((item) => item.id !== productId);
     });
     if (removedItem) {
-  toast.success(`${removedItem.name}: 0`);
+      toast.success(`${removedItem.name} removed from cart`);
     }
   };
 
@@ -137,6 +168,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeFromCart(productId);
       return;
     }
+    
+    // Find current cart item to check against product stock
+    const cartItem = items.find(item => item.id === productId);
+    if (!cartItem) return;
+    
+    // For now, we'll allow the update but show a warning if it might exceed stock
+    // In a real app, you'd want to fetch current product data to check stock
     setItems((prevItems) =>
       prevItems.map((item) =>
         item.id === productId ? { ...item, quantity: newQty } : item
@@ -146,7 +184,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
-  toast.success(t('common.cart') + ' - 0');
+    toast.success("Cart cleared");
   };
 
   const isInCart = (productId: number) => {

@@ -49,7 +49,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
       className="hover:bg-gray-50 cursor-pointer"
       title={t('admin.products.table.product')}
     >
-      <td className="px-6 py-4 whitespace-nowrap">
+  <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
         <div className="flex items-center">
           <div className="flex-shrink-0 h-12 w-12 relative group">
             {product.images && product.images.length > 0 ? (() => {
@@ -126,13 +126,13 @@ const ProductRow: React.FC<ProductRowProps> = ({
           </div>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
+  <td className="px-4 sm:px-6 py-4 whitespace-nowrap hidden xs:table-cell">
         <div className="text-sm text-gray-900">{formatPrice(product.price)}</div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
+  <td className="px-4 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
         <div className="text-sm text-gray-900">{product.size || t('admin.common.unspecified')}</div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
+  <td className="px-4 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
         <button
           onClick={(e) => { e.stopPropagation(); onToggleAvailability(product); }}
           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full transition-colors ${product.is_available !== false ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
@@ -141,7 +141,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
           {product.is_available !== false ? t('admin.products.status.active') : t('admin.products.status.inactive')}
         </button>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+  <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
         <div className="flex justify-end space-x-2">
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(product); }}

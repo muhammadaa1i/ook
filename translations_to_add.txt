@@ -1,0 +1,6 @@
+added: '{name}: +{qty}',
+removed: '{name}: olib tashlandi', 
+cleared: 'Savat tozalandi',
+outOfStock: '{name} - omborda yoq',
+insufficientStock: '{name} - yetarli miqdor yoq (mavjud: {available})',
+limitedStock: '{name} - faqat {qty} dona qoshildi (mavjud: {available})'

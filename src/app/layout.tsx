@@ -3,8 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
-import { ToastContainer } from "react-toastify";
+import { PaymentProvider } from "@/contexts/PaymentContext";
 import "react-toastify/dist/ReactToastify.css";
+import DynamicToastContainer from "@/components/common/DynamicToastContainer";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
@@ -22,9 +23,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Optom oyoq kiyim - Качественные тапочки",
+  title: "Velora shoes - Качественные тапочки",
   description:
-    "Качественные тапочки для дома и отдыха. Комфорт и стиль в каждом шаге.",
+    "Velora shoes: качественные тапочки для дома и отдыха. Комфорт и стиль в каждом шаге.",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" }
+    ],
+    shortcut: ["/favicon.svg"],
+    apple: ["/favicon.svg"],
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
@@ -42,22 +51,13 @@ export default function RootLayout({
           <AuthProvider>
           <ConfirmDialogProvider>
             <CartProvider>
-              <Navbar />
-              <main className="flex-grow">{children}</main>
-              <Footer />
+              <PaymentProvider>
+                <Navbar />
+                <main className="flex-grow">{children}</main>
+                <Footer />
+              </PaymentProvider>
             </CartProvider>
-            <ToastContainer
-              position="top-center"
-              autoClose={5000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="light"
-            />
+            <DynamicToastContainer />
           </ConfirmDialogProvider>
         </AuthProvider>
           </GlobalSWRConfig>

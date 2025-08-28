@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useI18n } from "@/i18n";
 
 const Footer = () => {
@@ -11,7 +12,12 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand / Intro */}
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">{t('brand.name')}</h3>
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="flex items-center justify-center w-12 h-12">
+                <Image src="/logo.svg" alt={t('brand.name')} width={48} height={48} className="object-contain" />
+              </div>
+              <h3 className="text-2xl font-serif font-semibold text-gray-900 tracking-wide">{t('brand.name')}</h3>
+            </div>
             <p className="text-gray-600 text-sm mb-6 max-w-xs" />
           </div>
 
@@ -35,14 +41,6 @@ const Footer = () => {
                   className="hover:text-blue-600 transition-colors"
                 >
                   {t('common.catalog')}
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/about"
-                  className="hover:text-blue-600 transition-colors"
-                >
-                  {t('footer.about')}
                 </a>
               </li>
               <li>
@@ -80,14 +78,6 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href="/returns"
-                  className="hover:text-blue-600 transition-colors"
-                >
-                  {t('footer.returns')}
-                </a>
-              </li>
-              <li>
-                <a
                   href="/privacy"
                   className="hover:text-blue-600 transition-colors"
                 >
@@ -99,7 +89,7 @@ const Footer = () => {
 
           <div className="col-span-1 md:col-span-2">
             <div className="text-sm text-gray-500">
-              <p>© 2025 Optom oyoq kiyim. {t('footer.rights')}</p>
+              <p>© 2025 Velora Shoes. {t('footer.rights')}</p>
             </div>
           </div>
 

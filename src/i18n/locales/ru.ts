@@ -1,5 +1,5 @@
 export default {
-  brand: { name: 'Optom oyoq kiyim' },
+  brand: { name: 'Velora shoes' },
   common: {
     home: 'Главная',
     catalog: 'Каталог',
@@ -7,7 +7,9 @@ export default {
     profile: 'Профиль',
     logout: 'Выйти',
     cancel: 'Отмена',
-    confirm: 'Подтвердить',
+  confirm: 'Подтвердить',
+  delete: 'Удалить',
+  deleteQuestion: 'Удалить этот товар?',
   save: 'Сохранить',
   edit: 'Редактировать',
     cart: 'Корзина',
@@ -85,7 +87,10 @@ export default {
     addToCart: 'Добавить в корзину',
     description: 'Описание товара',
     quantityLabel: 'Количество',
-  availableQuantity: 'В наличии: {count}'
+    availableQuantity: 'В наличии: {count}',
+    insufficientStock: 'Недостаточно товара',
+    insufficientForOrder: 'недостаточно для заказа',
+    insufficientStockTooltip: 'Недостаточно товара (минимум {min})'
   },
   productDetail: {
     notFound: 'Товар не найден',
@@ -114,7 +119,44 @@ export default {
     inCart: 'В корзине',
     alreadyInCartAddMore: 'Товар уже в корзине. Нажмите чтобы добавить ещё',
     addToCartHint: 'В корзину (минимум 50, шаг 5)',
-    addMore: 'Добавить еще'
+    added: '{name}: +{qty}',
+    removed: '{name}: удалён',
+    cleared: 'Корзина очищена',
+    addMore: 'Добавить еще',
+    outOfStock: '{name} - нет в наличии',
+    insufficientStock: '{name} - недостаточное количество (доступно: {available})',
+    limitedStock: '{name} - добавлено только {qty} (доступно: {available})',
+    emptyCart: 'Корзина пуста'
+  },
+  payment: {
+    processing: 'Обработка платежа...',
+    checking: 'Проверка статуса платежа',
+    pleaseWait: 'Пожалуйста, подождите',
+    orderId: 'Номер заказа',
+    amount: 'Сумма',
+    status: 'Статус',
+    orderDescription: 'Заказ из {itemCount} товаров для {customerName}',
+    success: {
+      title: 'Платеж успешно завершен',
+      message: 'Ваш платеж обработан успешно. Спасибо за покупку!'
+    },
+    pending: {
+      title: 'Платеж в обработке',
+      message: 'Ваш платеж обрабатывается. Мы уведомим вас о результате.'
+    },
+    failure: {
+      title: 'Платеж не удался',
+      message: 'К сожалению, не удалось обработать ваш платеж. Пожалуйста, попробуйте еще раз.',
+      retry: 'Попробовать снова'
+    },
+    error: {
+      title: 'Ошибка платежа',
+      failed: 'Платеж не удался',
+      statusCheck: 'Не удалось проверить статус платежа',
+      initiation: 'Не удалось инициировать платеж'
+    },
+    continueShopping: 'Продолжить покупки',
+    viewOrders: 'Посмотреть заказы'
   },
   ordersPage: {
     title: 'Мои заказы',
@@ -247,6 +289,10 @@ export default {
       status: {
         active: 'Активный',
         inactive: 'Неактивный'
+      },
+      dialogs: {
+  deleteTitle: 'Удалить товар: {name}?',
+  deleteMessage: 'Вы уверены, что хотите удалить "{name}"? Это действие нельзя отменить.'
       },
       deleteConfirm: {
         title: 'Удалить товар',

@@ -1,5 +1,5 @@
 export default {
-  brand: { name: 'Optom oyoq kiyim' },
+  brand: { name: 'Velora shoes' },
   common: {
     home: 'Bosh sahifa',
     catalog: 'Katalog',
@@ -7,7 +7,9 @@ export default {
     profile: 'Profil',
     logout: 'Chiqish',
     cancel: 'Bekor qilish',
-    confirm: 'Tasdiqlash',
+  confirm: 'Tasdiqlash',
+  delete: 'O‘chirish',
+  deleteQuestion: 'Bu mahsulot o‘chirilsinmi?',
   save: 'Saqlash',
   edit: 'Tahrirlash',
     cart: 'Savat',
@@ -113,7 +115,10 @@ export default {
   cart: {
     inCart: 'Savatda',
     alreadyInCartAddMore: 'Mahsulot savatda. Yana qo‘shish uchun bosing',
-    addToCartHint: 'Savatga qo‘shish (minimum 50, qadam 5)'
+  addToCartHint: 'Savatga qo‘shish (minimum 50, qadam 5)',
+  added: '{name}: +{qty}',
+  removed: '{name}: olib tashlandi',
+  cleared: 'Savat tozalandi'
   },
   ordersPage: {
     title: 'Buyurtmalarim',

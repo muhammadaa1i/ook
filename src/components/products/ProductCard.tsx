@@ -73,13 +73,27 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
 
     // Memoize availability info
     const availabilityInfo = useMemo(
-      () => ({
-        isAvailable: slipper.quantity > 0,
-        displayText:
-          slipper.quantity > 0
-            ? t('product.availableQuantity', { count: slipper.quantity.toString() })
-            : t('product.notAvailable'),
-      }),
+      () => {
+        const quantity = slipper.quantity || 0;
+        const isAvailable = quantity > 0;
+        const canAddToCart = quantity >= 50; // Minimum order quantity
+        
+        let displayText: string;
+        if (quantity === 0) {
+          displayText = t('product.notAvailable');
+        } else if (quantity < 50) {
+          displayText = `${t('product.availableQuantity', { count: quantity.toString() })} (${t('product.insufficientForOrder')})`;
+        } else {
+          displayText = t('product.availableQuantity', { count: quantity.toString() });
+        }
+
+        return {
+          isAvailable,
+          canAddToCart,
+          displayText,
+          quantity
+        };
+      },
       [slipper.quantity, t]
     );
 
@@ -195,6 +209,13 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
               </span>
             </div>
           )}
+          {availabilityInfo.isAvailable && !availabilityInfo.canAddToCart && (
+            <div className="absolute inset-0 bg-yellow-50 bg-opacity-85 flex items-center justify-center">
+              <span className="text-yellow-800 font-semibold bg-yellow-100 px-3 py-1 rounded-lg shadow-sm border">
+                {t('product.insufficientStock')}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="p-4">
@@ -205,9 +226,6 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-600">
               {t('product.size')}: {slipper.size}
-            </span>
-            <span className="text-sm text-gray-600">
-              {availabilityInfo.displayText}
             </span>
           </div>
 
@@ -222,14 +240,16 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
                     e.stopPropagation();
                     handleAddToCart();
                   }}
-                  disabled={!availabilityInfo.isAvailable}
+                  disabled={!availabilityInfo.canAddToCart}
                   className={`p-2 rounded-lg transition-colors flex items-center justify-center ${
                     inCart && !isAdmin
                       ? "bg-green-600 text-white hover:bg-green-700"
                       : "bg-blue-600 text-white hover:bg-blue-700"
                   } disabled:bg-gray-300 disabled:cursor-not-allowed`}
                   title={
-                    inCart && !isAdmin
+                    !availabilityInfo.canAddToCart
+                      ? t('product.insufficientStockTooltip', { min: '50' })
+                      : inCart && !isAdmin
                       ? t('cart.alreadyInCartAddMore')
                       : t('cart.addToCartHint')
                   }

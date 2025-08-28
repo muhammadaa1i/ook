@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Simple vector recreation of provided Velora Shoes logo -->
+<svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Velora Shoes Logo</title>
+  <desc id="desc">Stylized letter V above the brand name Velora and the word Shoes beneath.</desc>
+  <rect width="800" height="800" fill="#F6F0EA"/>
+  <!-- Stylized V -->
+  <path d="M400 190 L470 410 L430 410 L400 300 L370 410 L330 410 Z" fill="#2D1F1A" />
+  <!-- Brand Name -->
+  <text x="50%" y="500" text-anchor="middle" font-family="'Times New Roman', serif" font-size="140" fill="#2D1F1A" letter-spacing="6">VELORA</text>
+  <!-- Tagline -->
+  <text x="50%" y="610" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="70" fill="#2D1F1A" letter-spacing="28">SHOES</text>
+</svg>

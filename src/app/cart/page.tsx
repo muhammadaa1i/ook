@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFullImageUrl, formatPrice } from "@/lib/utils";
+import { PaymentService } from "@/services/paymentService";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -14,6 +15,7 @@ import {
   ArrowLeft,
   CreditCard,
   ShoppingCart,
+  Loader2,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
@@ -72,17 +74,57 @@ export default function CartPage() {
     removeFromCart,
     clearCart,
   } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const { t } = useI18n();
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!isAuthenticated) {
       toast.error(t('auth.login'));
       return;
     }
 
-    toast.info('Coming soon'); // TODO: add translation key if needed
+    if (items.length === 0) {
+      toast.error(t('cartPage.emptyCart'));
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      const orderId = PaymentService.generateOrderId();
+      const { success_url, fail_url } = PaymentService.getReturnUrls();
+      
+      const description = t('payment.orderDescription', {
+        itemCount: String(itemCount),
+        customerName: user?.name || 'Customer'
+      });
+
+      const paymentRequest = {
+        order_id: orderId,
+        amount: PaymentService.formatAmount(totalAmount),
+        description,
+        success_url: `${success_url}?order_id=${orderId}`,
+        fail_url: `${fail_url}?order_id=${orderId}`,
+        expires_in_minutes: 30,
+        card_systems: ['uzcard', 'humo', 'visa', 'mastercard']
+      };
+
+      const paymentResponse = await PaymentService.createPayment(paymentRequest);
+      
+      if (paymentResponse.payment_url) {
+        // Redirect to payment gateway
+        window.location.href = paymentResponse.payment_url;
+      } else {
+        throw new Error('Payment URL not received');
+      }
+    } catch (error) {
+      console.error('Payment initiation failed:', error);
+      toast.error(error instanceof Error ? error.message : t('payment.error.initiation'));
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   if (items.length === 0) {
@@ -252,10 +294,20 @@ export default function CartPage() {
 
               <button
                 onClick={handleCheckout}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center"
+                disabled={isProcessingPayment}
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
-                <CreditCard className="h-5 w-5 mr-2" />
-                {t('cartPage.checkout')}
+                {isProcessingPayment ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    {t('payment.processing')}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    {t('cartPage.checkout')}
+                  </>
+                )}
               </button>
 
               {!isAuthenticated && (

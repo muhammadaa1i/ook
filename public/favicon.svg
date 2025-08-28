@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#F6F0EA"/>
+  <!-- Stylized V from Velora Shoes logo -->
+  <path d="M20 18 L32 48 L44 18 L38 18 L32 34 L26 18 Z" fill="#2D1F1A"/>
+</svg>
