@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Users, Package, ShoppingCart, TrendingUp } from "lucide-react";
+import { Users, Package, ShoppingCart, TrendingUp, CreditCard } from "lucide-react";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { toast } from "react-toastify";
@@ -13,6 +13,8 @@ interface DashboardStats {
   totalProducts: number;
   totalOrders: number;
   pendingOrders: number;
+  totalPayments: number;
+  successfulPayments: number;
 }
 
 export default function AdminDashboard() {
@@ -22,6 +24,8 @@ export default function AdminDashboard() {
     totalProducts: 0,
     totalOrders: 0,
     pendingOrders: 0,
+    totalPayments: 0,
+    successfulPayments: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -55,6 +59,23 @@ export default function AdminDashboard() {
       const getPendingOrdersData = (response: unknown) =>
         (response as Record<string, unknown>).data || response;
 
+      // Get payment statistics from localStorage
+      const getPaymentStats = () => {
+        if (typeof window === 'undefined') return { total: 0, successful: 0 };
+        try {
+          const stored = localStorage.getItem('admin_payments');
+          if (!stored) return { total: 0, successful: 0 };
+          const payments = JSON.parse(stored);
+          const total = payments.length;
+          const successful = payments.filter((p: any) => p.status === 'success').length;
+          return { total, successful };
+        } catch {
+          return { total: 0, successful: 0 };
+        }
+      };
+
+      const paymentStats = getPaymentStats();
+
       setStats({
         totalUsers:
           ((getUsersData(usersResponse) as Record<string, unknown>)
@@ -72,6 +93,8 @@ export default function AdminDashboard() {
               unknown
             >
           ).total as number) || 0,
+        totalPayments: paymentStats.total,
+        successfulPayments: paymentStats.successful,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -90,6 +113,8 @@ export default function AdminDashboard() {
     { title: t('admin.dashboard.stats.totalProducts'), value: stats.totalProducts, icon: Package, color: 'bg-green-500' },
     { title: t('admin.dashboard.stats.totalOrders'), value: stats.totalOrders, icon: ShoppingCart, color: 'bg-purple-500' },
     { title: t('admin.dashboard.stats.pendingOrders'), value: stats.pendingOrders, icon: TrendingUp, color: 'bg-orange-500' },
+    { title: t('admin.dashboard.stats.totalPayments') || 'Total Payments', value: stats.totalPayments, icon: CreditCard, color: 'bg-indigo-500' },
+    { title: t('admin.dashboard.stats.successfulPayments') || 'Successful Payments', value: stats.successfulPayments, icon: CreditCard, color: 'bg-emerald-500' },
   ];
 
   return (
@@ -101,7 +126,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {statCards.map((card, index) => {
             const Icon = card.icon;
             return (
@@ -127,7 +152,7 @@ export default function AdminDashboard() {
         {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">{t('admin.dashboard.quickActions.title')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <a
               href="/admin/products"
               className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors"
@@ -158,6 +183,17 @@ export default function AdminDashboard() {
               <div>
                 <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.users.title')}</p>
                 <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.users.subtitle')}</p>
+              </div>
+            </a>
+
+            <a
+              href="/admin/payments"
+              className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors"
+            >
+              <CreditCard className="h-8 w-8 text-gray-400 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.payments.title') || 'Manage Payments'}</p>
+                <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.payments.subtitle') || 'Monitor payment transactions'}</p>
               </div>
             </a>
           </div>

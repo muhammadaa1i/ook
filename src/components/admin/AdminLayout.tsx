@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import { BarChart3, Users, Package, ShoppingCart, Home, Menu, X } from "lucide-react";
+import { BarChart3, Users, Package, ShoppingCart, Home, Menu, X, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
@@ -19,6 +19,7 @@ const adminNavigation = (t: TFunc) => [
   { name: t('admin.nav.users'), href: "/admin/users", icon: Users },
   { name: t('admin.nav.products'), href: "/admin/products", icon: Package },
   { name: t('admin.nav.orders'), href: "/admin/orders", icon: ShoppingCart },
+  { name: t('admin.nav.payments'), href: "/admin/payments", icon: CreditCard },
 ];
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
