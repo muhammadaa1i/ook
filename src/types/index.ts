@@ -40,7 +40,7 @@ export interface Category {
 
 export interface SlipperImage {
   id: number;
-  image_url: string;
+  image_path: string;
   alt_text?: string;
   is_primary: boolean;
   created_at: string;

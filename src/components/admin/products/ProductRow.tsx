@@ -60,7 +60,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
                 <>
                   <Image
                     className="h-12 w-12 rounded-lg object-cover transition-opacity duration-200"
-                    src={getFullImageUrl(img.image_url)}
+                    src={getFullImageUrl(img.image_path)}
                     alt={product.name}
                     width={48}
                     height={48}

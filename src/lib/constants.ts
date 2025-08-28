@@ -22,7 +22,6 @@ export const API_ENDPOINTS = {
   SLIPPERS: "/slippers/",
   // Detail endpoints updated to include trailing slash for frameworks (e.g. Django/FastAPI) that distinguish it
   SLIPPER_BY_ID: (id: number) => `/slippers/${id}/`,
-  SLIPPER_UPLOAD_IMAGE: (id: number) => `/slippers/${id}/upload-image/`,
   SLIPPER_UPLOAD_IMAGES: (id: number) => `/slippers/${id}/upload-images/`,
   SLIPPER_IMAGES: (id: number) => `/slippers/${id}/images`,
   SLIPPER_UPDATE_IMAGE: (slipperId: number, imageId: number) => `/slippers/${slipperId}/images/${imageId}`,

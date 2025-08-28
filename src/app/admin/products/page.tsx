@@ -40,10 +40,8 @@ export default function AdminProductsPage() {
   const [formData, setFormData] = useState({ name: "", size: "", price: "", quantity: "", is_available: true });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Image state
-  const [singleImageFile, setSingleImageFile] = useState<File | null>(null);
+  // Image state (single image upload removed)
   const [multiImageFiles, setMultiImageFiles] = useState<FileList | null>(null);
-  const [singleImagePreview, setSingleImagePreview] = useState<string | null>(null);
   const [multiImagePreviews, setMultiImagePreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -145,13 +143,8 @@ export default function AdminProductsPage() {
   const resetForm = () => {
     setFormData({ name: "", size: "", price: "", quantity: "", is_available: true });
     setEditingProduct(null);
-    setSingleImageFile(null);
     setMultiImageFiles(null);
     setEditingImages([]);
-    if (singleImagePreview) {
-      URL.revokeObjectURL(singleImagePreview);
-      setSingleImagePreview(null);
-    }
     multiImagePreviews.forEach(url => URL.revokeObjectURL(url));
     setMultiImagePreviews([]);
   };
@@ -357,7 +350,7 @@ export default function AdminProductsPage() {
       }
 
       // If images picked during create or edit, handle them optimally
-      if (productId && (singleImageFile || (multiImageFiles && multiImageFiles.length))) {
+      if (productId && (multiImageFiles && multiImageFiles.length)) {
         if (editingProduct) {
           await handleImageUploads(productId); // sync for edit
           closeModal();
@@ -436,7 +429,7 @@ export default function AdminProductsPage() {
       let uploadSuccess = false;
 
       // Check file sizes and formats first
-      const MAX_ORIGINAL_SIZE = 10 * 1024 * 1024; // 10MB max original size
+      // const MAX_ORIGINAL_SIZE = 10 * 1024 * 1024; // 10MB max original size
 
       // Supported image formats (very comprehensive list)
       const SUPPORTED_FORMATS = [
@@ -448,12 +441,12 @@ export default function AdminProductsPage() {
       const validateImageFile = (file: File, index?: number): boolean => {
         const fileLabel = index !== undefined ? `Image ${index + 1}` : 'Image';
 
-        // Check file size
-        if (file.size > MAX_ORIGINAL_SIZE) {
-          console.warn(`${fileLabel} is too large (${Math.round(file.size / 1024 / 1024)}MB). Skipping this file.`);
-          // Don't show toast error to admin - just log and skip
-          return false;
-        }
+        // // Check file size
+        // if (file.size > MAX_ORIGINAL_SIZE) {
+        //   console.warn(`${fileLabel} is too large (${Math.round(file.size / 1024 / 1024)}MB). Skipping this file.`);
+        //   // Don't show toast error to admin - just log and skip
+        //   return false;
+        // }
 
         // Check file format - be very permissive
         if (!SUPPORTED_FORMATS.includes(file.type.toLowerCase()) && !file.type.startsWith('image/')) {
@@ -464,10 +457,6 @@ export default function AdminProductsPage() {
         return true;
       };
 
-      if (singleImageFile && !validateImageFile(singleImageFile)) {
-        return;
-      }
-
       if (multiImageFiles) {
         for (let i = 0; i < multiImageFiles.length; i++) {
           if (!validateImageFile(multiImageFiles[i], i)) {
@@ -475,36 +464,15 @@ export default function AdminProductsPage() {
           }
         }
       }
-
-      // Simple single image upload without compression / proxy / multiple fallbacks
-      if (singleImageFile) {
-        const fd = new FormData();
-        fd.append("file", singleImageFile);
-        try {
-          const directUrl = `${process.env.NEXT_PUBLIC_API_DIRECT_URL || 'https://oyoqkiyim.duckdns.org'}${API_ENDPOINTS.SLIPPER_UPLOAD_IMAGE(id)}`;
-          const resp = await fetch(directUrl, {
-            method: 'POST',
-            body: fd,
-            headers: {
-              Authorization: Cookies.get('access_token') ? `Bearer ${Cookies.get('access_token')}` : ''
-            }
-          });
-          if (!resp.ok) {
-            const txt = await resp.text();
-            console.error('Single image upload failed:', resp.status, txt);
-          } else {
-            uploadSuccess = true;
-          }
-        } catch (e) {
-          console.error('Single image upload network error:', e);
-        }
-      }
       // Simple multiple images upload (no compression, direct API)
       if (multiImageFiles && multiImageFiles.length) {
         const fd = new FormData();
-        Array.from(multiImageFiles).forEach(f => fd.append('files', f));
+
+        Array.from(multiImageFiles).forEach(f => fd.append('images', f));
+        
         try {
           const directUrlMulti = `${process.env.NEXT_PUBLIC_API_DIRECT_URL || 'https://oyoqkiyim.duckdns.org'}${API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id)}`;
+          
           const resp = await fetch(directUrlMulti, {
             method: 'POST',
             body: fd,
@@ -512,12 +480,14 @@ export default function AdminProductsPage() {
               Authorization: Cookies.get('access_token') ? `Bearer ${Cookies.get('access_token')}` : ''
             }
           });
+          
           if (!resp.ok) {
             const txt = await resp.text();
             console.error('Multi image upload failed:', resp.status, txt);
           } else {
             uploadSuccess = true;
           }
+        
         } catch (e) {
           console.error('Multi image upload network error:', e);
         }
@@ -595,7 +565,7 @@ export default function AdminProductsPage() {
             if (updatedProduct && updatedProduct.images) {
               setEditingImages(updatedProduct.images.map(img => ({
                 id: img.id,
-                image_url: img.image_url,
+                image_url: img.image_path,
                 is_primary: img.is_primary || false,
                 alt_text: img.alt_text
               })));
@@ -625,19 +595,8 @@ export default function AdminProductsPage() {
       // Always ensure cleanup happens with error handling
       try {
         setUploading(false);
-        setSingleImageFile(null);
         setMultiImageFiles(null);
         setUploadProgress(null);
-
-        // Clean up preview URLs safely
-        if (singleImagePreview) {
-          try {
-            URL.revokeObjectURL(singleImagePreview);
-          } catch (urlError) {
-            console.error('Error revoking single image URL:', urlError);
-          }
-          setSingleImagePreview(null);
-        }
 
         multiImagePreviews.forEach(url => {
           try {
@@ -717,9 +676,9 @@ export default function AdminProductsPage() {
               {t('admin.products.subtitle')}
             </p>
           </div>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+          <button onClick={openCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
             <Plus className="h-4 w-4" />
-            <span onClick={openCreateModal}>{t('admin.products.add')}</span>
+            <span>{t('admin.products.add')}</span>
           </button>
         </div>
 
@@ -891,52 +850,7 @@ export default function AdminProductsPage() {
                   <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
                     📁 Рекомендуется: изображения до 2МБ. Большие файлы будут автоматически сжаты.
                   </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        {t('admin.products.images.single')}
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          setSingleImageFile(file);
-                          // Create preview URL
-                          if (singleImagePreview) {
-                            URL.revokeObjectURL(singleImagePreview);
-                          }
-                          if (file) {
-                            setSingleImagePreview(URL.createObjectURL(file));
-                          } else {
-                            setSingleImagePreview(null);
-                          }
-                        }}
-                        className="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:border-gray-300 file:text-xs file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
-                      />
-                      {singleImageFile && (
-                        <div className="mt-2 space-y-2">
-                          <div className="text-xs text-gray-500">
-                            <p className="truncate">{singleImageFile.name}</p>
-                            <p className={`${singleImageFile.size > 2 * 1024 * 1024 ? 'text-orange-600' : 'text-gray-500'}`}>
-                              Size: {Math.round(singleImageFile.size / 1024)}KB
-                              {singleImageFile.size > 2 * 1024 * 1024 && ' (will be compressed)'}
-                            </p>
-                          </div>
-                          {singleImagePreview && (
-                            <div className="relative w-20 h-20 border rounded overflow-hidden bg-gray-50">
-                              <Image
-                                src={singleImagePreview}
-                                alt="Preview"
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  <div className="grid gap-4 md:grid-cols-1">
                     <div>
                       <label className="text-xs font-medium text-gray-600 mb-1 flex items-center space-x-1">
                         <Images className="h-4 w-4 text-blue-600" />

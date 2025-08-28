@@ -59,21 +59,33 @@ export default function ProductDetailPage() {
           );
           interface ImgRec { id: number; image_url: string; is_primary?: boolean; alt_text?: string; created_at?: string }
           const imgs = ((imgsResp as { data?: ImgRec[] })?.data || (imgsResp as ImgRec[])) as ImgRec[];
+          console.log("Image loading error 1");
+
           if (Array.isArray(imgs) && imgs.length) {
             const embedded = (productData.images as unknown as ImgRec[]) || [];
+            
             // Merge by id (avoid duplicates)
             const mergedMap = new Map<number, ImgRec>();
+
+
             [...embedded, ...imgs].forEach((img) => {
               if (!mergedMap.has(img.id)) mergedMap.set(img.id, img);
             });
+            
             const merged = Array.from(mergedMap.values());
             // Ensure exactly one primary (fallback to first if none)
+            
             if (!merged.some((m) => m.is_primary)) {
               if (merged.length) merged[0] = { ...merged[0], is_primary: true };
             }
+            
             productData = { ...productData, images: merged as unknown as Slipper["images"] };
+ 
           }
+          console.log(productData);
         } catch {
+          console.log("Image loading error");
+          
           // Gallery images load failed (non-critical)
         }
       }
@@ -84,16 +96,16 @@ export default function ProductDetailPage() {
 
       const axiosError = error as { response?: { status?: number } };
       if (axiosError.response?.status === 503) {
-  toast.error(t('errors.serverUnavailableLong'));
+        toast.error(t('errors.serverUnavailableLong'));
       } else if (axiosError.response?.status === 404) {
-  toast.error(t('productDetail.notFound'));
+        toast.error(t('productDetail.notFound'));
       } else if (
         axiosError.response?.status &&
         axiosError.response.status >= 500
       ) {
-  toast.error(t('errors.serverErrorLong'));
+        toast.error(t('errors.serverErrorLong'));
       } else {
-  toast.error(t('errors.productsLoad'));
+        toast.error(t('errors.productsLoad'));
       }
     } finally {
       setIsLoading(false);
@@ -112,17 +124,25 @@ export default function ProductDetailPage() {
   // Build image list (primary first, then others, falling back to legacy product.image)
   const imageUrls: string[] = (() => {
     if (!product) return [];
+
     const list: string[] = [];
+
+    
     if (product.images && product.images.length) {
       const primary = product.images.find((i) => i.is_primary);
-      if (primary) list.push(getFullImageUrl(primary.image_url));
+
+      if (primary) list.push(getFullImageUrl(primary.image_path));
+      
       product.images.forEach((img) => {
-        const full = getFullImageUrl(img.image_url);
+        const full = getFullImageUrl(img.image_path);
+
         if (!list.includes(full)) list.push(full);
       });
+    
     } else if (product?.image) {
       list.push(getFullImageUrl(product.image));
     }
+    
     return list.length ? list : ["/placeholder-product.svg"];
   })();
 
@@ -149,6 +169,7 @@ export default function ProductDetailPage() {
       else if (e.key === "ArrowRight") goNext();
     };
     window.addEventListener("keydown", handler);
+
     return () => window.removeEventListener("keydown", handler);
   }, [goPrev, goNext]);
 
@@ -156,9 +177,11 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (imageUrls.length < 2) return;
     if (autoplayRef.current) clearInterval(autoplayRef.current);
+
     autoplayRef.current = setInterval(() => {
       setActiveIndex((i) => (i + 1) % imageUrls.length);
     }, 4000);
+
     return () => {
       if (autoplayRef.current) clearInterval(autoplayRef.current);
     };
@@ -167,6 +190,7 @@ export default function ProductDetailPage() {
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
+  
   const onTouchEnd = (e: React.TouchEvent) => {
     touchEndX.current = e.changedTouches[0].clientX;
     if (touchStartX.current == null || touchEndX.current == null) return;
@@ -215,7 +239,7 @@ export default function ProductDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Product Images / Carousel */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden" role={imageUrls.length > 1 ? "region" : undefined} aria-roledescription={imageUrls.length > 1 ? "carousel" : undefined} aria-label={imageUrls.length > 1 ? t('productDetail.imageGallery', {count: String(imageUrls.length)}) : undefined}>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden" role={imageUrls.length > 1 ? "region" : undefined} aria-roledescription={imageUrls.length > 1 ? "carousel" : undefined} aria-label={imageUrls.length > 1 ? t('productDetail.imageGallery', { count: String(imageUrls.length) }) : undefined}>
             <div
               className="relative h-96 bg-gray-200 group select-none"
               onTouchStart={onTouchStart}
@@ -225,10 +249,10 @@ export default function ProductDetailPage() {
             >
               {!imageError && currentImage !== "/placeholder-product.svg" ? (
                 <Image
+                  fill
                   key={currentImage}
                   src={currentImage}
                   alt={product.name}
-                  fill
                   className="object-cover transition-opacity duration-300"
                   onError={() => setImageError(true)}
                   priority={safeActive === 0}
@@ -259,7 +283,7 @@ export default function ProductDetailPage() {
                       goNext();
                     }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full h-9 w-9 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-          aria-label={t('common.nextImage')}
+                    aria-label={t('common.nextImage')}
                   >
                     ›
                   </button>
@@ -271,10 +295,9 @@ export default function ProductDetailPage() {
                           e.stopPropagation();
                           setActiveIndex(i);
                         }}
-                        className={`h-2.5 w-2.5 rounded-full border border-white transition ${
-                          i === safeActive ? "bg-white" : "bg-white/40 hover:bg-white/70"
-                        }`}
-            aria-label={t('common.showImage', {index: String(i+1)})}
+                        className={`h-2.5 w-2.5 rounded-full border border-white transition ${i === safeActive ? "bg-white" : "bg-white/40 hover:bg-white/70"
+                          }`}
+                        aria-label={t('common.showImage', { index: String(i + 1) })}
                       />
                     ))}
                   </div>
@@ -292,12 +315,11 @@ export default function ProductDetailPage() {
                   <button
                     key={u + i}
                     onClick={() => setActiveIndex(i)}
-                    className={`relative h-16 rounded-md overflow-hidden border ${
-                      i === safeActive
-                        ? "border-blue-500 ring-2 ring-blue-300"
-                        : "border-gray-200 hover:border-blue-400"
-                    }`}
-                    aria-label={t('productDetail.thumbnail', {index: String(i+1)})}
+                    className={`relative h-16 rounded-md overflow-hidden border ${i === safeActive
+                      ? "border-blue-500 ring-2 ring-blue-300"
+                      : "border-gray-200 hover:border-blue-400"
+                      }`}
+                    aria-label={t('productDetail.thumbnail', { index: String(i + 1) })}
                   >
                     <Image
                       src={u}
@@ -341,9 +363,8 @@ export default function ProductDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-lg text-gray-600">{t('product.available')}:</span>
                 <span
-                  className={`text-lg font-medium ${
-                    product.quantity > 0 ? "text-green-600" : "text-red-600"
-                  }`}
+                  className={`text-lg font-medium ${product.quantity > 0 ? "text-green-600" : "text-red-600"
+                    }`}
                 >
                   {product.quantity > 0
                     ? `${product.quantity} ${t('common.items')}`
@@ -375,11 +396,10 @@ export default function ProductDetailPage() {
 
                 <button
                   onClick={handleAddToCart}
-                  className={`w-full py-3 px-6 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm ${
-                    cartItem 
-                      ? 'bg-green-500 hover:bg-green-600 text-white' 
-                      : 'bg-blue-500 hover:bg-blue-600 text-white'
-                  }`}
+                  className={`w-full py-3 px-6 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm ${cartItem
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
                 >
                   {cartItem ? (
                     <>
