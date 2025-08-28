@@ -192,15 +192,53 @@ export default function AdminOrdersPage() {
 
   const handleStatusChange = useCallback(
     async (orderId: number, newStatus: string) => {
-      try {
-        await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(orderId), {
-          status: newStatus,
-        });
-  toast.success(t('admin.orders.toasts.statusUpdateSuccess'));
-        fetchOrders();
-      } catch (error) {
-        console.error("Error updating order status:", error);
-  toast.error(t('admin.orders.toasts.statusUpdateError'));
+      const updatePayload = { status: newStatus };
+      
+      console.log('Attempting to update order:', orderId, 'to status:', newStatus);
+      console.log('Update payload:', updatePayload);
+      
+      // Try multiple approaches to handle different backend requirements
+      const endpoints = [
+        API_ENDPOINTS.ORDER_BY_ID(orderId),
+        API_ENDPOINTS.ORDER_BY_ID_SLASH(orderId)
+      ];
+      
+      const methods = ['put', 'patch'] as const;
+      
+      for (const endpoint of endpoints) {
+        for (const method of methods) {
+          try {
+            console.log(`Trying ${method.toUpperCase()} ${endpoint}`);
+            
+            const response = method === 'put' 
+              ? await modernApiClient.put(endpoint, updatePayload)
+              : await modernApiClient.patch(endpoint, updatePayload);
+            console.log('Update response:', response);
+            
+            toast.success(t('admin.orders.toasts.statusUpdateSuccess'));
+            fetchOrders();
+            return; // Success, exit early
+            
+          } catch (error: any) {
+            console.log(`${method.toUpperCase()} ${endpoint} failed:`, error.status || error.message);
+            
+            // If this is the last attempt, show detailed error
+            if (endpoint === endpoints[endpoints.length - 1] && method === methods[methods.length - 1]) {
+              console.error("All update attempts failed. Full error details:", error);
+              console.error("Error response:", error.response);
+              console.error("Error status:", error.status);
+              console.error("Error message:", error.message);
+              
+              // Try to get more details from the error
+              if (error.response && error.response.data) {
+                console.error("Backend error details:", error.response.data);
+                toast.error(`Update failed: ${JSON.stringify(error.response.data.detail || error.message)}`);
+              } else {
+                toast.error(t('admin.orders.toasts.statusUpdateError'));
+              }
+            }
+          }
+        }
       }
     },
   [fetchOrders, t]

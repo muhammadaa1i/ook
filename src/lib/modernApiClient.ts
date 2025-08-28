@@ -313,6 +313,24 @@ class ModernApiClient {
     );
   }
 
+  async patch(
+    endpoint: string,
+    data?: unknown,
+    config: RequestConfig = {}
+  ): Promise<unknown> {
+    const { retries = 2, timeout = 10000 } = config;
+
+    return this.executeWithRetries(
+      () =>
+        this.makeRequest(endpoint, {
+          method: "PATCH",
+          body: data ? JSON.stringify(data) : undefined,
+        }),
+      retries,
+      timeout
+    );
+  }
+
   async delete(endpoint: string, config: RequestConfig = {}): Promise<unknown> {
     const { retries = 2, timeout = 10000 } = config;
 

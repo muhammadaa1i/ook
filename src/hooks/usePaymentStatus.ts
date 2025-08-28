@@ -28,10 +28,17 @@ export function usePaymentStatus(): PaymentStatusHookReturn {
       // Map payment status to our internal status
       const mappedStatus = mapPaymentStatus(paymentStatus);
       
-      // Update order with payment status
-      await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(orderId), {
-        payment_status: mappedStatus
-      });
+      // Update order with payment status - try PATCH first, then PUT
+      try {
+        await modernApiClient.patch(API_ENDPOINTS.ORDER_BY_ID(orderId), {
+          payment_status: mappedStatus
+        });
+      } catch (patchError) {
+        console.log('PATCH failed, trying PUT:', patchError);
+        await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(orderId), {
+          payment_status: mappedStatus
+        });
+      }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to check payment status';
@@ -81,9 +88,16 @@ export function useBulkPaymentStatus() {
         const paymentStatus = await PaymentService.getPaymentStatus(order.transfer_id!);
         const mappedStatus = mapPaymentStatus(paymentStatus);
         
-        await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(order.id), {
-          payment_status: mappedStatus
-        });
+        try {
+          await modernApiClient.patch(API_ENDPOINTS.ORDER_BY_ID(order.id), {
+            payment_status: mappedStatus
+          });
+        } catch (patchError) {
+          console.log('PATCH failed, trying PUT for order', order.id, ':', patchError);
+          await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(order.id), {
+            payment_status: mappedStatus
+          });
+        }
 
         setCheckedCount(prev => prev + 1);
       } catch (error) {

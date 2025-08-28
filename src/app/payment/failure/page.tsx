@@ -32,9 +32,16 @@ function PaymentFailureContent() {
         // Update backend order if backend_order_id is provided
         if (backendOrderId) {
           try {
-            await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(parseInt(backendOrderId)), {
-              payment_status: status.cancelled ? 'cancelled' : 'failed'
-            });
+            try {
+              await modernApiClient.patch(API_ENDPOINTS.ORDER_BY_ID(parseInt(backendOrderId)), {
+                payment_status: status.cancelled ? 'cancelled' : 'failed'
+              });
+            } catch (patchError) {
+              console.log('PATCH failed, trying PUT:', patchError);
+              await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(parseInt(backendOrderId)), {
+                payment_status: status.cancelled ? 'cancelled' : 'failed'
+              });
+            }
           } catch (error) {
             console.error('Failed to update order payment status:', error);
           }

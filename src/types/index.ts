@@ -105,6 +105,10 @@ export interface UpdateOrderRequest {
   status?: Order["status"];
   total_amount?: number;
   notes?: string;
+  // Payment tracking fields (optional for backward compatibility)
+  transfer_id?: string;
+  payment_status?: "pending" | "success" | "failed" | "cancelled" | "unknown";
+  payment_url?: string;
 }
 
 export interface PaginatedResponse<T> {

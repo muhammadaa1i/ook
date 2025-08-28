@@ -31,6 +31,7 @@ export const API_ENDPOINTS = {
   // Orders
   ORDERS: "/orders/",
   ORDER_BY_ID: (id: number) => `/orders/${id}`,
+  ORDER_BY_ID_SLASH: (id: number) => `/orders/${id}/`,
 
   // Categories
   CATEGORIES: "/categories/",

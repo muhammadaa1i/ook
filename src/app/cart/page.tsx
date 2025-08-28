@@ -133,21 +133,39 @@ export default function CartPage() {
       
       // 3. Update the order with payment information
       if (paymentResponse.transfer_id) {
-        await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
-          transfer_id: paymentResponse.transfer_id,
-          payment_status: 'pending',
-          payment_url: paymentResponse.payment_url || ''
-        });
+        try {
+          await modernApiClient.patch(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
+            transfer_id: paymentResponse.transfer_id,
+            payment_status: 'pending',
+            payment_url: paymentResponse.payment_url || ''
+          });
+        } catch (patchError) {
+          console.log('PATCH failed, trying PUT:', patchError);
+          await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
+            transfer_id: paymentResponse.transfer_id,
+            payment_status: 'pending',
+            payment_url: paymentResponse.payment_url || ''
+          });
+        }
 
         // 4. Start checking payment status
         setTimeout(async () => {
           try {
             const status = await PaymentService.getPaymentStatus(paymentResponse.transfer_id);
-            await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
-              payment_status: status.status === 'success' ? 'success' : 
-                           status.cancelled ? 'cancelled' : 
-                           status.status === 'failed' ? 'failed' : 'pending'
-            });
+            try {
+              await modernApiClient.patch(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
+                payment_status: status.status === 'success' ? 'success' : 
+                             status.cancelled ? 'cancelled' : 
+                             status.status === 'failed' ? 'failed' : 'pending'
+              });
+            } catch (patchError) {
+              console.log('PATCH failed, trying PUT:', patchError);
+              await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(backendOrderId), {
+                payment_status: status.status === 'success' ? 'success' : 
+                             status.cancelled ? 'cancelled' : 
+                             status.status === 'failed' ? 'failed' : 'pending'
+              });
+            }
           } catch (error) {
             console.error('Payment status check failed:', error);
           }
