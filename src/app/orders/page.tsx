@@ -141,13 +141,17 @@ export default function OrdersPage() {
     const ordersArray = Array.isArray(orders) ? orders : [];
     let filtered = [...ordersArray];
     if (searchTerm) {
-      filtered = filtered.filter(
-        (order) =>
-          order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.items.some((item) =>
-            item.slipper.name.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-      );
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((order) => {
+        const orderNum = (order.order_number || String(order.id)).toLowerCase();
+        const hasOrderNum = orderNum.includes(term);
+        const hasItemMatch = Array.isArray(order.items)
+          ? order.items.some((item) =>
+              (item.slipper?.name || "").toLowerCase().includes(term)
+            )
+          : false;
+        return hasOrderNum || hasItemMatch;
+      });
     }
     if (statusFilter !== "all") {
       filtered = filtered.filter((order) => order.status === statusFilter);
