@@ -326,12 +326,14 @@ export default function OrdersPage() {
                       </h4>
                       <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                         <span>Количество: {item.quantity}</span>
-                        <span>Цена: {formatPrice(item.price)}</span>
+                        <span>
+                          Цена: {formatPrice(item.unit_price ?? item.total_price ?? 0)}
+                        </span>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="font-semibold text-gray-900">
-                        {formatPrice(item.price * item.quantity)}
+                        {formatPrice((item.unit_price ?? 0) * (item.quantity ?? 0))}
                       </span>
                     </div>
                   </div>
