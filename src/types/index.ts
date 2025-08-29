@@ -81,6 +81,9 @@ export interface Order {
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   total_amount: number;
   notes?: string;
+  order_number?: string;
+  payment_method?: string;
+  shipping_address?: string;
   items: OrderItem[];
   created_at: string;
   updated_at: string;
