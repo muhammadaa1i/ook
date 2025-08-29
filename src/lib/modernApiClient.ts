@@ -86,14 +86,20 @@ class ModernApiClient {
       timeout?: number;
     } = {}
   ): Promise<unknown> {
-    const { params, headers: optionHeaders, timeout = 8000, ...fetchOptions } = options;
+    const {
+      params,
+      headers: optionHeaders,
+      timeout = 8000,
+      ...fetchOptions
+    } = options;
 
     const attemptRequest = async (): Promise<Response> => {
       // Build direct URL: base + endpoint (endpoint begins with /)
-      const url = new URL(endpoint.replace(/^\/+/, '/'), this.baseURL + '/');
+      const url = new URL(endpoint.replace(/^\/+/, "/"), this.baseURL + "/");
       if (params) {
         Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) url.searchParams.append(key, String(value));
+          if (value !== undefined && value !== null)
+            url.searchParams.append(key, String(value));
         });
       }
 
@@ -105,18 +111,21 @@ class ModernApiClient {
       if (token) {
         defaultHeaders.Authorization = `Bearer ${token}`;
       }
-      const headers = { ...defaultHeaders, ...(optionHeaders as Record<string, string>) };
+      const headers = {
+        ...defaultHeaders,
+        ...(optionHeaders as Record<string, string>),
+      };
 
       // Only set Content-Type automatically for non-GET requests when a body is present
       const method = (options.method || "GET").toUpperCase();
-      if (method !== "GET" && !(headers["Content-Type"])) {
+      if (method !== "GET" && !headers["Content-Type"]) {
         headers["Content-Type"] = "application/json";
       }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       try {
-  const response = await fetch(url.toString(), {
+        const response = await fetch(url.toString(), {
           method: options.method || "GET",
           headers,
           signal: controller.signal,
@@ -135,7 +144,11 @@ class ModernApiClient {
     try {
       response = await attemptRequest();
       // If unauthorized and we have refresh token, attempt refresh once
-      if (response.status === 401 && Cookies.get("refresh_token") && !triedRefresh) {
+      if (
+        response.status === 401 &&
+        Cookies.get("refresh_token") &&
+        !triedRefresh
+      ) {
         const refreshed = await this.refreshAccessToken();
         triedRefresh = true;
         if (refreshed) {
@@ -147,19 +160,29 @@ class ModernApiClient {
         let errorMessage = `HTTP error! status: ${response.status}`;
         switch (response.status) {
           case 503:
-            errorMessage = "Server is temporarily unavailable. Please try again in a few moments."; break;
+            errorMessage =
+              "Server is temporarily unavailable. Please try again in a few moments.";
+            break;
           case 502:
-            errorMessage = "Server gateway error. Please try again later."; break;
+            errorMessage = "Server gateway error. Please try again later.";
+            break;
           case 500:
-            errorMessage = "Internal server error. Please try again later."; break;
+            errorMessage = "Internal server error. Please try again later.";
+            break;
           case 404:
-            errorMessage = "Requested resource not found."; break;
+            errorMessage = "Requested resource not found.";
+            break;
           case 401:
-            errorMessage = "Authentication required. Please log in again."; break;
+            errorMessage = "Authentication required. Please log in again.";
+            break;
           case 403:
-            errorMessage = "Access denied. You don't have permission to access this resource."; break;
+            errorMessage =
+              "Access denied. You don't have permission to access this resource.";
+            break;
           case 429:
-            errorMessage = "Too many requests. Please wait a moment before trying again."; break;
+            errorMessage =
+              "Too many requests. Please wait a moment before trying again.";
+            break;
           default:
             errorMessage = `Server error (${response.status}). Please try again later.`;
         }
@@ -173,7 +196,9 @@ class ModernApiClient {
       return response.json();
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        throw new Error("Request timeout - Please check your connection and try again");
+        throw new Error(
+          "Request timeout - Please check your connection and try again"
+        );
       }
       throw error;
     }
@@ -188,7 +213,10 @@ class ModernApiClient {
     this.refreshPromise = (async () => {
       try {
         const attempt = async (endpointVariant: string) => {
-          const url = new URL(endpointVariant.replace(/^\/+/, '/'), this.baseURL + '/');
+          const url = new URL(
+            endpointVariant.replace(/^\/+/, "/"),
+            this.baseURL + "/"
+          );
           return fetch(url.toString(), {
             method: "POST",
             headers: {
@@ -205,20 +233,26 @@ class ModernApiClient {
           response = await attempt("/auth/refresh/");
         }
         if (!response.ok) {
-          console.warn("Token refresh failed", response.status, response.statusText);
+          console.warn(
+            "Token refresh failed",
+            response.status,
+            response.statusText
+          );
           throw new Error("Failed to refresh token");
         }
         let data: Record<string, unknown> = {};
-        try { data = await response.json(); } catch { }
+        try {
+          data = await response.json();
+        } catch {}
         const access = data["access_token"];
-        if (typeof access === 'string' && access) {
+        if (typeof access === "string" && access) {
           Cookies.set("access_token", access, { expires: 1 });
         }
         const refresh = data["refresh_token"];
-        if (typeof refresh === 'string' && refresh) {
+        if (typeof refresh === "string" && refresh) {
           Cookies.set("refresh_token", refresh, { expires: 30 });
         }
-        return typeof access === 'string' && !!access;
+        return typeof access === "string" && !!access;
       } catch {
         // Clear auth data & notify app to logout
         Cookies.remove("access_token");
@@ -244,16 +278,16 @@ class ModernApiClient {
     params?: Record<string, unknown>,
     config: RequestConfig = {}
   ): Promise<unknown> {
-  // Caching & dedupe disabled: strip related config
-  const { retries = 2, timeout = 10000 } = config;
+    // Caching & dedupe disabled: strip related config
+    const { retries = 2, timeout = 10000 } = config;
     // Global safeguard: disable caching for admin product & order endpoints automatically when on /admin route
-  // Admin override no longer needed since cache fully disabled
+    // Admin override no longer needed since cache fully disabled
 
     // Check cache first
-  // Cache read disabled globally
+    // Cache read disabled globally
 
     // Check if request is already pending (request deduplication)
-  // Request deduplication disabled (always new network request)
+    // Request deduplication disabled (always new network request)
 
     // Create new request
     const requestPromise = this.executeWithRetries(
@@ -262,18 +296,18 @@ class ModernApiClient {
       timeout
     );
 
-  // Skip storing pending request (dedupe disabled)
+    // Skip storing pending request (dedupe disabled)
 
     try {
       const data = await requestPromise;
 
       // Cache the result
-  // Skip cache write
+      // Skip cache write
 
       return data;
     } finally {
       // Remove from pending requests
-  // No pending request cleanup needed
+      // No pending request cleanup needed
     }
   }
 

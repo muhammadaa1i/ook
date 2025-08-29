@@ -118,8 +118,8 @@ export default {
   cart: {
     inCart: 'В корзине',
     alreadyInCartAddMore: 'Товар уже в корзине. Нажмите чтобы добавить ещё',
-    addToCartHint: 'В корзину (минимум 50, шаг 5)',
-    added: '{name}: +{qty}',
+    addToCartHint: 'В корзину (минимум 60, шаг 6)',
+    added: '{name}: +{qty} единиц добавлено',
     removed: '{name}: удалён',
     cleared: 'Корзина очищена',
     addMore: 'Добавить еще',

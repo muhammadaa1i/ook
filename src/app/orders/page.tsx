@@ -19,30 +19,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useRouter } from "next/navigation";
-
-interface OrderItem {
-  id: number;
-  slipper: {
-    id: number;
-    name: string;
-    price: number;
-    images: Array<{ id: number; image_url: string }>;
-  };
-  quantity: number;
-  price: number;
-}
-
-interface Order {
-  id: number;
-  order_number: string;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
-  total_amount: number;
-  created_at: string;
-  updated_at: string;
-  shipping_address: string;
-  payment_method: string;
-  items: OrderItem[];
-}
+import { Order, OrderItem } from "@/types";
 
 const statusConfig = {
   pending: {
@@ -88,14 +65,66 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await modernApiClient.get(
-        API_ENDPOINTS.ORDERS,
-        {},
-        { ttl: 60000 }
-      );
-      const ordersData = (response as { data?: Order[] })?.data || (response as Order[]) || [];
-      const ordersArray = Array.isArray(ordersData) ? ordersData : [];
-      setOrders(ordersArray);
+      const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, {});
+      const data = (response as { data?: unknown; items?: unknown })?.data ?? (response as unknown);
+      const ordersData: unknown = (data as { items?: unknown; data?: unknown })?.items ?? (data as { data?: unknown })?.data ?? data;
+
+      type RawOrderItem = Partial<OrderItem> & {
+        unit_price?: number;
+        quantity?: number;
+        total_price?: number;
+        price?: number;
+        slipper?: Partial<OrderItem["slipper"]> & {
+          images?: Array<{ id: number; image_url?: string; image_path?: string }>;
+        };
+      };
+      type RawOrder = Partial<Order> & {
+        order_number?: string;
+        items?: RawOrderItem[];
+        order_items?: RawOrderItem[];
+        payment_method?: string;
+        shipping_address?: string;
+      };
+
+      const normalized: Order[] = (Array.isArray(ordersData) ? ordersData : [])
+        .map((r) => r as RawOrder)
+        .map((raw) => {
+          const rawItems: RawOrderItem[] = Array.isArray(raw.items)
+            ? raw.items
+            : Array.isArray(raw.order_items)
+              ? raw.order_items
+              : [];
+
+          const items: OrderItem[] = rawItems.map((ri) => ({
+            id: (ri.id ?? Math.random() * 1e9) as number,
+            slipper_id: ri.slipper_id as number,
+            slipper: ri.slipper as OrderItem["slipper"],
+            quantity: Number(ri.quantity ?? 0),
+            unit_price: Number(ri.unit_price ?? ri.price ?? 0),
+            total_price: typeof ri.total_price === "number" ? ri.total_price : Number(ri.unit_price ?? ri.price ?? 0) * Number(ri.quantity ?? 0),
+            notes: ri.notes,
+            order_id: ri.order_id,
+            created_at: ri.created_at,
+          }));
+
+          const computedTotal = typeof raw.total_amount === "number" && !Number.isNaN(raw.total_amount)
+            ? raw.total_amount
+            : items.reduce((sum, it) => sum + Number(it.total_price ?? (it.unit_price * it.quantity)), 0);
+
+          return {
+            id: Number(raw.id ?? 0),
+            user_id: Number(raw.user_id ?? 0),
+            user: raw.user,
+            status: (raw.status ?? "pending") as Order["status"],
+            total_amount: computedTotal,
+            notes: raw.notes,
+            items,
+            created_at: raw.created_at ?? new Date().toISOString(),
+            updated_at: raw.updated_at ?? raw.created_at ?? new Date().toISOString(),
+          } as Order;
+        });
+
+      setOrders(normalized);
     } catch (error) {
       console.error("Error fetching orders:", error);
       toast.error(t('errors.productsLoad'));

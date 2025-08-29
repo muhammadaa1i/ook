@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { PaymentService, PaymentStatus } from '@/services/paymentService';
 import { toast } from 'react-toastify';
+import { useI18n } from '@/i18n';
 
 interface PaymentContextType {
   currentPayment: PaymentStatus | null;
@@ -17,6 +18,7 @@ const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
 export function PaymentProvider({ children }: { children: React.ReactNode }) {
   const [currentPayment, setCurrentPayment] = useState<PaymentStatus | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { t } = useI18n();
 
   const checkPaymentStatus = useCallback(async (transferId: string): Promise<PaymentStatus | null> => {
     if (isProcessing) return null;
@@ -28,7 +30,7 @@ export function PaymentProvider({ children }: { children: React.ReactNode }) {
       return status;
     } catch (error) {
       console.error('Payment status check failed:', error);
-      toast.error('Failed to check payment status');
+      toast.error(t('payment.error.statusCheck'));
       return null;
     } finally {
       setIsProcessing(false);
@@ -42,11 +44,11 @@ export function PaymentProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await PaymentService.cancelPayment(transferId);
       setCurrentPayment(result);
-      toast.success('Payment cancelled successfully');
+      toast.success(t('payment.success.title'));
       return true;
     } catch (error) {
       console.error('Payment cancellation failed:', error);
-      toast.error('Failed to cancel payment');
+      toast.error(t('payment.error.failed'));
       return false;
     } finally {
       setIsProcessing(false);

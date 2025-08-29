@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+
 const withAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
 
 const nextConfig: NextConfig = {
@@ -23,21 +24,30 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable"
-          }
-        ]
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
       },
       {
         source: "/:all*(json)",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=600"
-          }
-        ]
-      }
+            value: "public, max-age=600",
+          },
+        ],
+      },
     ];
-  }
+  },
+
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*", 
+        destination: "https://oyoqkiyim.duckdns.org/:path*", 
+      },
+    ];
+  },
 };
 
 export default withAnalyzer(nextConfig);

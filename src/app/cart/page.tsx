@@ -168,12 +168,9 @@ export default function CartPage() {
               <ShoppingCart className="h-8 w-8 mr-3" />
               {t('cartPage.heading')} ({t('cartPage.itemsCount', { count: String(itemCount) })})
             </h1>
-            <button className="flex items-center bg-blue-100 text-blue-900 px-4 py-2 rounded-lg font-semibold text-lg mb-6">
-              <ShoppingCart className="mr-2" /> {t('home.myOrders')}
-            </button>
             <button
               onClick={clearCart}
-              className="text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1 rounded-md font-medium transition-colors"
+              className="bg-red-600 text-white hover:bg-red-500 px-3 py-1 rounded-md font-medium transition-colors"
             >
               {t('cartPage.clear')}
             </button>
@@ -216,14 +213,14 @@ export default function CartPage() {
                       </p>
 
                       {/* Quantity Controls */}
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center">
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity - 5)
+                              updateQuantity(item.id, item.quantity - 6)
                             }
                             className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
-                            disabled={item.quantity <= 50}
+                            disabled={item.quantity <= 60}
                           >
                             <Minus className="h-4 w-4" />
                           </button>
@@ -232,27 +229,28 @@ export default function CartPage() {
                           </span>
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity + 5)
+                              updateQuantity(item.id, item.quantity + 6)
                             }
                             className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
                           >
                             <Plus className="h-4 w-4" />
                           </button>
                         </div>
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-red-600 hover:text-red-700 p-2 rounded-md hover:bg-red-50"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
                       </div>
                     </div>
 
                     {/* Item Total */}
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end justify-between ml-auto">
                       <p className="text-lg font-bold text-gray-900">
                         {formatPrice(item.price * item.quantity, t('common.currencySom'))}
                       </p>
+                      <button
+                        onClick={() => removeFromCart(item.id)}
+                        className="text-red-600 hover:text-red-700 p-2 rounded-md hover:bg-red-50 mt-10"
+                        aria-label="Remove from cart"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
                     </div>
                   </div>
                 </div>

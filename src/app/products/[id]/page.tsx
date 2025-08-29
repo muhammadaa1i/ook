@@ -237,9 +237,9 @@ export default function ProductDetailPage() {
           {t('common.back')}
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Product Images / Carousel */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden" role={imageUrls.length > 1 ? "region" : undefined} aria-roledescription={imageUrls.length > 1 ? "carousel" : undefined} aria-label={imageUrls.length > 1 ? t('productDetail.imageGallery', { count: String(imageUrls.length) }) : undefined}>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden order-2 lg:order-1" role={imageUrls.length > 1 ? "region" : undefined} aria-roledescription={imageUrls.length > 1 ? "carousel" : undefined} aria-label={imageUrls.length > 1 ? t('productDetail.imageGallery', { count: String(imageUrls.length) }) : undefined}>
             <div
               className="relative h-96 bg-gray-200 group select-none"
               onTouchStart={onTouchStart}
@@ -253,6 +253,7 @@ export default function ProductDetailPage() {
                   key={currentImage}
                   src={currentImage}
                   alt={product.name}
+                  unoptimized
                   className="object-cover transition-opacity duration-300"
                   onError={() => setImageError(true)}
                   priority={safeActive === 0}
@@ -335,7 +336,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Details */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 self-start order-1 lg:order-2 lg:sticky lg:top-8">
             {/* Cart Status Indicator */}
             {cartItem && (
               <div className="flex items-center justify-between mb-4 p-3 bg-green-50 border border-green-200 rounded-md">

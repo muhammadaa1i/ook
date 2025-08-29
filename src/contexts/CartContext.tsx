@@ -3,13 +3,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { Slipper, SlipperImage } from "@/types";
+import { useI18n } from "@/i18n";
 
 interface CartItem {
   id: number;
   name: string;
   price: number;
   quantity: number;
-  // Normalize product images for cart: use image_url if present or derive from image_path
   images: Array<{ id: number; image_url: string }>;
   image?: string; // Single image URL (alternative format)
   size?: string;
@@ -38,6 +38,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const { t } = useI18n();
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -45,7 +46,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const savedCart = localStorage.getItem("cart");
       if (savedCart) {
         try {
-          setItems(JSON.parse(savedCart));
+          const parsed: CartItem[] = JSON.parse(savedCart);
+          const normalized = parsed.map((it) => ({
+            ...it,
+            quantity: Math.max(60, Math.round((it.quantity || 0) / 6) * 6),
+          }));
+          setItems(normalized);
         } catch (error) {
           console.error("Error loading cart from localStorage:", error);
         }
@@ -62,9 +68,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for logout event to clear cart
   useEffect(() => {
-    const handleCartClear = () => {
-      setItems([]);
-    };
+  const handleCartClear = () => {
+    setItems([]);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("cart");
+    }
+  };
 
     if (typeof window !== "undefined") {
       window.addEventListener("cart:clear", handleCartClear);
@@ -74,20 +83,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = (
     product: Slipper,
-    quantity = 50,
+    quantity = 60,
     size?: string,
     color?: string
   ) => {
     // Check available stock
     const availableStock = product.quantity || 0;
     if (availableStock <= 0) {
-      toast.error(`${product.name} is out of stock`);
+      toast.error(t('cart.outOfStock', { name: product.name }));
       return;
     }
 
-    // Always add in multiples of 5, minimum 50
-    let addQty = Math.max(5, Math.round(quantity / 5) * 5);
-    if (addQty < 50) addQty = 50;
+    // Always add in multiples of 6, minimum 60
+    let addQty = Math.max(6, Math.round(quantity / 6) * 6);
+    if (addQty < 60) addQty = 60;
 
     const existingItemIndex = items.findIndex(
       (item) =>
@@ -98,18 +107,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setItems((prevItems) => {
         const newItems = [...prevItems];
         let newQty = newItems[existingItemIndex].quantity + addQty;
-        if (newQty < 50) newQty = 50;
-        // Always round to nearest 5
-        newQty = Math.round(newQty / 5) * 5;
+        if (newQty < 60) newQty = 60;
+        // Always round to nearest 6
+        newQty = Math.round(newQty / 6) * 6;
         
         // Check if new quantity exceeds available stock
         if (newQty > availableStock) {
-          const maxPossible = Math.floor(availableStock / 5) * 5;
-          if (maxPossible >= 50) {
+          const maxPossible = Math.floor(availableStock / 6) * 6;
+          if (maxPossible >= 60) {
             newQty = maxPossible;
-            toast.warning(`${product.name}: Only ${newQty} units added (${availableStock} available)`);
+            toast.warning(t('cart.limitedStock', { name: product.name, qty: newQty, available: availableStock }));
           } else {
-            toast.error(`${product.name}: Insufficient stock (${availableStock} available, minimum 50 required)`);
+            toast.error(t('cart.insufficientStock', { name: product.name, available: availableStock }));
             return prevItems; // Don't update if can't meet minimum
           }
         }
@@ -117,19 +126,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         newItems[existingItemIndex].quantity = newQty;
         return newItems;
       });
-      toast.success(`${product.name}: +${addQty} units added`);
+      toast.success(t('cart.added', { name: product.name, qty: addQty }));
     } else {
-      // Check if minimum quantity (50) can be satisfied
-      if (availableStock < 50) {
-        toast.error(`${product.name}: Insufficient stock (${availableStock} available, minimum 50 required)`);
+      // Check if minimum quantity (60) can be satisfied
+      if (availableStock < 60) {
+        toast.error(t('cart.insufficientStock', { name: product.name, available: availableStock }));
         return;
       }
       
       // Check if requested quantity exceeds available stock
       if (addQty > availableStock) {
-        const maxPossible = Math.floor(availableStock / 5) * 5;
-        addQty = Math.max(50, maxPossible);
-        toast.warning(`${product.name}: Only ${addQty} units added (${availableStock} available)`);
+        const maxPossible = Math.floor(availableStock / 6) * 6;
+        addQty = Math.max(60, maxPossible);
+        toast.warning(t('cart.limitedStock', { name: product.name, qty: addQty, available: availableStock }));
       }
 
       type ImageLike = { id: number; image_url?: string; image_path?: string };
@@ -147,7 +156,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         color,
       };
       setItems((prevItems) => [...prevItems, cartItem]);
-      toast.success(`${product.name}: +${addQty} units added`);
+      toast.success(t('cart.added', { name: product.name, qty: addQty }));
     }
   };
 
@@ -157,34 +166,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return prevItems.filter((item) => item.id !== productId);
     });
     if (removedItem) {
-      toast.success(`${removedItem.name} removed from cart`);
+      toast.success(t('cart.removed', { name: removedItem.name }));
     }
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
-    // Enforce minimum 50, step 5
-    const newQty = Math.max(50, Math.round(quantity / 5) * 5);
-    if (newQty <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-    
-    // Find current cart item to check against product stock
+    // Find current cart item
     const cartItem = items.find(item => item.id === productId);
     if (!cartItem) return;
-    
-    // For now, we'll allow the update but show a warning if it might exceed stock
-    // In a real app, you'd want to fetch current product data to check stock
+
+    // Determine direction to snap correctly to 6-step grid
+    const isIncrease = quantity > cartItem.quantity;
+    let snapped = isIncrease
+      ? Math.ceil(quantity / 6) * 6
+      : Math.floor(quantity / 6) * 6;
+
+    // Enforce minimum 60
+    if (snapped < 60) snapped = 60;
+
     setItems((prevItems) =>
       prevItems.map((item) =>
-        item.id === productId ? { ...item, quantity: newQty } : item
+        item.id === productId ? { ...item, quantity: snapped } : item
       )
     );
   };
 
   const clearCart = () => {
     setItems([]);
-    toast.success("Cart cleared");
+    toast.success(t('cart.cleared'));
   };
 
   const isInCart = (productId: number) => {

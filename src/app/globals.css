@@ -139,9 +139,9 @@ textarea::placeholder {
   color: #b91c1c !important;
 }
 
-/* Link hover states */
+/* Link hover states - don't underline on hover (keep color changes via utility classes) */
 a:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 /* Disabled button states */

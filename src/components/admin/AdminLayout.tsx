@@ -96,13 +96,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               >
                 {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
-              <Link
-                href="/"
-                className="hidden sm:flex items-center space-x-2 text-gray-600 hover:text-gray-900"
-              >
-                <Home className="h-5 w-5" />
-                <span className="text-sm font-medium truncate">{t('admin.header.backToSite')}</span>
-              </Link>
               <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
                 {t('admin.header.title')}
               </h1>

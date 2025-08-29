@@ -7,7 +7,7 @@ import { Order, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import { ChevronLeft, ChevronRight, Eye, Package, Check, X, Clock, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Check, X, Clock, Truck } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
@@ -80,7 +80,58 @@ export default function AdminOrdersPage() {
           (data as { items?: Order[]; data?: Order[] })?.data ||
           [];
 
-      setOrders(Array.isArray(ordersData) ? ordersData : []);
+      // Normalize to ensure user, items and total_amount are present
+      type RawOrderItem = Partial<import("@/types").OrderItem> & {
+        unit_price?: number;
+        quantity?: number;
+        total_price?: number;
+      };
+      type RawOrder = Partial<Order> & {
+        order_items?: RawOrderItem[];
+        items?: RawOrderItem[];
+        user?: import("@/types").User;
+        customer?: import("@/types").User;
+        total_amount?: number;
+        user_name?: string;
+      };
+
+      const normalizedOrders: Order[] = (Array.isArray(ordersData) ? ordersData : [])
+        .map((rawUnknown) => rawUnknown as RawOrder)
+        .map((raw) => {
+          const rawItems: RawOrderItem[] = Array.isArray(raw.items)
+            ? raw.items
+            : Array.isArray(raw.order_items)
+              ? raw.order_items
+              : [];
+
+          const computedTotal = typeof raw.total_amount === "number" && !Number.isNaN(raw.total_amount)
+            ? raw.total_amount
+            : rawItems.reduce((sum, it) => {
+                const unit = Number(it.unit_price ?? 0);
+                const qty = Number(it.quantity ?? 0);
+                const line = typeof it.total_price === "number" ? it.total_price : unit * qty;
+                return sum + (Number.isFinite(line) ? line : 0);
+              }, 0);
+
+          const user = raw.user ?? raw.customer ?? (raw.user_name
+            ? {
+                id: undefined,
+                name: String(raw.user_name || ""),
+                surname: "",
+                phone_number: "",
+                is_admin: false,
+              }
+            : undefined);
+
+          return {
+            ...(raw as Order),
+            user,
+            items: ((rawItems as import("@/types").OrderItem[]) ?? []),
+            total_amount: computedTotal,
+          } as Order;
+        });
+      // Directly use normalized list without per-order hydration (avoid CORS/500)
+      setOrders(normalizedOrders);
       const paginationData = data as {
         total?: number;
         pages?: number;
@@ -124,21 +175,7 @@ export default function AdminOrdersPage() {
     [pagination.limit]
   );
 
-  const handleStatusChange = useCallback(
-    async (orderId: number, newStatus: string) => {
-      try {
-        await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(orderId), {
-          status: newStatus,
-        });
-  toast.success(t('admin.orders.toasts.statusUpdateSuccess'));
-        fetchOrders();
-      } catch (error) {
-        console.error("Error updating order status:", error);
-  toast.error(t('admin.orders.toasts.statusUpdateError'));
-      }
-    },
-  [fetchOrders, t]
-  );
+  // Status change dropdown removed from UI; handler not needed
 
   const renderPagination = () => {
     if (pagination.totalPages <= 1) return null;
@@ -238,9 +275,6 @@ export default function AdminOrdersPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t('admin.orders.table.date')}
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {t('admin.orders.table.actions')}
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -253,7 +287,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {order.user?.name || t('admin.orders.unspecifiedUser')}{" "}
+                          {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.orders.unspecifiedUser')}{" "}
                           {order.user?.surname || ""}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -286,24 +320,7 @@ export default function AdminOrdersPage() {
                         {new Date(order.created_at).toLocaleDateString("ru-RU")}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button className="text-blue-600 hover:text-blue-900">
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <select
-                            value={order.status}
-                            onChange={(e) =>
-                              handleStatusChange(order.id, e.target.value)
-                            }
-                            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-900"
-                          >
-                            <option value="pending">{t('admin.orders.status.pending')}</option>
-                            <option value="processing">{t('admin.orders.status.processing')}</option>
-                            <option value="shipped">{t('admin.orders.status.shipped')}</option>
-                            <option value="delivered">{t('admin.orders.status.delivered')}</option>
-                            <option value="cancelled">{t('admin.orders.status.cancelled')}</option>
-                          </select>
-                        </div>
+                        <div className="flex justify-end space-x-2"></div>
                       </td>
                     </tr>
                   ))}

@@ -2,13 +2,13 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Plus, Package, X, ChevronLeft, ChevronRight, Trash2, Images, ImagePlus, Edit } from "lucide-react";
+import { Plus, Package, X, ChevronLeft, ChevronRight, Trash2, Images, ImagePlus } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "react-toastify";
 import { modernApiClient } from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
-import { getFullImageUrl, formatPrice } from "@/lib/utils";
+import { getFullImageUrl } from "@/lib/utils";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ProductRow from "@/components/admin/products/ProductRow";
 import { Slipper } from "@/types";
@@ -669,7 +669,7 @@ export default function AdminProductsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col items-center justify-center gap-4 text-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
               {t('admin.products.title')}
@@ -690,9 +690,9 @@ export default function AdminProductsPage() {
             <LoadingTable />
           ) : products.length > 0 ? (
             <>
-              <div className="hidden md:block overflow-x-auto">
+              <div className="block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="hidden md:table-header-group bg-gray-50">
                     <tr>
                       <th className="px-4 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {t('admin.products.table.product')}
@@ -727,75 +727,6 @@ export default function AdminProductsPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-              {/* Mobile card list */}
-              <div className="md:hidden divide-y divide-gray-100">
-                {products.map(product => {
-                  const image = product.images && product.images.length ? product.images[0] : undefined;
-                  return (
-                    <div
-                      key={product.id}
-                      className="flex gap-3 p-3 hover:bg-gray-50 transition cursor-pointer"
-                      onClick={() => router.push(`/products/${product.id}`)}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div className="flex-shrink-0 h-14 w-14 relative rounded-md overflow-hidden bg-gray-100">
-                        {image ? (
-                          <Image
-                            src={getFullImageUrl(image.image_path)}
-                            alt={product.name}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                            onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-product.svg'; }}
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center">
-                            <Package className="h-6 w-6 text-gray-400" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium text-gray-900 truncate text-sm leading-snug">{product.name}</p>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleToggleAvailable(product); }}
-                            className={`px-2 py-0.5 text-[10px] font-medium rounded-full whitespace-nowrap ${product.is_available !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
-                          >
-                            {product.is_available !== false ? t('admin.products.status.active') : t('admin.products.status.inactive')}
-                          </button>
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
-                          <span>ID: {product.id}</span>
-                          <span>{formatPrice(product.price)}</span>
-                          {product.size && <span>{product.size}</span>}
-                        </div>
-                        <div className="mt-2 flex items-center gap-3 text-gray-500">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEditModal(product); }}
-                            className="hover:text-green-600"
-                            aria-label={t('admin.products.table.actions')}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.id); }}
-                            className="hover:text-red-600"
-                            aria-label={t('common.delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {(!products || products.length === 0) && (
-                  <div className="p-6 text-center text-sm text-gray-500">
-                    {t('admin.products.empty.subtitle')}
-                  </div>
-                )}
               </div>
             </>
           ) : (
