@@ -313,16 +313,16 @@ export default function OrdersPage() {
                   >
                     <Image
                       src={getFullImageUrl(
-                        item.slipper.images?.[0]?.image_url || ""
+                        item.slipper?.images?.[0]?.image_path || ""
                       )}
-                      alt={item.slipper.name}
+                      alt={item.slipper?.name || ""}
                       width={64}
                       height={64}
                       className="h-16 w-16 object-cover rounded-md"
                     />
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">
-                        {item.slipper.name}
+                        {item.slipper?.name || ""}
                       </h4>
                       <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                         <span>Количество: {item.quantity}</span>

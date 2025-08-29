@@ -114,6 +114,14 @@ export default function CartPage() {
       const paymentResponse = await PaymentService.createPayment(paymentRequest);
       
       if (paymentResponse.payment_url) {
+        // Immediately check payment status and store it for admin panel
+        try {
+          await PaymentService.getPaymentStatus(paymentResponse.transfer_id);
+          // Optionally, send paymentStatus.status to your backend to update the order's payment status
+          // await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(orderId), { payment_status: paymentStatus.status });
+        } catch {
+          // Optionally handle error
+        }
         // Redirect to payment gateway
         window.location.href = paymentResponse.payment_url;
       } else {
