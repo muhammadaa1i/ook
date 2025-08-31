@@ -339,7 +339,6 @@ export default function AdminCategoriesPage() {
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
-            <Plus className="h-4 w-4" />
             <span>Добавить категорию</span>
           </button>
         </div>

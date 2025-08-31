@@ -23,8 +23,8 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Slipper | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  // Quantity logic: minimum order 50
-  const MIN_ORDER = 50;
+  // Quantity logic: minimum order 60
+  const MIN_ORDER = 60;
   const quantity = MIN_ORDER;
   const [imageError, setImageError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);

@@ -311,18 +311,24 @@ export default function OrdersPage() {
                     key={item.id}
                     className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg"
                   >
-                    <Image
-                      src={getFullImageUrl(
-                        item.slipper?.images?.[0]?.image_path || ""
-                      )}
-                      alt={item.slipper?.name || ""}
-                      width={64}
-                      height={64}
-                      className="h-16 w-16 object-cover rounded-md"
-                    />
+                    {item.slipper ? (
+                      <Image
+                        src={getFullImageUrl(
+                          item.slipper.images?.[0]?.image_path || ""
+                        )}
+                        alt={item.slipper.name}
+                        width={64}
+                        height={64}
+                        className="h-16 w-16 object-cover rounded-md"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 flex items-center justify-center bg-gray-200 rounded-md text-gray-400 text-2xl">
+                        ?
+                      </div>
+                    )}
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">
-                        {item.slipper?.name || ""}
+                        {item.slipper?.name || "Неизвестно"}
                       </h4>
                       <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                         <span>Количество: {item.quantity}</span>
