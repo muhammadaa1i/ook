@@ -153,14 +153,21 @@ const Navbar = React.memo(() => {
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">  
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2" suppressHydrationWarning>
-            <div className="flex items-center justify-center w-10 h-10">
-              <Image src="/logo.svg" alt={t('brand.name')} width={40} height={40} priority className="object-contain" />
-            </div>
-            <span className="text-xl font-bold text-gray-900">{t('brand.name')}</span>
-          </Link>
+        <div className="flex justify-between items-center h-16">
+          {/* Logo + Tagline */}
+          <div className="flex flex-col items-start">
+            <Link href="/" className="flex items-center space-x-2" suppressHydrationWarning>
+              <div className="flex items-center justify-center w-10 h-10">
+                <Image src="/logo.svg" alt={t('brand.name')} width={40} height={40} priority className="object-contain" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-gray-900">{t('brand.name')}</span>
+                <span className="text-xs md:text-sm font-serif tracking-widest text-gray-500 mb-0.5 md:mb-1" style={{ letterSpacing: '0.15em', fontFamily: 'Playfair Display, serif' }}>
+                  {t('brand.tagline')}
+                </span>
+              </div>
+            </Link>
+          </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">

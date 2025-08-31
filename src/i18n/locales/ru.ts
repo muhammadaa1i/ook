@@ -1,5 +1,5 @@
 export default {
-  brand: { name: 'Velora shoes' },
+  brand: { name: 'Velora shoes', tagline: 'Интернет магазин' },
   common: {
     home: 'Главная',
     catalog: 'Каталог',

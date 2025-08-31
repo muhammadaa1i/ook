@@ -1,5 +1,5 @@
 export default {
-  brand: { name: 'Velora shoes' },
+  brand: { name: 'Velora shoes', tagline: 'Internet doʻkoni' },
   common: {
     home: 'Bosh sahifa',
     catalog: 'Katalog',
@@ -7,11 +7,11 @@ export default {
     profile: 'Profil',
     logout: 'Chiqish',
     cancel: 'Bekor qilish',
-  confirm: 'Tasdiqlash',
-  delete: 'O‘chirish',
-  deleteQuestion: 'Bu mahsulot o‘chirilsinmi?',
-  save: 'Saqlash',
-  edit: 'Tahrirlash',
+    confirm: 'Tasdiqlash',
+    delete: 'O‘chirish',
+    deleteQuestion: 'Bu mahsulot o‘chirilsinmi?',
+    save: 'Saqlash',
+    edit: 'Tahrirlash',
     cart: 'Savat',
     items: 'dona',
     yes: 'Ha',
