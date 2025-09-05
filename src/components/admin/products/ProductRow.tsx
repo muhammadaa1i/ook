@@ -196,7 +196,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
       <tr className="md:hidden">
         <td colSpan={5} className="px-3 py-3">
           <div
-            className="flex gap-3 p-3 rounded-lg border hover:bg-gray-50 transition cursor-pointer"
+            className="flex gap-3 rounded-lg hover:bg-gray-50 transition cursor-pointer"
             onClick={() => navigate(product.id)}
             role="button"
             tabIndex={0}

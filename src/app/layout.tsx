@@ -48,18 +48,18 @@ export default function RootLayout({
       >
         <I18nProvider>
           <GlobalSWRConfig>
-          <AuthProvider>
-          <ConfirmDialogProvider>
-            <CartProvider>
-              <PaymentProvider>
-                <Navbar />
-                <main className="flex-grow">{children}</main>
-                <Footer />
-              </PaymentProvider>
-            </CartProvider>
-            <DynamicToastContainer />
-          </ConfirmDialogProvider>
-        </AuthProvider>
+            <AuthProvider>
+              <ConfirmDialogProvider>
+                <CartProvider>
+                  <PaymentProvider>
+                    <Navbar />
+                    <main className="flex-grow">{children}</main>
+                    <Footer />
+                  </PaymentProvider>
+                </CartProvider>
+                <DynamicToastContainer />
+              </ConfirmDialogProvider>
+            </AuthProvider>
           </GlobalSWRConfig>
         </I18nProvider>
       </body>

@@ -115,7 +115,7 @@ const Navbar = React.memo(() => {
     if (isAdmin || isAdminPage) return null;
     const isActive = pathname === "/cart";
     const baseClasses = cn(
-      "relative group flex items-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+      "relative group flex items-center rounded-md transition-colors focus:border-none",
       mobile
         ? "px-3 py-2 text-base font-medium"
         : "p-2",
@@ -208,7 +208,7 @@ const Navbar = React.memo(() => {
                   aria-expanded={isProfileDropdownOpen}
                   className={cn(
                     "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors",
-                    "bg-white border border-blue-200/60 text-gray-700 hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    "bg-white border border-blue-200/60 text-gray-700 hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:border-blue-200/60"
                   )}
                 >
                   <User className="h-4 w-4 text-blue-600" />
@@ -261,7 +261,7 @@ const Navbar = React.memo(() => {
               <div className="flex items-center space-x-2">
                 <Link
                   href="/auth/login"
-                  className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="text-gray-600 focus:border-none px-3 py-2 rounded-md text-sm font-medium transition-colors border-2 border-gray-500"
                 >
                   {t('auth.login')}
                 </Link>
@@ -331,19 +331,21 @@ const Navbar = React.memo(() => {
               })}
 
               {/* Cart in Mobile Menu (only for non-admin users and not on admin pages) */}
-              <Link
-                href="/cart"
-                onClick={closeMenu}
-                className={cn(
-                  "flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors",
-                  pathname === "/cart"
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                )}
-              >
-                <ShoppingCart className="h-5 w-5" />
-                <span className="select-none">{t('common.cart')}</span>
-              </Link>
+              {!isAdmin && !isAdminPage && (
+                <Link
+                  href="/cart"
+                  onClick={closeMenu}
+                  className={cn(
+                    "flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors",
+                    pathname === "/cart"
+                      ? "bg-blue-100 text-blue-700"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  )}
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  <span className="select-none">{t('common.cart')}</span>
+                </Link>
+              )}
 
               {isAuthenticated ? (
                 <div className="border-t pt-3 mt-3">
@@ -363,7 +365,7 @@ const Navbar = React.memo(() => {
                   <Link
                     href="/auth/login"
                     onClick={closeMenu}
-                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 border-2 border-gray-500"
                   >
                     {t('auth.login')}
                   </Link>

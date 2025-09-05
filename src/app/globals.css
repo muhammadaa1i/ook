@@ -11,7 +11,7 @@
   --radius: 8px;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1),
+  --shadow-lg: 0 10px -3px rgb(0 0 0 / 0.1),
     0 4px 6px -4px rgb(0 0 0 / 0.1);
   --transition: all 0.2s ease-in-out;
 }
@@ -36,6 +36,18 @@ html {
 *:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+/* Remove focus borders and outlines for buttons and links */
+button:focus,
+button:focus-visible,
+a:focus,
+a:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible {
+  outline: none !important;
+  border-color: inherit !important;
+  box-shadow: none !important;
 }
 
 /* Better button interactions */
@@ -153,16 +165,6 @@ select:disabled {
   color: #6b7280 !important;
 }
 
-/* Focus states for accessibility */
-button:focus,
-a:focus,
-input:focus,
-select:focus,
-textarea:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
 /* Card hover effects */
 .shadow-md {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -189,12 +191,10 @@ textarea:focus {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.6),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.6),
+      transparent);
   animation: loading 1.5s infinite;
 }
 
@@ -202,6 +202,7 @@ textarea:focus {
   0% {
     left: -100%;
   }
+
   100% {
     left: 100%;
   }
@@ -241,6 +242,7 @@ textarea:focus {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -251,6 +253,7 @@ textarea:focus {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -262,6 +265,7 @@ textarea:focus {
     opacity: 0;
     transform: translateX(100%);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -356,3 +360,14 @@ textarea::placeholder {
 .text-gray-700 {
   color: #374151 !important;
 }
+
+/* Prevent login button from getting blue border on hover/focus/active */
+a[href="/auth/login"]:hover,
+a[href="/auth/login"]:focus,
+a[href="/auth/login"]:active {
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+}
+
