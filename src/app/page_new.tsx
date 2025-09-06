@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Star, Shield, Truck, Headphones } from "lucide-react";
 import ProductCard from "@/components/products/ProductCard";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
@@ -16,6 +17,7 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { t } = useI18n();
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,8 +44,8 @@ export default function HomePage() {
   }, [t]);
 
   const handleViewProduct = (slipper: Slipper) => {
-    // Navigate to product detail page
-    window.location.href = `/products/${slipper.id}`;
+    // Use client-side navigation to preserve app state (including language)
+    router.push(`/products/${slipper.id}`);
   };
 
   const features = [

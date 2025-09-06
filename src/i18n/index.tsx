@@ -29,7 +29,33 @@ const dictionaries: Record<Locale, Record<string,string>> = {
 };
 
 export const I18nProvider: React.FC<React.PropsWithChildren<{initialLocale?: Locale}>> = ({initialLocale='ru', children}) => {
+  // On the server we must render with a deterministic default (ru). After mount, we
+  // hydrate the saved locale from localStorage and then persist changes.
   const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [initialized, setInitialized] = useState(false);
+
+  // Load saved locale on first client mount, without overwriting it beforehand
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem('locale') as Locale | null;
+      if (saved && (saved === 'ru' || saved === 'uz')) {
+        setLocale(saved);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setInitialized(true);
+    }
+  }, []);
+
+  // Persist locale and reflect it in <html lang> only after initialization
+  useEffect(() => {
+    if (!initialized || typeof window === 'undefined') return;
+    try { localStorage.setItem('locale', locale); } catch { /* ignore */ }
+    try { document.documentElement.lang = locale; } catch { /* ignore */ }
+  }, [locale, initialized]);
+
   useEffect(() => { /* dictionaries already loaded statically */ }, []);
   const t = useCallback((key: string, vars?: Record<string,string|number>) => {
     const dict = dictionaries[locale] || {};
