@@ -23,6 +23,14 @@ export default {
     showImage: 'Rasm {index} ni ko‘rsatish',
     currencySom: 'soʻm',
   },
+  payment: {
+    processing: 'Toʻlov amalga oshirilmoqda...',
+    orderDescription: "{customerName} uchun {itemCount} ta mahsulotdan iborat buyurtma",
+    error: {
+      initiation: 'Toʻlovni boshlashda xatolik yuz berdi'
+    },
+    noCancellationNotice: 'Diqqat! To‘lov amalga oshirilgandan so‘ng buyurtmani bekor qilish yoki qaytarib olish imkoni mavjud emas.'
+  },
   auth: {
     login: 'Akkauntga kirish',
     register: 'Roʻyxatdan oʻtish',

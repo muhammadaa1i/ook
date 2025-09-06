@@ -156,7 +156,8 @@ export default {
       initiation: 'Не удалось инициировать платеж'
     },
     continueShopping: 'Продолжить покупки',
-    viewOrders: 'Посмотреть заказы'
+    viewOrders: 'Посмотреть заказы',
+    noCancellationNotice: 'Внимание! После успешной оплаты отмена заказа или возврат средств невозможны.'
   },
   ordersPage: {
     title: 'Мои заказы',

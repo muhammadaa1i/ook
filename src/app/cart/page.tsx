@@ -316,6 +316,16 @@ export default function CartPage() {
                 )}
               </button>
 
+              {/* Payment cancellation notice */}
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full bg-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.3)]" aria-hidden="true" />
+                  <p className="text-sm leading-6">
+                    {t('payment.noCancellationNotice')}
+                  </p>
+                </div>
+              </div>
+
               {!isAuthenticated && (
                 <p className="text-sm text-gray-600 text-center mt-4">
                   <Link
