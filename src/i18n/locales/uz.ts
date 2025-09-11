@@ -287,6 +287,7 @@ export default {
         section: 'Rasmlar (majburiy emas)',
         single: 'Bitta rasm',
         multiple: 'Bir nechta rasm',
+        recommendation: 'Tavsiya etiladi: 2MB gacha rasmlar. Katta fayllar avtomatik ravishda siqiladi.',
         selectedFiles: 'Tanlangan fayllar: {count}',
         uploading: 'Rasmlar yuklanmoqda...',
         willUploadAfterCreate: 'Rasmlar mahsulot yaratilgandan so‘ng yuklanadi.',

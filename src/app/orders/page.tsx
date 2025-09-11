@@ -59,7 +59,7 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy] = useState<"date" | "amount">("date");
   const [sortOrder] = useState<"asc" | "desc">("desc");
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
 
   const fetchOrders = useCallback(async () => {
@@ -177,7 +177,24 @@ export default function OrdersPage() {
   // (Removed original fetchOrders and filterAndSortOrders implementations)
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("ru-RU", {
+    const dateObj = new Date(dateString);
+    
+    if (locale === 'uz') {
+      const uzbekMonths = [
+        'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
+        'iyul', 'avgust', 'sentyabr', 'oktyabr', 'noyabr', 'dekabr'
+      ];
+      
+      const day = dateObj.getDate();
+      const month = uzbekMonths[dateObj.getMonth()];
+      const year = dateObj.getFullYear();
+      const hours = dateObj.getHours().toString().padStart(2, '0');
+      const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+      
+      return `${day} ${month} ${year} yil ${hours}:${minutes}`;
+    }
+    
+    return dateObj.toLocaleDateString('ru-RU', {
       year: "numeric",
       month: "long",
       day: "numeric",

@@ -5,23 +5,40 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const formatPrice = (price: number, currencyLabel: string = 'сум') => {
+export const formatPrice = (price: number, currencyLabel: string = 'сум', locale: string = 'ru-RU') => {
   if (isNaN(price)) return `0 ${currencyLabel}`;
-  const formatted = new Intl.NumberFormat('ru-RU', {
+  const formatted = new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(price);
   return `${formatted} ${currencyLabel}`;
 };
 
-export const formatDate = (date: string) => {
-  return new Intl.DateTimeFormat("ru-RU", {
+const uzbekMonths = [
+  'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
+  'iyul', 'avgust', 'sentyabr', 'oktyabr', 'noyabr', 'dekabr'
+];
+
+export const formatDate = (date: string, locale: string = "ru-RU") => {
+  const dateObj = new Date(date);
+  
+  if (locale === 'uz-UZ' || locale === 'uz') {
+    const day = dateObj.getDate();
+    const month = uzbekMonths[dateObj.getMonth()];
+    const year = dateObj.getFullYear();
+    const hours = dateObj.getHours().toString().padStart(2, '0');
+    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+    
+    return `${day} ${month} ${year} yil ${hours}:${minutes}`;
+  }
+  
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "long",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(date));
+  }).format(dateObj);
 };
 
 export const debounce = <F extends (...args: never[]) => void>(

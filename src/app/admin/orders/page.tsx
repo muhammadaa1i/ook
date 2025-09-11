@@ -9,6 +9,7 @@ import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight, Package, Check, X, Clock, Truck } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
 const statusIcons = {
@@ -30,7 +31,7 @@ const statusColors = {
 // statusLabels removed (localized through t)
 
 export default function AdminOrdersPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -317,7 +318,7 @@ export default function AdminOrdersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(order.created_at).toLocaleDateString("ru-RU")}
+                        {formatDate(order.created_at, locale)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2"></div>

@@ -829,22 +829,6 @@ export default function AdminProductsPage() {
                     </label>
                   </div>
                 </div>
-                <div className="flex justify-end space-x-3 pt-2">
-                  <button
-                    onClick={() => closeModal()}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                    disabled={isSaving}
-                  >
-                    {t('common.cancel')}
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
-                    disabled={isSaving}
-                  >
-                    {isSaving ? t('admin.products.form.buttons.saving') : editingProduct ? t('admin.products.form.buttons.update') : t('admin.products.form.buttons.create')}
-                  </button>
-                </div>
                 {/* Image upload section (available once product is being created or edited; will upload after save) */}
                 <div className="pt-4 space-y-4 border-t">
                   <h3 className="text-sm font-semibold text-gray-800 flex items-center space-x-2">
@@ -852,7 +836,7 @@ export default function AdminProductsPage() {
                     <span>{t('admin.products.images.section')}</span>
                   </h3>
                   <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
-                    📁 Рекомендуется: изображения до 2МБ. Большие файлы будут автоматически сжаты.
+                    📁 {t('admin.products.images.recommendation')}
                   </div>
                   <div className="grid gap-4 md:grid-cols-1">
                     <div>
@@ -998,6 +982,24 @@ export default function AdminProductsPage() {
                       <p className="text-[10px] text-gray-500">{t('admin.products.images.addingHint')}</p>
                     </div>
                   )}
+                </div>
+                
+                {/* Action buttons at the bottom */}
+                <div className="flex justify-end space-x-3 pt-6 mt-6 border-t">
+                  <button
+                    onClick={() => closeModal()}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    disabled={isSaving}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                    disabled={isSaving}
+                  >
+                    {isSaving ? t('admin.products.form.buttons.saving') : editingProduct ? t('admin.products.form.buttons.update') : t('admin.products.form.buttons.create')}
+                  </button>
                 </div>
               </div>
             </div>

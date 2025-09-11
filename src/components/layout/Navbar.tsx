@@ -349,9 +349,15 @@ const Navbar = React.memo(() => {
 
               {isAuthenticated ? (
                 <div className="border-t pt-3 mt-3">
-                  <div className="px-3 py-2 text-sm text-gray-600">
-                    {userGreeting && `${userGreeting}`}
-                  </div>
+                  {/* Profile link for mobile */}
+                  <Link
+                    href="/profile"
+                    onClick={closeMenu}
+                    className="flex items-center space-x-2 w-full px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                  >
+                    <User className="h-5 w-5" />
+                    <span>{t('common.profile')}</span>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center space-x-2 w-full px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"

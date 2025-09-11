@@ -9,8 +9,11 @@ import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight, Edit, Trash2, Plus, Tag, Eye, EyeOff } from "lucide-react";
+import { useI18n } from "@/i18n";
+import { formatDate } from "@/lib/utils";
 
 export default function AdminCategoriesPage() {
+  const { locale } = useI18n();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -411,9 +414,7 @@ export default function AdminCategoriesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(category.created_at).toLocaleDateString(
-                          "ru-RU"
-                        )}
+                        {formatDate(category.created_at, locale)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">

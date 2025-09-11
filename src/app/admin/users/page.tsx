@@ -13,7 +13,7 @@ import { formatDate } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
 export default function AdminUsersPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user: currentUser } = useAuth();
@@ -246,7 +246,7 @@ export default function AdminUsersPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {user.created_at
-                              ? formatDate(user.created_at)
+                              ? formatDate(user.created_at, locale)
                               : t('admin.users.dateNA')}
                           </td>
                           {/* Actions cell removed */}
