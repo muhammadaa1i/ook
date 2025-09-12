@@ -29,6 +29,7 @@ export default function ProfilePage() {
         .string()
         .min(1, t('auth.validation.phoneRequired'))
         .regex(/^\+\d{10,15}$/, t('auth.validation.phoneFormat')),
+      // Current password is optional here, but will be required if user attempts to change password
       current_password: z.string().optional(),
       new_password: z.string().optional(),
       confirm_new_password: z.string().optional(),
@@ -36,7 +37,7 @@ export default function ProfilePage() {
     .refine(
       (data) => {
         if (data.new_password || data.confirm_new_password) {
-          return data.current_password && data.current_password.length >= 8;
+          return !!data.current_password && data.current_password.length >= 8;
         }
         return true;
       },
@@ -111,6 +112,34 @@ export default function ProfilePage() {
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
+      const isPasswordChange = Boolean(
+        (data.new_password && data.new_password.trim()) ||
+        (data.confirm_new_password && data.confirm_new_password.trim())
+      );
+
+      // If user is trying to change password, verify the current password against backend first
+      if (isPasswordChange) {
+        if (!data.current_password || data.current_password.trim().length === 0) {
+          toast.error(t('profilePage.validation.currentPasswordRequired'));
+          return;
+        }
+
+        // Verify current password by attempting a login with the existing username
+        // Use direct fetch to avoid mutating auth cookies/state
+        const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
+        const verifyResp = await fetch(base + "/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: user?.name ?? "", password: data.current_password })
+        });
+
+        if (!verifyResp.ok) {
+          // Incorrect current password — block any update
+          toast.error(t('auth.toasts.loginInvalid'));
+          return;
+        }
+      }
+
       // Prepare request data
       const updateData: {
         name: string;
@@ -125,8 +154,8 @@ export default function ProfilePage() {
         phone_number: data.phone_number,
       };
 
-      // Add password fields if they are provided
-      if (data.current_password && data.new_password) {
+      // Attach password-related fields only when changing password and after verification
+      if (isPasswordChange && data.new_password && data.confirm_new_password) {
         updateData.current_password = data.current_password;
         updateData.new_password = data.new_password;
         updateData.confirm_new_password = data.confirm_new_password;

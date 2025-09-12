@@ -197,7 +197,7 @@ const Navbar = React.memo(() => {
           {/* User Menu + Profile + Language Switcher (desktop) */}
           <div className="hidden md:flex items-center space-x-4">
             {/* Cart Icon (only for non-admin users and not on admin pages) */}
-            <CartIcon />
+              <CartIcon />
 
             {/* Profile dropdown with logout */}
             {isAuthenticated && !isAdmin ? (
