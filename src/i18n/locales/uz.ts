@@ -1,5 +1,9 @@
 export default {
-  brand: { name: 'Velora shoes', tagline: 'Internet doʻkoni' },
+  brand: { 
+    name: 'Velora shoes', 
+    tagline: 'Internet doʻkoni',
+    description: 'Sifatli va zamonaviy poyafzallar. Har bir qadamda qulaylik va stil.'
+  },
   common: {
     home: 'Bosh sahifa',
     catalog: 'Katalog',
@@ -192,7 +196,9 @@ export default {
     shipping: 'Yetkazib berish',
     returns: 'Qaytarish',
     privacy: 'Maxfiylik',
-    rights: 'Barcha huquqlar himoyalangan.'
+    rights: 'Barcha huquqlar himoyalangan.',
+    followUs: 'Bizni kuzatib boring',
+    contactUs: 'Biz bilan aloqa'
   },
   home: {
     heroLine1: 'Oyoqlaringiz uchun',

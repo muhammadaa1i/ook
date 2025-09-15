@@ -1,5 +1,9 @@
 export default {
-  brand: { name: 'Velora shoes', tagline: 'Интернет магазин' },
+  brand: { 
+    name: 'Velora shoes', 
+    tagline: 'Интернет магазин',
+    description: 'Качественная и современная обувь. Комфорт и стиль в каждом шаге.'
+  },
   common: {
     home: 'Главная',
     catalog: 'Каталог',
@@ -223,7 +227,9 @@ export default {
     shipping: 'Доставка',
     returns: 'Возврат',
     privacy: 'Конфиденциальность',
-    rights: 'Все права защищены.'
+    rights: 'Все права защищены.',
+    followUs: 'Следите за нами',
+    contactUs: 'Свяжитесь с нами'
   },
   home: {
     heroLine1: 'Комфорт для',
