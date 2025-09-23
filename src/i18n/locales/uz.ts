@@ -118,11 +118,18 @@ export default {
     orderSummary: 'Buyurtma yakunlari',
     productsLine: 'Mahsulotlar ({count} dona)',
     total: 'Umumiy summa',
+  emptyCart: 'Savat bo‘sh',
     checkout: 'Buyurtma berish',
     loginForCheckout: 'Tizimga kiring',
     loginForCheckoutSuffix: 'buyurtma berish uchun',
     size: 'O‘lcham',
     color: 'Rang'
+  },
+  offer: {
+    title: 'Ommaviy oferta',
+    mustAccept: 'Toʻlovga oʻtishdan avval ommaviy oferta shartlariga rozilik bildirish kerak.',
+    acceptLabel: 'Ommaviy oferta shartlari bilan tanishdim va roziman',
+    viewLink: 'Ofertani koʻrish'
   },
   cart: {
     inCart: 'Savatda',
@@ -198,7 +205,58 @@ export default {
     privacy: 'Maxfiylik',
     rights: 'Barcha huquqlar himoyalangan.',
     followUs: 'Bizni kuzatib boring',
-    contactUs: 'Biz bilan aloqa'
+    contactUs: 'Biz bilan aloqa',
+    paymentMethods: 'Toʻlov usullari'
+  },
+  offerPage: {
+    title: 'Ommaviy oferta',
+    updated: 'Yangilandi: 23.09.2025',
+    intro1: 'Ushbu ommaviy oferta (keyingi o‘rinlarda — «Oferta») Velora shoes (keyingi o‘rinlarda — «Sotuvchi») tomonidan istalgan jismoniy shaxsga (keyingi o‘rinlarda — «Xaridor») quyida keltirilgan shartlar asosida tovarlarni sotish / xizmatlarni ko‘rsatish bo‘yicha shartnoma tuzish bo‘yicha rasmiy taklifdir.',
+    intro2: 'Buyurtma berish va uni to‘lash Xaridorning ushbu Oferta shartlariga roziligini anglatadi.',
+    sections: {
+      orderPayment: {
+        title: '1. Buyurtma va to‘lov usullari',
+        li1: 'Buyurtmalar sayt orqali qabul qilinadi: https://www.optomoyoqkiyim.uz/',
+        li2: 'To‘lov: UZCARD, HUMO, Visa, MasterCard bank kartalari orqali OCTO to‘lov xizmati yordamida; saytda ko‘rsatilgan boshqa usullar orqali ham mumkin.',
+        li3: 'Barcha hisob-kitoblar O‘zbekiston Respublikasi so‘mida amalga oshiriladi.'
+      },
+      returns: {
+        title: '2. Tovarni qaytarish, xizmatdan voz kechish va mablag‘ni qaytarish shartlari',
+        li1: 'Xaridor O‘zbekiston Respublikasi qonunchiligida belgilangan muddat va tartibda tovar yoki xizmatdan voz kechishga haqli.',
+        li2: 'Tovar/xizmatdan voz kechilganda mablag‘ to‘lov amalga oshirilgan usul bilan qaytariladi.',
+        li3: 'Odatda mablag‘ni qaytarish muddati 7 ish kunigacha, ayrim hollarda bank va to‘lov tizimlari ishiga qarab 30 ish kunigacha cho‘zilishi mumkin.',
+        li4: 'Bank kartasi bo‘yicha tranzaksiyani bekor qilish milliy va xalqaro to‘lov tizimlari qoidalariga muvofiq amalga oshiriladi.'
+      },
+      delivery: {
+        title: '3. Tovarlarni yetkazib berish / xizmatlarni ko‘rsatish shartlari',
+        li1: 'Toshkent shahrida yetkazib berish bepul.',
+        li2: 'O‘zbekiston Respublikasi boshqa shaharlariga yetkazib berish kelishuv asosida.',
+        li3: 'Qozog‘iston, Qirg‘iziston va Tojikistonga yetkazib berish ham kelishuv asosida.'
+      },
+      security: {
+        title: '4. Operatsiyalar xavfsizligi',
+        li1: 'Bank kartalari orqali to‘lov OCTO to‘lov shlyuzi orqali amalga oshiriladi, u zamonaviy himoya usullaridan foydalanadi.',
+        li2: 'Bank kartasi ma’lumotlari faqat to‘lov xizmati tomonidan qayta ishlanadi va Sotuvchiga uzatilmaydi.',
+        li3: 'Sotuvchi mijozlarning shaxsiy ma’lumotlari himoyalanganini va faqat shartnomani bajarish maqsadida ishlatilishini kafolatlaydi.'
+      },
+      privacy: {
+        title: '5. Maxfiylik siyosati',
+        li1: 'Xaridorning shaxsiy ma’lumotlari 2019-yil 2-iyuldagi «Shaxsiy ma’lumotlar to‘g‘risida»gi №ZRU-547 Qonunga muvofiq qayta ishlanadi.',
+        li2: 'Sotuvchi shaxsiy ma’lumotlarni faqat Xaridor oldidagi majburiyatlarini bajarish uchun yig‘adi va ishlatadi.',
+        li3: 'Sotuvchi Xaridorning shaxsiy ma’lumotlarini uning roziligisiz uchinchi shaxslarga oshkor etmaslik majburiyatini oladi, bundan qonunchilikda nazarda tutilgan holatlar mustasno.',
+        li4: 'Xaridor buyurtma, aksiyalar va hokazolar to‘g‘risidagi axborot xabarlarini ko‘rsatilgan e-mail yoki telefon raqamiga olishga rozilik beradi.'
+      },
+      seller: {
+        title: '6. Sotuvchining rekvizitlari',
+        name: 'Velora shoes',
+        inn: 'STIR: 552430231',
+        legalAddress: 'Yuridik manzil: Toshkent vil., Eshonguzar, H. Nigmon ko‘chasi',
+        actualAddress: 'Faktik manzil: Toshkent vil., Eshonguzar, H. Nigmon ko‘chasi',
+        phone: 'Telefon: +998 95 021 02 07',
+        email: 'E-mail: elbek1987101@icloud.com'
+      }
+    },
+    notice: 'Buyurtmani rasmiylashtirish va to‘lovga o‘tish orqali siz ushbu ommaviy oferta shartlari bilan tanishganingiz va ularga rozilik bildirganingizni tasdiqlaysiz.'
   },
   home: {
     heroLine1: 'Oyoqlaringiz uchun',

@@ -76,6 +76,7 @@ export default function CartPage() {
   } = useCart();
   const { isAuthenticated, user } = useAuth();
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [offerAccepted, setOfferAccepted] = useState(false);
 
   const { t } = useI18n();
 
@@ -87,6 +88,11 @@ export default function CartPage() {
 
     if (items.length === 0) {
       toast.error(t('cartPage.emptyCart'));
+      return;
+    }
+
+    if (!offerAccepted) {
+      toast.error(t('offer.mustAccept'));
       return;
     }
 
@@ -298,9 +304,34 @@ export default function CartPage() {
                 </div>
               </div>
 
+              {/* Offer acceptance */}
+              <div className="mb-5 rounded-md border border-gray-200 bg-gray-50 p-4">
+                <label className="flex items-start gap-3 cursor-pointer  select-none">
+                  <input
+                    id="offer-accept"
+                    type="checkbox"
+                    className="mt-1 h-5 w-5 border-gray-300 focus:border-none text-blue-600"
+                    checked={offerAccepted}
+                    onChange={(e) => setOfferAccepted(e.target.checked)}
+                  />
+                  <span className="text-sm text-gray-700">
+                    {t('offer.acceptLabel')}
+                    {" "}
+                    <a
+                      href="/offer"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 underline"
+                    >
+                      ({t('offer.viewLink')})
+                    </a>
+                  </span>
+                </label>
+              </div>
+
               <button
                 onClick={handleCheckout}
-                disabled={isProcessingPayment}
+                disabled={isProcessingPayment || !offerAccepted}
                 className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {isProcessingPayment ? (

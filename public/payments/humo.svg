@@ -1,0 +1,22 @@
+<svg width="96" height="60" viewBox="0 0 96 60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C9A23F"/>
+      <stop offset="100%" stop-color="#E3C165"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="60" rx="8" fill="#fff"/>
+  <g transform="translate(10,10)">
+    <!-- dark card body -->
+    <path d="M0 8a8 8 0 0 1 8-8h44c8.837 0 16 7.163 16 16v0c0 8.837-7.163 16-16 16H8a8 8 0 0 1-8-8V8z" fill="#233946"/>
+    <!-- white inner curve on right -->
+    <path d="M66 8c0 11.046-8.954 20-20 20h-4c11.046 0 20-8.954 20-20h4z" fill="#ffffff"/>
+    <!-- gold feathers -->
+    <path d="M68 6c5 5 8 11 9 18-6-3-10-7-12-12 1-2 2-4 3-6z" fill="url(#goldGrad)"/>
+    <path d="M64 9c4 4 6 8 7 13-5-2-8-5-10-9 1-2 2-3 3-4z" fill="#C9A23F"/>
+    <!-- HUMO text -->
+    <g fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-weight="700">
+      <text x="12" y="22" font-size="16">HUMO</text>
+    </g>
+  </g>
+</svg>

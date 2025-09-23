@@ -29,7 +29,6 @@ export default function ProfilePage() {
         .string()
         .min(1, t('auth.validation.phoneRequired'))
         .regex(/^\+\d{10,15}$/, t('auth.validation.phoneFormat')),
-      // Current password is optional here, but will be required if user attempts to change password
       current_password: z.string().optional(),
       new_password: z.string().optional(),
       confirm_new_password: z.string().optional(),
