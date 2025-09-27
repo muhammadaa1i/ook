@@ -2,6 +2,13 @@ import modernApiClient from '@/lib/modernApiClient';
 import { API_ENDPOINTS } from '@/lib/constants';
 import { RefundRequest, CreateRefundRequest } from '@/types';
 
+interface RefundProcessResponse {
+  data?: unknown;
+  success?: boolean;
+  status?: string;
+  [k: string]: unknown;
+}
+
 export class RefundService {
   static async createRefundRequest(data: CreateRefundRequest): Promise<RefundRequest> {
     // Create refund request for admin review
@@ -88,8 +95,12 @@ export class RefundService {
     console.log('Refund request rejected:', { id, reason });
   }
 
-  static async processOctoRefund(data: { amount: number; payment_uuid: string }): Promise<any> {
-    const response = await modernApiClient.post(API_ENDPOINTS.PAYMENT_REFUND, data) as any;
-    return response.data || response;
+  static async processOctoRefund(data: { amount: number; payment_uuid: string }): Promise<RefundProcessResponse | unknown> {
+    const response = await modernApiClient.post(API_ENDPOINTS.PAYMENT_REFUND, data) as RefundProcessResponse | unknown;
+    if (response && typeof response === 'object' && 'data' in response) {
+      const r = response as RefundProcessResponse;
+      return r.data ?? r;
+    }
+    return response;
   }
 }
