@@ -101,8 +101,16 @@ export function extractErrorMessage(payload: unknown, fallback = "Error"): strin
     }
     if (msgs.length) return msgs.join("; ");
   }
-  if (typeof (payload as { message?: unknown }).message === "string") return (payload as { message: string }).message;
-  if (typeof (payload as { error?: unknown }).error === "string") return (payload as { error: string }).error;
+  if (typeof (payload as { message?: unknown }).message === "string") {
+    const msg = (payload as { message: string }).message;
+    if (/user with this phone number already exists/i.test(msg)) return 'User with this phone number already exists';
+    return msg;
+  }
+  if (typeof (payload as { error?: unknown }).error === "string") {
+    const err = (payload as { error: string }).error;
+    if (/user with this phone number already exists/i.test(err)) return 'User with this phone number already exists';
+    return err;
+  }
   // FastAPI / DRF style: {field: ["msg1", "msg2"], ...}
   const parts: string[] = [];
   for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {

@@ -251,7 +251,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   toast.success(t('auth.toasts.registrationSuccess'));
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: unknown } };
-  const message = extractErrorMessage(axiosError.response?.data, t('auth.errors.registrationFailed'));
+      let message = extractErrorMessage(
+        axiosError.response?.data,
+        t('auth.errors.registrationFailed')
+      );
+      if (/user with this phone number already exists/i.test(message)) {
+        message = t('auth.errors.existingPhone');
+      }
       toast.error(message);
       throw error;
     } finally {

@@ -83,7 +83,8 @@ export default {
       invalidServerResponse: 'Ошибка авторизации: некорректный ответ сервера',
       passwordChangeFailed: 'Не удалось изменить пароль',
       userSearchFailed: 'Ошибка поиска пользователя',
-      registrationFailed: 'Ошибка регистрации'
+      registrationFailed: 'Ошибка регистрации',
+      existingPhone: 'Пользователь с этим номером телефона уже существует'
     },
     validation: {
       nameRequired: 'Имя обязательно',

@@ -154,7 +154,17 @@
       loginSuccess: 'Muvaffaqiyatli tizimga kirildi!',
       loginInvalid: 'Notoʻgʻri login yoki parol',
       registrationSuccess: 'Roʻyxatdan oʻtish muvaffaqiyatli!',
-      logoutSuccess: 'Tizimdan muvaffaqiyatli chiqildi'
+      logoutSuccess: 'Tizimdan muvaffaqiyatli chiqildi',
+      passwordChangeSuccess: 'Parol muvaffaqiyatli oʻzgartirildi',
+      userFoundEnterNewPassword: 'Foydalanuvchi topildi. Yangi parolni kiriting'
+    }
+    ,
+    errors: {
+      registrationFailed: 'Roʻyxatdan oʻtishda xato',
+      passwordChangeFailed: 'Parolni oʻzgartirishda xato',
+      userSearchFailed: 'Foydalanuvchini topishda xato',
+      invalidServerResponse: 'Notoʻgʻri server javobi',
+      existingPhone: 'Bu telefon raqam bilan foydalanuvchi allaqachon mavjud'
     }
   },
   profilePage: {
