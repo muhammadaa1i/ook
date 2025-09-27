@@ -56,7 +56,7 @@ export interface Slipper {
   category?: Category;
   category_name?: string;
   image?: string; // Single image URL from API
-  images?: SlipperImage[]; // Array format (for compatibility)
+  images?: SlipperImage[];
   is_available?: boolean;
   created_at: string;
   updated_at: string;
@@ -66,6 +66,9 @@ export interface OrderItem {
   id?: number;
   slipper_id: number;
   slipper?: Slipper;
+  name?: string;
+  size?: string;
+  image: string;
   quantity: number;
   unit_price: number;
   total_price?: number;
@@ -76,9 +79,11 @@ export interface OrderItem {
 
 export interface Order {
   id: number;
+  order_id?: string;
   user_id: number;
+  user_name?: string;
   user?: User;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: "CREATED" | "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED" | "confirmed" | "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   total_amount: number;
   notes?: string;
   order_number?: string;
@@ -98,6 +103,8 @@ export interface CreateOrderRequest {
     notes?: string;
   }[];
   notes?: string;
+  payment_method?: string;
+  status?: Order["status"];
 }
 
 export interface UpdateOrderRequest {
@@ -129,4 +136,25 @@ export interface SearchParams {
   category_id?: number;
   is_admin?: boolean;
   status?: string;
+}
+
+export interface RefundRequest {
+  id?: number;
+  order_id: number;
+  user_id: number;
+  amount: number;
+  payment_uuid: string;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at?: string;
+  updated_at?: string;
+  order?: Order;
+  user?: User;
+}
+
+export interface CreateRefundRequest {
+  order_id: number;
+  amount: number;
+  payment_uuid: string;
+  reason?: string;
 }

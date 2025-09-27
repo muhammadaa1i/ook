@@ -35,6 +35,17 @@ export const API_ENDPOINTS = {
   // Categories
   CATEGORIES: "/categories/",
   CATEGORY_BY_ID: (id: number) => `/categories/${id}`,
+
+  // Payments (OCTO)
+  PAYMENT_CREATE: "/payments/octo/create",
+  PAYMENT_REFUND: "/payments/octo/refund", 
+  PAYMENT_NOTIFY: "/payments/octo/notify",
+
+  // Refund requests
+  REFUND_REQUESTS: "/refunds/",
+  REFUND_REQUEST_BY_ID: (id: number) => `/refunds/${id}`,
+  REFUND_APPROVE: (id: number) => `/refunds/${id}/approve`,
+  REFUND_REJECT: (id: number) => `/refunds/${id}/reject`,
 } as const;
 
 export const ORDER_STATUS = {

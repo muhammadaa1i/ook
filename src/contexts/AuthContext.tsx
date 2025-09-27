@@ -106,8 +106,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Listen for logout events from interceptors
   useEffect(() => {
     const handleAutoLogout = () => {
-      setUser(null);
-      tokenVerificationRef.current = false;
+      // Don't logout if user is on payment pages
+      const isPaymentPage = window.location.pathname.includes('/payment/') || 
+                          window.location.search.includes('transfer_id') ||
+                          window.location.search.includes('payment_uuid');
+      
+      if (!isPaymentPage) {
+        setUser(null);
+        tokenVerificationRef.current = false;
+      } else {
+        console.warn("Prevented logout during payment flow");
+      }
     };
 
     if (typeof window !== "undefined") {
@@ -115,6 +124,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return () => window.removeEventListener("auth:logout", handleAutoLogout);
     }
   }, []);
+
+  // Detect payment returns and restore session
+  useEffect(() => {
+    const handlePaymentReturn = async () => {
+      const isPaymentReturn = window.location.pathname.includes('/payment/') && 
+                             (window.location.search.includes('transfer_id') || 
+                              window.location.search.includes('payment_uuid'));
+      
+      if (isPaymentReturn && !user) {
+        // Try to restore user session from stored data
+        const storedUser = Cookies.get("user");
+        const accessToken = Cookies.get("access_token");
+        
+        if (storedUser && accessToken) {
+          try {
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+            console.log("Restored user session after payment return");
+          } catch (error) {
+            console.error("Failed to restore user session:", error);
+          }
+        }
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      handlePaymentReturn();
+    }
+  }, [user]);
 
   // clearAuthData moved above for stable reference
 

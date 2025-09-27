@@ -8,7 +8,7 @@ import { Category, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import { ChevronLeft, ChevronRight, Edit, Trash2, Plus, Tag, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Edit, Trash2, Tag, Eye, EyeOff } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatDate } from "@/lib/utils";
 

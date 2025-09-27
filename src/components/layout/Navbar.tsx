@@ -19,7 +19,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useI18n } from "@/i18n";
-import CartPage from "@/app/cart/page";
 
 const Navbar = React.memo(() => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -44,13 +43,17 @@ const Navbar = React.memo(() => {
     ];
 
     const userNavigation: { name: string; href: string; icon: React.ElementType }[] = [];
+    // Show "My Orders" for authenticated non-admin users
+    if (isAuthenticated && !isAdmin) {
+      userNavigation.push({ name: t('home.myOrders'), href: '/orders', icon: Package });
+    }
 
     const adminNavigation = isAdmin
       ? [{ name: t('common.adminPanel'), href: "/admin", icon: Settings }]
       : [];
 
     return [...baseNavigation, ...userNavigation, ...adminNavigation];
-  }, [isAdmin, t]);
+  }, [isAdmin, isAuthenticated, t]);
 
   // Optimize callbacks with useCallback
   const handleLogout = useCallback(async () => {
@@ -153,25 +156,25 @@ const Navbar = React.memo(() => {
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+        <div className="flex justify-between items-center h-16 relative">
           {/* Logo + Tagline */}
-          <div className="flex flex-col items-start">
-            <Link href="/" className="flex items-center space-x-2" suppressHydrationWarning>
-              <div className="flex items-center justify-center w-10 h-10">
+          <div className="flex flex-col items-start min-w-0 flex-1 max-w-[200px] sm:max-w-none">
+            <Link href="/" className="flex items-center space-x-1 sm:space-x-2 min-w-0" suppressHydrationWarning>
+              <div className="flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 flex-shrink-0">
                 <Image src="/logo.svg" alt={t('brand.name')} width={40} height={40} priority className="object-contain" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-bold text-gray-900">{t('brand.name')}</span>
-                <span className="text-xs md:text-sm font-serif tracking-widest text-gray-500 mb-0.5 md:mb-1" style={{ letterSpacing: '0.15em', fontFamily: 'Playfair Display, serif' }}>
+              <div className="flex flex-col min-w-0">
+                <span className="text-lg sm:text-xl font-bold text-gray-900 truncate">{t('brand.name')}</span>
+                <span className="text-[10px] sm:text-xs md:text-sm font-serif tracking-widest text-gray-500 mb-0.5 md:mb-1 truncate" style={{ letterSpacing: '0.1em', fontFamily: 'Playfair Display, serif' }}>
                   {t('brand.tagline')}
                 </span>
               </div>
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Desktop Navigation (centered) */}
+          <div className="hidden md:flex items-center space-x-4 absolute left-1/2 -translate-x-1/2">
             {navigation.map((item) => {
               // Skip profile from main nav
               if (item.href === "/profile") return null;
@@ -195,9 +198,9 @@ const Navbar = React.memo(() => {
           </div>
 
           {/* User Menu + Profile + Language Switcher (desktop) */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-4 min-w-0">
             {/* Cart Icon (only for non-admin users and not on admin pages) */}
-              <CartIcon />
+            <CartIcon />
 
             {/* Profile dropdown with logout */}
             {isAuthenticated && !isAdmin ? (
@@ -207,17 +210,17 @@ const Navbar = React.memo(() => {
                   aria-haspopup="menu"
                   aria-expanded={isProfileDropdownOpen}
                   className={cn(
-                    "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors",
+                    "flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-sm font-semibold transition-colors min-w-0",
                     "bg-white border border-blue-200/60 text-gray-700 hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:border-blue-200/60"
                   )}
                 >
-                  <User className="h-4 w-4 text-blue-600" />
-                  <span>{userGreeting || t('common.profile')}</span>
-                  <span className={cn("ml-0.5 text-[10px] font-normal text-blue-600/70 transition-transform", isProfileDropdownOpen ? "rotate-180" : "")}>▼</span>
+                  <User className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                  <span className="truncate max-w-[80px] sm:max-w-none">{userGreeting || t('common.profile')}</span>
+                  <span className={cn("ml-0.5 text-[10px] font-normal text-blue-600/70 transition-transform flex-shrink-0", isProfileDropdownOpen ? "rotate-180" : "")}>▼</span>
                 </button>
                 {isProfileDropdownOpen && (
                   <div
-                    className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl border border-blue-200/60 bg-white/95 backdrop-blur shadow-lg shadow-blue-100/40 ring-1 ring-black/5 z-50"
+                    className="absolute right-0 mt-2 w-48 min-w-[180px] max-w-[calc(100vw-2rem)] origin-top-right rounded-xl border border-blue-200/60 bg-white/95 backdrop-blur shadow-lg shadow-blue-100/40 ring-1 ring-black/5 z-50"
                     role="menu"
                     aria-label="Меню профиля"
                   >
@@ -275,12 +278,12 @@ const Navbar = React.memo(() => {
             )}
 
             {/* Language Switcher (desktop) */}
-            <div className="flex items-center space-x-1 ml-2">
+            <div className="flex items-center space-x-1 ml-1 lg:ml-2">
               {(['ru', 'uz'] as const).map(code => (
                 <button
                   key={code}
                   onClick={() => setLocale(code)}
-                  className={cn('px-2 py-1 text-xs rounded border transition', locale === code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100')}
+                  className={cn('px-1.5 lg:px-2 py-1 text-xs rounded border transition', locale === code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100')}
                   aria-pressed={locale === code}
                   aria-label={`Switch language to ${code.toUpperCase()}`}
                 >{code.toUpperCase()}</button>

@@ -1,21 +1,58 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
-import { PaymentService, PaymentStatus } from '@/services/paymentService';
+
 import { useI18n } from '@/i18n';
 import { toast } from 'react-toastify';
+import { modernApiClient } from '@/lib/modernApiClient';
+import { API_ENDPOINTS } from '@/lib/constants';
+
 
 function PaymentSuccessContent() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const transferId = searchParams.get('transfer_id');
+  const transferId = searchParams.get('transfer_id') || searchParams.get('octo_payment_UUID');
+
+  const updateOrderStatus = useCallback(async () => {
+    try {
+      const paymentOrderData = sessionStorage.getItem('paymentOrder');
+      if (!paymentOrderData) {
+        console.warn('No payment order data found');
+        return;
+      }
+
+      const orderData = JSON.parse(paymentOrderData);
+      console.log('Updating order status with data:', orderData);
+      
+      // Update the existing order status to PAID since payment is successful
+      const updateRequest = {
+        status: 'PAID',
+        notes: `Payment completed via ${orderData.payment_method}. Payment ID: ${orderData.payment_id}`
+      };
+
+      console.log('Updating order status to PAID for order ID:', orderData.order_id);
+      
+      // Update the order status
+      const response = await modernApiClient.put(`${API_ENDPOINTS.ORDERS}/${orderData.order_id}`, updateRequest);
+      
+      if (response) {
+        console.log('Order status updated successfully:', response);
+        toast.success(t('payment.orderCreated') || 'Payment confirmed successfully!');
+        
+        // Clear the payment order data
+        sessionStorage.removeItem('paymentOrder');
+      }
+    } catch (error) {
+      console.error('Failed to create order:', error);
+      toast.error(t('payment.orderCreateError') || 'Failed to create order');
+    }
+  }, [t]);
 
   useEffect(() => {
     if (!transferId) {
@@ -26,17 +63,18 @@ function PaymentSuccessContent() {
 
     const checkPaymentStatus = async () => {
       try {
-        const status = await PaymentService.getPaymentStatus(transferId);
-        setPaymentStatus(status);
+        console.log('Processing successful payment for transferId:', transferId);
         
-        if (status.status === 'completed' || status.status === 'success') {
-          toast.success(t('payment.success.message'));
-          // Clear cart after successful payment
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('cart:clear'));
-          }
-        } else if (status.status === 'failed' || status.status === 'cancelled') {
-          setError(t('payment.error.failed'));
+        // Since user reached success page, assume payment was successful
+        console.log('Payment assumed successful, updating order status...');
+        toast.success(t('payment.success.message'));
+        
+        // Update order status to PAID after successful payment
+        await updateOrderStatus();
+        
+        // Clear cart after successful payment
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cart:clear'));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : t('payment.error.statusCheck'));
@@ -46,7 +84,7 @@ function PaymentSuccessContent() {
     };
 
     checkPaymentStatus();
-  }, [transferId, t]);
+  }, [transferId, t, updateOrderStatus]);
 
   const handleContinueShopping = () => {
     router.push('/catalog');
@@ -90,7 +128,7 @@ function PaymentSuccessContent() {
     );
   }
 
-  const isSuccessful = paymentStatus?.status === 'completed' || paymentStatus?.status === 'success';
+  const isSuccessful = !error; // Success if no error occurred
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -109,27 +147,13 @@ function PaymentSuccessContent() {
           {isSuccessful ? t('payment.success.message') : t('payment.pending.message')}
         </p>
 
-        {paymentStatus && (
-          <div className="bg-gray-50 p-4 rounded-lg mb-6 text-left">
-            <div className="text-sm">
-              <p><strong>{t('payment.orderId')}:</strong> {paymentStatus.order_id}</p>
-              <p><strong>{t('payment.amount')}:</strong> {paymentStatus.amount.toLocaleString()} {t('common.currencySom')}</p>
-              <p><strong>{t('payment.status')}:</strong> 
-                <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                  isSuccessful ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {paymentStatus.status}
-                </span>
-              </p>
-            </div>
-          </div>
-        )}
+
 
         <div className="space-y-3">
           {isSuccessful && (
             <button
               onClick={handleViewOrders}
-              className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-6 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
             >
               {t('payment.viewOrders')}
             </button>

@@ -1,8 +1,15 @@
-export default {
+﻿export default {
   brand: { 
     name: 'Velora shoes', 
     tagline: 'Internet doʻkoni',
-    description: 'Sifatli va zamonaviy poyafzallar. Har bir qadamda qulaylik va stil.'
+    description: 'Sifatli va zamonaviy oyoq kiyimlar. Har bir qadamda qulaylik va stil.'
+  },
+  home: {
+    heroLine1: 'Har bir qadamda',
+    heroLine2: 'Qulaylik va Stil',
+    heroSubtitle: 'Zamonaviy va sifatli oyoq kiyimlar toʻplamini kashf eting',
+    viewCatalog: 'Katalogni koʻrish',
+    myOrders: 'Buyurtmalarim'
   },
   common: {
     home: 'Bosh sahifa',
@@ -12,279 +19,192 @@ export default {
     logout: 'Chiqish',
     cancel: 'Bekor qilish',
     confirm: 'Tasdiqlash',
-    delete: 'O‘chirish',
-    deleteQuestion: 'Bu mahsulot o‘chirilsinmi?',
+    delete: 'Oʻchirish',
+    deleteQuestion: 'Ushbu mahsulotni oʻchirasizmi?',
     save: 'Saqlash',
     edit: 'Tahrirlash',
     cart: 'Savat',
     items: 'dona',
     yes: 'Ha',
     back: 'Orqaga',
-    returnToCatalog: 'Katalogga qaytish',
-    imageUnavailable: 'Rasm mavjud emas',
-    previousImage: 'Oldingi rasm',
-    nextImage: 'Keyingi rasm',
-    showImage: 'Rasm {index} ni ko‘rsatish',
-    currencySom: 'soʻm',
+    currencySom: 'soʻm'
   },
-  payment: {
-    processing: 'Toʻlov amalga oshirilmoqda...',
-    orderDescription: "{customerName} uchun {itemCount} ta mahsulotdan iborat buyurtma",
-    error: {
-      initiation: 'Toʻlovni boshlashda xatolik yuz berdi'
-    },
-    noCancellationNotice: 'Diqqat! To‘lov amalga oshirilgandan so‘ng buyurtmani bekor qilish yoki qaytarib olish imkoni mavjud emas.'
+  catalog: {
+    title: 'Katalog',
+    subtitle: 'Bizning sifatli mahsulotlar toʻplamidan tanlang',
+    pageStatus: 'Sahifa {page} / {totalPages}',
+    viewDetails: 'Batafsil'
   },
-  auth: {
-    login: 'Akkauntga kirish',
-    register: 'Roʻyxatdan oʻtish',
-    name: 'Foydalanuvchi nomi',
-    password: 'Parol',
-    passwordPlaceholder: 'Kamida 8 ta belgi',
-    confirmPassword: 'Parolni tasdiqlash',
-    forgotPassword: 'Parolni unutdingizmi?',
-    logoutConfirmTitle: 'Akkauntdan chiqish?',
-    logoutConfirmMessage: 'Sessiyani yakunlamoqchimisiz?',
-    logoutConfirmButton: 'Chiqish',
-    namePlaceholder: 'Ismingizni kiriting',
-    passwordInputPlaceholder: 'Parolni kiriting',
-    confirmPasswordPlaceholder: 'Parolni takrorlang',
-    phone: 'Telefon raqam',
-    phonePlaceholder: '+998 90 123 45 67',
-    orCreate: 'Yoki yangi akkaunt yarating',
-    orLogin: 'Yoki mavjud akkauntga kiring',
-    loginProgress: 'Kirish...',
-    registerProgress: 'Roʻyxatdan oʻtish...',
-    showPassword: 'Parolni koʻrsatish',
-    hidePassword: 'Parolni yashirish',
-    toasts: {
-      loginSuccess: 'Tizimga muvaffaqiyatli kirdingiz!',
-      loginInvalid: 'Login yoki parol noto‘g‘ri',
-      registrationSuccess: 'Ro‘yxatdan o‘tish muvaffaqiyatli yakunlandi!',
-      logoutSuccess: 'Tizimdan chiqdingiz',
-      passwordChangeSuccess: 'Parol muvaffaqiyatli o‘zgartirildi',
-      userFoundEnterNewPassword: 'Foydalanuvchi topildi. Yangi parolni kiriting'
-    },
-    errors: {
-      invalidServerResponse: 'Avtorizatsiya xatosi: noto‘g‘ri server javobi',
-      passwordChangeFailed: 'Parolni o‘zgartirish amalga oshmadi',
-      userSearchFailed: 'Foydalanuvchini qidirishda xato',
-      registrationFailed: 'Ro‘yxatdan o‘tishda xato'
-    },
-    validation: {
-      nameRequired: 'Ism majburiy',
-      passwordMin: 'Parol kamida 8 ta belgidan iborat bo‘lishi kerak',
-      surnameRequired: 'Familiya majburiy',
-      phoneRequired: 'Telefon raqam majburiy',
-      phoneFormat: 'Telefon + bilan boshlanib 10-15 raqamdan iborat bo‘lishi kerak',
-      confirmPasswordMin: 'Parolni tasdiqlash majburiy (kamida 8 ta belgi)',
-      passwordsMismatch: 'Parollar mos emas'
-    },
-    forgot: {
-      title: 'Parolni tiklash',
-      instructions: 'Foydalanuvchi nomi va yangi parolni kiriting',
-      newPassword: 'Yangi parol',
-      confirmNewPassword: 'Parolni tasdiqlash',
-      submit: 'Parolni almashtirish',
-      saving: 'Saqlanmoqda...',
-      backToLogin: 'Kirish sahifasiga qaytish'
+  ordersPage: {
+    title: 'Buyurtmalarim',
+    subtitle: 'Buyurtmalaringiz holatini kuzating',
+    authRequiredTitle: 'Avtorizatsiya talab qilinadi',
+    authRequiredMessage: 'Buyurtmalaringizni koʻrish uchun tizimga kiring',
+    status: {
+      CREATED: 'Yaratilgan',
+      PENDING: 'Kutilmoqda',
+      PAID: 'Toʻlangan',
+      FAILED: 'Muvaffaqiyatsiz',
+      CANCELLED: 'Bekor qilingan',
+      REFUNDED: 'Qaytarilgan'
     }
   },
   product: {
     size: 'Oʻlcham',
     price: 'Narx',
-    available: 'Omborda',
+    available: 'Mavjud',
     notAvailable: 'Mavjud emas',
     category: 'Kategoriya',
     addToCart: 'Savatga qoʻshish',
     description: 'Mahsulot tavsifi',
     quantityLabel: 'Miqdor',
-  availableQuantity: 'Omborda: {count}'
+    availableQuantity: 'Mavjud: {count}',
+    insufficientStock: 'Yetarli emas',
+    insufficientForOrder: 'buyurtma uchun yetarli emas',
+    insufficientStockTooltip: 'Yetarli mahsulot yoʻq (minimum {min})'
   },
   productDetail: {
     notFound: 'Mahsulot topilmadi',
     imageGallery: 'Mahsulot rasmlari galereyasi ({count})',
     temporarilyOutOfStock: 'Mahsulot vaqtincha mavjud emas',
-    thumbnail: 'Miniatura {index}'
+    thumbnail: 'Kichik rasm {index}'
   },
-  cartPage: {
-    emptyTitle: 'Savat bo‘sh',
-    emptySubtitle: 'Xaridni boshlash uchun katalogdan mahsulot qo‘shing',
-    continueShopping: 'Xarid qilishga qaytish',
-    continue: 'Xaridni davom ettirish',
-    heading: 'Savat',
-    itemsCount: '{count} ta mahsulot',
-    clear: 'Savatni tozalash',
-    orderSummary: 'Buyurtma yakunlari',
-    productsLine: 'Mahsulotlar ({count} dona)',
-    total: 'Umumiy summa',
-  emptyCart: 'Savat bo‘sh',
-    checkout: 'Buyurtma berish',
-    loginForCheckout: 'Tizimga kiring',
-    loginForCheckoutSuffix: 'buyurtma berish uchun',
-    size: 'O‘lcham',
-    color: 'Rang'
+  orders: {
+    status: {
+      created: 'Yaratilgan',
+      pending: 'Kutilmoqda',
+      paid: 'Toʻlangan',
+      failed: 'Muvaffaqiyatsiz',
+      cancelled: 'Bekor qilingan',
+      refunded: 'Qaytarilgan',
+      confirmed: 'Tasdiqlangan',
+      processing: 'Tayyorlanmoqda',
+      shipped: 'Yetkazilmoqda',
+      delivered: 'Yetkazildi',
+      CONFIRMED: 'Tasdiqlangan',
+      PROCESSING: 'Tayyorlanmoqda',
+      SHIPPED: 'Yetkazilmoqda',
+      DELIVERED: 'Yetkazildi'
+    },
+    itemCount: '{count} ta mahsulot',
+    viewDetails: 'Batafsil',
+    refund: {
+      request: 'Qaytarish',
+      requesting: 'So\'ralmoqda...',
+      requestSuccess: 'Qaytarish so\'rovi yuborildi',
+      requestError: 'Qaytarish so\'rovini yuborishda xato',
+      contactModal: {
+        title: 'Pulni qaytarish',
+        message: 'Agar pulni qaytarishni istasangiz, administrator bilan bog\'laning',
+        contactInfo: 'Aloqa ma\'lumotlari:',
+        phone: 'Telefon:',
+        telegram: 'Telegram:',
+        closeButton: 'Yopish'
+      }
+    },
+    modal: {
+      title: 'Buyurtma №{id}',
+      client: 'Mijoz',
+      status: 'Holat',
+      shippingAddress: 'Yetkazib berish manzili',
+      items: 'Mahsulotlar',
+      quantity: 'Miqdor',
+      price: 'Narx',
+      size: 'Oʻlcham',
+      notes: 'Izoh',
+      total: 'Jami'
+    }
   },
-  offer: {
-    title: 'Ommaviy oferta',
-    mustAccept: 'Toʻlovga oʻtishdan avval ommaviy oferta shartlariga rozilik bildirish kerak.',
-    acceptLabel: 'Ommaviy oferta shartlari bilan tanishdim va roziman',
-    viewLink: 'Ofertani koʻrish'
-  },
-  cart: {
-    inCart: 'Savatda',
-    alreadyInCartAddMore: 'Mahsulot savatda. Yana qo‘shish uchun bosing',
-  addToCartHint: 'Savatga qo‘shish (minimum 50, qadam 5)',
-  added: '{name}: +{qty}',
-  removed: '{name}: olib tashlandi',
-  cleared: 'Savat tozalandi'
-  },
-  ordersPage: {
-    title: 'Buyurtmalarim',
-    subtitle: 'Buyurtmalaringiz holatini kuzating va xaridlar tarixini ko‘ring',
-    historyUnavailable: 'Buyurtmalar tarixi mavjud emas',
-    authRequiredTitle: 'Avtorizatsiya kerak',
-    authRequiredMessage: 'Buyurtmalarni ko‘rish uchun tizimga kiring',
-    notFound: 'Buyurtmalar topilmadi',
-    noneYet: 'Hozircha buyurtmalaringiz yo‘q',
-    tryAdjustSearch: 'Qidiruv mezonlarini o‘zgartirib ko‘ring',
-    startShopping: 'Katalogimizda xaridni boshlang',
-    resetFilters: 'Filtrlarni tiklash',
-    goToCatalog: 'Katalogga o‘tish'
+  auth: {
+    login: 'Tizimga kirish',
+    register: 'Roʻyxatdan oʻtish',
+    name: 'Foydalanuvchi nomi',
+    namePlaceholder: 'Foydalanuvchi nomi',
+    password: 'Parol',
+    passwordPlaceholder: 'Kamida 8 ta belgi',
+    passwordInputPlaceholder: 'Parolni kiriting',
+    confirmPassword: 'Parolni tasdiqlash',
+    confirmPasswordPlaceholder: 'Parolni qayta kiriting',
+    phone: 'Telefon raqami',
+    phonePlaceholder: '+998901234567',
+    forgotPassword: 'Parolni unutdingizmi?',
+    orCreate: 'Roʻyxatdan oʻting',
+    orLogin: 'Tizimga kirish',
+    logoutConfirmTitle: 'Tizimdan chiqishni xohlaysizmi?',
+    logoutConfirmMessage: 'Sessiyani yakunlamoqchimisiz?',
+    logoutConfirmButton: 'Chiqish',
+    forgot: {
+      title: 'Parolni tiklash',
+      instructions: 'Foydalanuvchi nomini va yangi parolni kiriting',
+      newPassword: 'Yangi parol',
+      confirmNewPassword: 'Parolni tasdiqlash',
+      submit: 'Parolni oʻzgartirish',
+      backToLogin: 'Kirish sahifasiga qaytish'
+    },
+    validation: {
+      nameRequired: 'Ism majburiy',
+      passwordMin: 'Parol kamida 8 ta belgidan iborat boʻlishi kerak',
+      surnameRequired: 'Familiya majburiy',
+      phoneRequired: 'Telefon raqami majburiy',
+      phoneFormat: 'Telefon + bilan boshlanib 10-15 ta raqamdan iborat boʻlishi kerak',
+      confirmPasswordMin: 'Parolni tasdiqlash majburiy (kamida 8 ta belgi)',
+      passwordsMismatch: 'Parollar mos kelmadi'
+    },
+    toasts: {
+      loginSuccess: 'Muvaffaqiyatli tizimga kirildi!',
+      loginInvalid: 'Notoʻgʻri login yoki parol',
+      registrationSuccess: 'Roʻyxatdan oʻtish muvaffaqiyatli!',
+      logoutSuccess: 'Tizimdan muvaffaqiyatli chiqildi'
+    }
   },
   profilePage: {
-    title: 'Profilim',
-    roleAdmin: 'Administrator',
+    title: 'Mening profilim',
     roleUser: 'Foydalanuvchi',
-    basicInfo: 'Asosiy maʼlumotlar',
-    phoneNumber: 'Telefon raqam',
-    passwordChangeOptional: 'Parolni almashtirish (majburiy emas)',
+    roleAdmin: 'Administrator',
+    basicInfo: 'Asosiy maʻlumotlar',
+    phoneNumber: 'Telefon raqami',
+    passwordChangeOptional: 'Parolni oʻzgartirish (ixtiyoriy)',
     currentPassword: 'Joriy parol',
     newPassword: 'Yangi parol',
-    newPasswordPlaceholder: 'Oʻzgartirmoqchi boʻlmasangiz bo‘sh qoldiring',
+    newPasswordPlaceholder: 'Oʻzgartirishni istamasa boʻsh qoldiring',
     confirmNewPassword: 'Yangi parolni tasdiqlash',
-    confirmNewPasswordPlaceholder: 'Yangi parolni takrorlang',
+    confirmNewPasswordPlaceholder: 'Yangi parolni qayta kiriting',
     updating: 'Saqlanmoqda...',
     toasts: {
       updateSuccess: 'Profil muvaffaqiyatli yangilandi!',
       updateError: 'Profilni yangilashda xato'
     },
     validation: {
-      currentPasswordRequired: 'Parolni almashtirish uchun joriy parol talab qilinadi',
-      newPasswordMin: 'Yangi parol kamida 8 ta belgidan iborat bo‘lishi kerak'
+      currentPasswordRequired: 'Parolni almashtirish uchun joriy parolni kiriting',
+      newPasswordMin: 'Yangi parol kamida 8 ta belgidan iborat boʻlishi kerak',
+      allPasswordFieldsRequired: 'Parolni oʻzgartirish uchun barcha parol maydonlarini toʻldiring'
     }
   },
-  catalog: {
-    title: 'Mahsulotlar katalogi',
-    subtitle: 'Uy sharoitida sifatli va qulay tapochkalar toʻplamimizdan ideal juftni toping',
-    pageStatus: 'Sahifa {page} / {totalPages}',
-    notFoundTitle: 'Mahsulot topilmadi',
-    notFoundSubtitle: 'Qidiruv yoki filtr parametrlarini oʻzgartirib yana urinib koʻring'
+  cart: {
+    inCart: 'Savatda',
+    added: '{name}: +{qty} dona qoʻshildi',
+    removed: '{name}: olib tashlandi',
+    emptyCart: 'Savat boʻsh',
+    cleared: 'Savat tozalandi'
   },
-  errors: {
-    serverUnavailable: 'Server vaqtincha mavjud emas',
-    serverUnavailableLong: 'Server vaqtincha mavjud emas. Keyinroq urinib koʻring.',
-    serverUnavailableRetry: 'Server vaqtincha mavjud emas. Bir necha daqiqadan soʻng sahifani yangilang.',
-    categoriesLoad: 'Kategoriyalarni yuklashda xatolik',
-    badGateway: 'Server shlyuzi xatoligi',
-    badGatewayLong: 'Serverga ulanishda xato. Keyinroq urinib koʻring.',
-    serverError: 'Server xatoligi',
-    serverErrorLong: 'Server xatoligi. Keyinroq urinib koʻring.',
-    tooManyRequests: 'Juda koʻp soʻrov',
-    tooManyRequestsLong: 'Juda koʻp soʻrov yuborildi. Biroz kutib yana urinib koʻring.',
-    productsLoad: 'Mahsulotlarni yuklashda xatolik'
+  cartPage: {
+    emptyTitle: 'Savat boʻsh',
+    emptySubtitle: 'Xaridni boshlash uchun katalogdan mahsulot qoʻshing',
+    continueShopping: 'Xaridni davom ettirish',
+    continue: 'Xaridni davom ettirish',
+    heading: 'Savat',
+    itemsCount: '{count} ta mahsulot',
+    clear: 'Savatni tozalash',
+    orderSummary: 'Buyurtma yakuni',
+    productsLine: 'Mahsulotlar ({count} ta)',
+    total: 'Umumiy summa',
+    emptyCart: 'Savat boʻsh',
+    checkout: 'Buyurtma berish',
+    loginForCheckout: 'Tizimga kiring',
+    loginForCheckoutSuffix: 'buyurtma berish uchun',
+    size: 'Oʻlcham',
+    color: 'Rang'
   },
-  footer: {
-    quickLinks: 'Tezkor havolalar',
-    support: 'Qoʻllab-quvvatlash',
-    about: 'Biz haqimizda',
-    contact: 'Aloqa',
-    help: 'Yordam',
-    shipping: 'Yetkazib berish',
-    returns: 'Qaytarish',
-    privacy: 'Maxfiylik',
-    rights: 'Barcha huquqlar himoyalangan.',
-    followUs: 'Bizni kuzatib boring',
-    contactUs: 'Biz bilan aloqa',
-    paymentMethods: 'Toʻlov usullari'
-  },
-  offerPage: {
-    title: 'Ommaviy oferta',
-    updated: 'Yangilandi: 23.09.2025',
-    intro1: 'Ushbu ommaviy oferta (keyingi o‘rinlarda — «Oferta») Velora shoes (keyingi o‘rinlarda — «Sotuvchi») tomonidan istalgan jismoniy shaxsga (keyingi o‘rinlarda — «Xaridor») quyida keltirilgan shartlar asosida tovarlarni sotish / xizmatlarni ko‘rsatish bo‘yicha shartnoma tuzish bo‘yicha rasmiy taklifdir.',
-    intro2: 'Buyurtma berish va uni to‘lash Xaridorning ushbu Oferta shartlariga roziligini anglatadi.',
-    sections: {
-      orderPayment: {
-        title: '1. Buyurtma va to‘lov usullari',
-        li1: 'Buyurtmalar sayt orqali qabul qilinadi: https://www.optomoyoqkiyim.uz/',
-        li2: 'To‘lov: UZCARD, HUMO, Visa, MasterCard bank kartalari orqali OCTO to‘lov xizmati yordamida; saytda ko‘rsatilgan boshqa usullar orqali ham mumkin.',
-        li3: 'Barcha hisob-kitoblar O‘zbekiston Respublikasi so‘mida amalga oshiriladi.'
-      },
-      returns: {
-        title: '2. Tovarni qaytarish, xizmatdan voz kechish va mablag‘ni qaytarish shartlari',
-        li1: 'Xaridor O‘zbekiston Respublikasi qonunchiligida belgilangan muddat va tartibda tovar yoki xizmatdan voz kechishga haqli.',
-        li2: 'Tovar/xizmatdan voz kechilganda mablag‘ to‘lov amalga oshirilgan usul bilan qaytariladi.',
-        li3: 'Odatda mablag‘ni qaytarish muddati 7 ish kunigacha, ayrim hollarda bank va to‘lov tizimlari ishiga qarab 30 ish kunigacha cho‘zilishi mumkin.',
-        li4: 'Bank kartasi bo‘yicha tranzaksiyani bekor qilish milliy va xalqaro to‘lov tizimlari qoidalariga muvofiq amalga oshiriladi.'
-      },
-      delivery: {
-        title: '3. Tovarlarni yetkazib berish / xizmatlarni ko‘rsatish shartlari',
-        li1: 'Toshkent shahrida yetkazib berish bepul.',
-        li2: 'O‘zbekiston Respublikasi boshqa shaharlariga yetkazib berish kelishuv asosida.',
-        li3: 'Qozog‘iston, Qirg‘iziston va Tojikistonga yetkazib berish ham kelishuv asosida.'
-      },
-      security: {
-        title: '4. Operatsiyalar xavfsizligi',
-        li1: 'Bank kartalari orqali to‘lov OCTO to‘lov shlyuzi orqali amalga oshiriladi, u zamonaviy himoya usullaridan foydalanadi.',
-        li2: 'Bank kartasi ma’lumotlari faqat to‘lov xizmati tomonidan qayta ishlanadi va Sotuvchiga uzatilmaydi.',
-        li3: 'Sotuvchi mijozlarning shaxsiy ma’lumotlari himoyalanganini va faqat shartnomani bajarish maqsadida ishlatilishini kafolatlaydi.'
-      },
-      privacy: {
-        title: '5. Maxfiylik siyosati',
-        li1: 'Xaridorning shaxsiy ma’lumotlari 2019-yil 2-iyuldagi «Shaxsiy ma’lumotlar to‘g‘risida»gi №ZRU-547 Qonunga muvofiq qayta ishlanadi.',
-        li2: 'Sotuvchi shaxsiy ma’lumotlarni faqat Xaridor oldidagi majburiyatlarini bajarish uchun yig‘adi va ishlatadi.',
-        li3: 'Sotuvchi Xaridorning shaxsiy ma’lumotlarini uning roziligisiz uchinchi shaxslarga oshkor etmaslik majburiyatini oladi, bundan qonunchilikda nazarda tutilgan holatlar mustasno.',
-        li4: 'Xaridor buyurtma, aksiyalar va hokazolar to‘g‘risidagi axborot xabarlarini ko‘rsatilgan e-mail yoki telefon raqamiga olishga rozilik beradi.'
-      },
-      seller: {
-        title: '6. Sotuvchining rekvizitlari',
-        name: 'Velora shoes',
-        inn: 'STIR: 552430231',
-        legalAddress: 'Yuridik manzil: Toshkent vil., Eshonguzar, H. Nigmon ko‘chasi',
-        actualAddress: 'Faktik manzil: Toshkent vil., Eshonguzar, H. Nigmon ko‘chasi',
-        phone: 'Telefon: +998 95 021 02 07',
-        email: 'E-mail: elbek1987101@icloud.com'
-      }
-    },
-    notice: 'Buyurtmani rasmiylashtirish va to‘lovga o‘tish orqali siz ushbu ommaviy oferta shartlari bilan tanishganingiz va ularga rozilik bildirganingizni tasdiqlaysiz.'
-  },
-  home: {
-    heroLine1: 'Oyoqlaringiz uchun',
-    heroLine2: 'Qulaylik',
-    heroSubtitle: 'Mukammal qulaylik va uslub uchun yaratilgan oyoq kiyimlar to‘plamini kashf qiling',
-    heroSubtitleAlt: 'Sifatli va zamonaviy tapochkalar to‘plamini kashf qiling',
-    viewCatalog: 'Katalogni ko‘rish',
-    myOrders: 'Buyurtmalarim',
-    categories: 'Kategoriyalar',
-    popularProducts: 'Ommabop mahsulotlar',
-    popularProductsSubtitle: 'Xaridorlarimiz tanlagan eng mashhur tapochka modellari',
-    whyChooseUs: 'Nega bizni tanlashadi',
-    ctaTitle: 'Mukammal tapochkani topishga tayyormisiz?',
-    ctaSubtitle: 'Minglab mamnun xaridorlarga qo‘shiling',
-    ctaStartShopping: 'Xaridni boshlash',
-    viewAllProducts: 'Barcha mahsulotlarni ko‘rish',
-    features: {
-      quality: { title: 'Sifat kafolatlangan', description: 'Barcha mahsulotlar qatʼiy sifat nazoratidan oʻtadi' },
-      delivery: { title: 'Tez yetkazib berish', description: 'Butun mamlakat boʻylab 1-3 kun ichida yetkazib berish' },
-      support: { title: '24/7 yordam', description: 'Jamoamiz istalgan vaqtda yordam berishga tayyor' },
-      customers: { title: 'Mamnun mijozlar', description: 'Minglab ijobiy sharhlar' },
-      highQuality: { title: 'Yuqori sifat', description: 'Faqat eng yaxshi materiallar va ishonchli ishlab chiqaruvchilar' },
-      fastDelivery: { title: 'Tez yetkazib berish', description: 'Butun Oʻzbekiston boʻylab qisqa muddatda yetkazib beramiz' },
-      supportAlt: { title: '24/7 yordam', description: 'Yordam xizmati doimo yordamga tayyor' },
-      bestPrices: { title: 'Eng yaxshi narxlar', description: 'Raqobatbardosh narxlar va muntazam chegirmalar' }
-    }
-  }
-  ,
   admin: {
     nav: {
       home: 'Bosh sahifa',
@@ -293,41 +213,74 @@ export default {
       orders: 'Buyurtmalar'
     },
     header: {
-      backToSite: 'Saytga qaytish',
-      title: 'Administrator paneli',
+      title: 'Boshqaruv paneli',
       welcome: 'Xush kelibsiz, {name}'
     },
-    common: {
-      close: 'Yopish',
-      unspecified: 'Ko‘rsatilmagan',
-      toggleAvailability: 'Mavjudligini almashtirish'
+    dashboard: {
+      title: 'Boshqaruv paneli',
+      welcome: 'Internet doʻkon boshqaruv paneliga xush kelibsiz',
+      stats: {
+        totalUsers: 'Jami foydalanuvchilar',
+        totalProducts: 'Jami mahsulotlar',
+        totalOrders: 'Jami buyurtmalar',
+        pendingOrders: 'Kutilayotgan buyurtmalar'
+      },
+      quickActions: {
+        title: 'Tezkor amallar',
+        products: {
+          title: 'Mahsulotlarni boshqarish',
+          subtitle: 'Mahsulot qoʻshish, tahrirlash'
+        },
+        orders: {
+          title: 'Buyurtmalarni boshqarish',
+          subtitle: 'Buyurtmalarni koʻrish va qayta ishlash'
+        },
+        users: {
+          title: 'Foydalanuvchilarni boshqarish',
+          subtitle: 'Foydalanuvchilarni koʻrish'
+        }
+      }
+    },
+    users: {
+      title: 'Foydalanuvchilarni boshqarish',
+      subtitle: 'Tizim foydalanuvchilarini koʻrish va boshqarish',
+      table: {
+        user: 'Foydalanuvchi',
+        phone: 'Telefon',
+        role: 'Rol',
+        registeredAt: 'Roʻyxatdan oʻtgan sana'
+      }
     },
     products: {
       title: 'Mahsulotlarni boshqarish',
-      subtitle: 'Katalogdagi mahsulotlarni ko‘rish va boshqarish',
-      add: 'Mahsulot qo‘shish',
+      subtitle: 'Katalogdagi mahsulotlarni koʻrish va boshqarish',
+      add: 'Mahsulot qoʻshish',
       table: {
         product: 'Mahsulot',
         price: 'Narx',
-        size: 'O‘lchamlar',
+        size: 'Oʻlchamlar',
         status: 'Holat',
         actions: 'Amallar'
       },
       pagination: {
-        shown: '{count} ta / {total} ta mahsulot ko‘rsatildi'
+        shown: '{total} mahsulotdan {count} tasi koʻrsatildi'
       },
       empty: {
         title: 'Mahsulotlar topilmadi',
-        subtitle: 'Qidiruv parametrlarini o‘zgartiring yoki yangi mahsulot qo‘shing'
+        subtitle: 'Qidiruv parametrlarini oʻzgartiring yoki yangi mahsulot qoʻshing'
       },
       status: {
         active: 'Faol',
         inactive: 'Faol emas'
       },
+      dialogs: {
+        deleteTitle: 'Mahsulotni oʻchirish: {name}?',
+        deleteMessage: '"{name}" mahsuloti oʻchirilsinmi? Bu amalni ortga qaytarib boʻlmaydi.'
+      },
       deleteConfirm: {
-        title: 'Mahsulotni o‘chirish',
-        message: 'Ushbu mahsulotni o‘chiraysizmi? Bu amalni qaytarib bo‘lmaydi.',
-        confirm: 'O‘chirish'
+        title: 'Mahsulotni oʻchirish',
+        message: 'Ushbu mahsulotni oʻchirmoqchimisiz? Bu amalni ortga qaytarib boʻlmaydi.',
+        confirm: 'Oʻchirish'
       },
       form: {
         createTitle: 'Mahsulot yaratish',
@@ -337,7 +290,7 @@ export default {
           namePlaceholder: 'Nomini kiriting',
           price: 'Narx',
           quantity: 'Miqdor',
-          size: 'O‘lchamlar',
+          size: 'Oʻlchamlar',
           sizePlaceholder: 'Masalan 36-40',
           active: 'Faol mahsulot'
         },
@@ -348,33 +301,33 @@ export default {
         }
       },
       images: {
-        section: 'Rasmlar (majburiy emas)',
-        single: 'Bitta rasm',
+        section: 'Rasmlar (ixtiyoriy)',
+        single: 'Yakka rasm',
         multiple: 'Bir nechta rasm',
-        recommendation: 'Tavsiya etiladi: 2MB gacha rasmlar. Katta fayllar avtomatik ravishda siqiladi.',
+        recommendation: 'Tavsiya: rasmlar 2MB gacha. Katta fayllar avtomatik siqiladi.',
         selectedFiles: 'Tanlangan fayllar: {count}',
         uploading: 'Rasmlar yuklanmoqda...',
-        willUploadAfterCreate: 'Rasmlar mahsulot yaratilgandan so‘ng yuklanadi.',
+        willUploadAfterCreate: 'Rasmlar mahsulot yaratilgandan soʻng yuklanadi.',
         current: 'Joriy rasmlar',
         loading: 'Yuklanmoqda...',
-        none: 'Saqlangan rasmlar yo‘q',
+        none: 'Saqlangan rasm yoʻq',
         primaryBadge: 'Asosiy',
-        removeImageAria: 'Rasmni o‘chirish',
-        addingHint: 'Yuqorida yangi fayllar qo‘shiladi — almashtirish uchun ortiqchalarini o‘chirib yangilarini yuklang.',
+        removeImageAria: 'Rasmni oʻchirish',
+        addingHint: 'Yuqorida yangi fayllar qoʻshiladi — almashtirish uchun ortiqcha fayllarni oʻchirib yangi yuklang.',
         progress: '{current} / {total}',
-        deleteConfirmTitle: 'Rasmni o‘chirish',
-        deleteConfirmMessage: 'Ushbu rasmni o‘chirilsinmi?',
-        deleteSuccess: 'Rasm o‘chirildi',
-        deleteError: 'Rasmni o‘chirishda xato',
+        deleteConfirmTitle: 'Rasmni oʻchirish',
+        deleteConfirmMessage: 'Ushbu rasm oʻchirilsinmi?',
+        deleteSuccess: 'Rasm oʻchirildi',
+        deleteError: 'Rasmni oʻchirishda xato',
         uploadSingleSuccess: 'Rasm yuklandi ({field})',
         uploadAllSuccess: 'Barcha rasmlar yuklandi',
         uploadError: 'Rasmlarni yuklashda xato'
       },
       toasts: {
         loadError: 'Mahsulotlarni yuklashda xato',
-        deleteSuccess: 'Mahsulot muvaffaqiyatli o‘chirildi',
-        deleteAlreadyRemoved: 'Mahsulot allaqachon o‘chirilgan',
-        deleteError: 'Mahsulotni o‘chirishda xato',
+        deleteSuccess: 'Mahsulot muvaffaqiyatli oʻchirildi',
+        deleteAlreadyRemoved: 'Mahsulot allaqachon oʻchirib tashlangan',
+        deleteError: 'Mahsulotni oʻchirishda xato',
         saveError: 'Mahsulotni saqlashda xato',
         updateSuccess: 'Mahsulot yangilandi',
         createSuccess: 'Mahsulot yaratildi',
@@ -382,71 +335,106 @@ export default {
         statusUpdateError: 'Holatni yangilashda xato'
       }
     },
-    users: {
-      title: 'Foydalanuvchilarni boshqarish',
-      subtitle: 'Tizim foydalanuvchilarini ko‘rish va boshqarish',
-      table: {
-        user: 'Foydalanuvchi',
-        phone: 'Telefon',
-        role: 'Rol',
-        registeredAt: 'Ro‘yxatdan o‘tgan sana'
-      },
-      empty: {
-        title: 'Foydalanuvchilar topilmadi',
-        subtitle: 'Qidiruv yoki filtrlarni o‘zgartirib ko‘ring'
-      },
-      toasts: { loadError: 'Foydalanuvchilarni yuklashda xato' },
-      role: { admin: 'Administrator', user: 'Foydalanuvchi' },
-      dateNA: 'N/A'
-    },
     orders: {
       title: 'Buyurtmalarni boshqarish',
-      subtitle: 'Mijozlar buyurtmalarini ko‘rish va boshqarish',
-      info: { orders: 'Buyurtmalar: {total}', page: 'Sahifa {page} / {pages}' },
+      subtitle: 'Mijozlar buyurtmalarini koʻrish va boshqarish',
+      info: {
+        orders: 'Buyurtmalar: {total}',
+        page: 'Sahifa {page} / {pages}'
+      },
       table: {
         order: 'Buyurtma',
         client: 'Mijoz',
         items: 'Mahsulotlar',
         amount: 'Summa',
         status: 'Holat',
-        date: 'Sana',
-        actions: 'Amallar'
+        date: 'Sana'
       },
       itemsCount: '{count} ta mahsulot',
-      empty: {
-        title: 'Buyurtmalar topilmadi',
-        subtitle: 'Qidiruv parametrlarini o‘zgartirib ko‘ring'
-      },
       status: {
         pending: 'Kutilmoqda',
         processing: 'Qayta ishlanmoqda',
-        shipped: 'Jo‘natildi',
+        shipped: 'Yuborildi',
         delivered: 'Yetkazildi',
-        cancelled: 'Bekor qilindi'
-      },
-      toasts: {
-        loadError: 'Buyurtmalarni yuklashda xato',
-        statusUpdateSuccess: 'Buyurtma holati yangilandi',
-        statusUpdateError: 'Holatni yangilashda xato'
-      },
-      unspecifiedUser: 'Ko‘rsatilmagan'
-    },
-    dashboard: {
-      title: 'Administrator paneli',
-      welcome: 'Internet-do‘kon boshqaruv paneliga xush kelibsiz',
-      loadError: 'Statistikani yuklashda xato',
-      stats: {
-        totalUsers: 'Jami foydalanuvchilar',
-        totalProducts: 'Jami mahsulotlar',
-        totalOrders: 'Jami buyurtmalar',
-        pendingOrders: 'Kutilayotgan buyurtmalar'
-      },
-      quickActions: {
-        title: 'Tezkor amallar',
-        products: { title: 'Mahsulotlarni boshqarish', subtitle: 'Mahsulot qo‘shish, tahrirlash' },
-        orders: { title: 'Buyurtmalarni boshqarish', subtitle: 'Buyurtmalarni ko‘rish va qayta ishlash' },
-        users: { title: 'Foydalanuvchilarni boshqarish', subtitle: 'Foydalanuvchilarni ko‘rish' }
+        cancelled: 'Bekor qilindi',
+        confirmed: 'Tasdiqlandi',
+        created: 'Yaratildi',
+        paid: 'Toʻlandi',
+        failed: 'Muvaffaqiyatsiz',
+        refunded: 'Qaytarildi',
+        PENDING: 'Kutilmoqda',
+        PROCESSING: 'Qayta ishlanmoqda',
+        SHIPPED: 'Yuborildi',
+        DELIVERED: 'Yetkazildi',
+        CANCELLED: 'Bekor qilindi',
+        CONFIRMED: 'Tasdiqlandi',
+        CREATED: 'Yaratildi',
+        PAID: 'Toʻlandi',
+        FAILED: 'Muvaffaqiyatsiz',
+        REFUNDED: 'Qaytarildi'
       }
     }
+  },
+  footer: {
+    contactUs: 'Biz bilan bogʻlaning',
+    followUs: 'Bizni kuzating',
+    paymentMethods: 'Toʻlov usullari',
+    rights: 'Barcha huquqlar himoyalangan.'
+  },
+  offer: {
+    title: 'Ommaviy oferta',
+    mustAccept: 'Toʻlash uchun ommaviy oferta shartlarini qabul qilish kerak.',
+    acceptLabel: 'Men ommaviy oferta shartlarini oʻqib chiqdim va qabul qilaman',
+    viewLink: 'Ofertani koʻrish'
+  },
+  offerPage: {
+    title: 'Ommaviy oferta',
+    updated: 'Yangilangan: 23.09.2025',
+    intro1: 'Ushbu ommaviy oferta (bundan keyin – "Oferta") Velora shoes (bundan keyin – "Sotuvchi") tomonidan har qanday jismoniy shaxsga (bundan keyin – "Xaridor") quyida keltirilgan shartlar asosida tovarlar sotib olish / xizmatlardan foydalanish boʻyicha shartnoma tuzish taklifidir.',
+    intro2: 'Buyurtma berish va uni toʻlash Xaridorning ushbu Oferta shartlariga roziligini bildiradi.',
+    sections: {
+      orderPayment: {
+        title: '1. Buyurtma va toʻlov usullari',
+        li1: 'Buyurtmalar veb-sayt orqali qabul qilinadi: https://www.optomoyoqkiyim.uz/',
+        li2: 'Toʻlov mumkin: bank kartasi (UZCARD, HUMO, Visa, MasterCard) himoyalangan toʻlov xizmati orqali; saytda koʻrsatilgan boshqa toʻlov usullari.',
+        li3: 'Barcha hisob-kitoblar Oʻzbekiston Respublikasi soʻmida amalga oshiriladi.'
+      },
+      returns: {
+        title: '2. Mahsulotni qaytarish, xizmatdan voz kechish va pul qaytarish shartlari',
+        li1: 'Xaridor Oʻzbekiston Respublikasi qonunchiligida belgilangan muddatlar va tartibda mahsulot yoki xizmatdan voz kechish huquqiga ega.',
+        li2: 'Mahsulot/xizmatdan voz kechganda pul toʻlov amalga oshirilgan usul bilan qaytariladi.',
+        li3: 'Pul qaytarish muddati odatda 7 ish kunigacha, lekin ayrim hollarda bank va toʻlov tizimlarining ishlashiga qarab 30 ish kunigacha choʻzilishi mumkin.',
+        li4: 'Bank kartasi operatsiyasini bekor qilish milliy va xalqaro toʻlov tizimlarining qoidalariga muvofiq amalga oshiriladi.'
+      },
+      delivery: {
+        title: '3. Mahsulotlarni yetkazib berish / xizmat koʻrsatish shartlari',
+        li1: 'Toshkent shahriga mahsulot yetkazib berish bepul amalga oshiriladi.',
+        li2: 'Oʻzbekiston Respublikasining boshqa shaharlariga yetkazib berish shartnoma asosida amalga oshiriladi.',
+        li3: 'Qozogʻiston, Qirgʻiziston va Tojikistonga yetkazib berish ham shartnoma asosida amalga oshiriladi.'
+      },
+      security: {
+        title: '4. Operatsiyalar xavfsizligi',
+        li1: 'Bank kartalari bilan toʻlov zamonaviy himoya usullarini qoʻllaydigan himoyalangan toʻlov shlyuzi orqali amalga oshiriladi.',
+        li2: 'Bank kartasi maʼlumotlari faqat toʻlov xizmati tomonidan qayta ishlanadi va Sotuvchiga uzatilmaydi.',
+        li3: 'Sotuvchi mijozlarning shaxsiy maʼlumotlari himoyalanganligini va faqat shartnomani bajarish maqsadida ishlatilishini kafolatlaydi.'
+      },
+      privacy: {
+        title: '5. Maxfiylik siyosati',
+        li1: 'Xaridorning shaxsiy maʼlumotlari 2019 yil 2 iyuldagi "Shaxsiy maʼlumotlar toʻgʻrisida"gi OʻRQ-547-sonli Oʻzbekiston Respublikasi qonuniga muvofiq qayta ishlanadi.',
+        li2: 'Sotuvchi shaxsiy maʼlumotlarni faqat Xaridor oldidagi majburiyatlarini bajarish uchun toʻplaydi va ishlatadi.',
+        li3: 'Sotuvchi Xaridorning shaxsiy maʼlumotlarini uning roziligizsiz uchinchi shaxslarga oshkor qilmaslikni majburiyatini oladi, Oʻzbekiston Respublikasi qonunchiligida nazarda tutilgan hollar bundan mustasno.',
+        li4: 'Xaridor koʻrsatgan elektron pochta yoki telefonga maʼlumot xabarlari (buyurtma haqida bildirishnomalar, aksiyalar va h.k.) olishga rozi boʻladi.'
+      },
+      seller: {
+        title: '6. Sotuvchi rekvizitlari',
+        name: 'Velora shoes',
+        inn: 'STIR: 552430231',
+        legalAddress: 'Yuridik manzil: Toshkent viloyati, Eshongʻozor, Xurshid Nigʻmon koʻchasi',
+        actualAddress: 'Faktik manzil: Toshkent viloyati, Eshongʻozor, Xurshid Nigʻmon koʻchasi',
+        phone: 'Telefon: +998 95 021 02 07',
+        email: 'Elektron pochta: elbek1987101@icloud.com'
+      }
+    },
+    notice: 'Buyurtmani davom ettirib va toʻlovga oʻtish orqali Siz ushbu ommaviy oferta shartlari bilan tanishganingiz va ularni qabul qilganingizni tasdiqlaysiz.'
   }
 } as const;

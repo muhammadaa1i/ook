@@ -104,6 +104,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     );
 
     if (existingItemIndex > -1) {
+      let toastType: 'success' | 'warning' | 'error' = 'success';
+      let toastMessage = '';
+      
       setItems((prevItems) => {
         const newItems = [...prevItems];
         let newQty = newItems[existingItemIndex].quantity + addQty;
@@ -116,17 +119,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const maxPossible = Math.floor(availableStock / 6) * 6;
           if (maxPossible >= 60) {
             newQty = maxPossible;
-            toast.warning(t('cart.limitedStock', { name: product.name, qty: newQty, available: availableStock }));
+            toastType = 'warning';
+            toastMessage = t('cart.limitedStock', { name: product.name, qty: newQty, available: availableStock });
           } else {
-            toast.error(t('cart.insufficientStock', { name: product.name, available: availableStock }));
+            toastType = 'error';
+            toastMessage = t('cart.insufficientStock', { name: product.name, available: availableStock });
             return prevItems; // Don't update if can't meet minimum
           }
+        } else {
+          toastType = 'success';
+          toastMessage = t('cart.added', { name: product.name, qty: addQty });
         }
         
         newItems[existingItemIndex].quantity = newQty;
         return newItems;
       });
-      toast.success(t('cart.added', { name: product.name, qty: addQty }));
+      
+      // Show toast after state update
+      if (toastType === 'success') {
+        toast.success(toastMessage);
+      } else if (toastType === 'warning') {
+        toast.warning(toastMessage);
+      } else if (toastType === 'error') {
+        toast.error(toastMessage);
+      }
     } else {
       // Check if minimum quantity (60) can be satisfied
       if (availableStock < 60) {
@@ -135,10 +151,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       
       // Check if requested quantity exceeds available stock
+      let toastType: 'success' | 'warning' | null = 'success';
+      let toastMessage = '';
+      
       if (addQty > availableStock) {
         const maxPossible = Math.floor(availableStock / 6) * 6;
         addQty = Math.max(60, maxPossible);
-        toast.warning(t('cart.limitedStock', { name: product.name, qty: addQty, available: availableStock }));
+        toastType = 'warning';
+        toastMessage = t('cart.limitedStock', { name: product.name, qty: addQty, available: availableStock });
+      } else {
+        toastMessage = t('cart.added', { name: product.name, qty: addQty });
       }
 
       type ImageLike = { id: number; image_url?: string; image_path?: string };
@@ -155,8 +177,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         size,
         color,
       };
+      
       setItems((prevItems) => [...prevItems, cartItem]);
-      toast.success(t('cart.added', { name: product.name, qty: addQty }));
+      
+      // Show toast after state update
+      if (toastType === 'success') {
+        toast.success(toastMessage);
+      } else if (toastType === 'warning') {
+        toast.warning(toastMessage);
+      }
     }
   };
 

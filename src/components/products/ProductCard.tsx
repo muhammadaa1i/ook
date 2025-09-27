@@ -130,7 +130,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
     return (
       <div
         className={
-          `relative bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer border ${
+          `relative bg-white rounded-md sm:rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer border ${
             inCart && !isAdmin ? "border-blue-500 ring-1 ring-blue-400/50" : "border-transparent"
           }`
         }
@@ -145,11 +145,11 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
             : undefined
         }
       >
-        <div className="relative h-48 bg-gray-200">
+        <div className="relative h-36 sm:h-40 lg:h-48 bg-gray-200">
           {inCart && !isAdmin && (
-            <div className="absolute top-2 left-2 z-10 bg-blue-600 text-white text-[11px] font-semibold px-2 py-1 rounded-md shadow-sm flex items-center space-x-1">
-              <Check className="h-3.5 w-3.5" />
-              <span>{t('cart.inCart')}{cartItem ? `: ${cartItem.quantity}` : ""}</span>
+            <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 z-10 bg-blue-600 text-white text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-sm sm:rounded-md shadow-sm flex items-center space-x-1">
+              <Check className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+              <span className="truncate">{t('cart.inCart')}{cartItem ? `: ${cartItem.quantity}` : ""}</span>
             </div>
           )}
           {!imageError && imageUrls[activeIndex] !== "/placeholder-product.svg" ? (
@@ -170,24 +170,24 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
                   <button
                     onClick={goPrev}
                     aria-label="Previous image"
-                    className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1.5 backdrop-blur-sm focus:outline-none"
+                    className="absolute left-0.5 sm:left-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1 sm:p-1.5 backdrop-blur-sm focus:outline-none text-xs sm:text-sm"
                   >
                     ‹
                   </button>
                   <button
                     onClick={goNext}
                     aria-label="Next image"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1.5 backdrop-blur-sm focus:outline-none"
+                    className="absolute right-0.5 sm:right-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1 sm:p-1.5 backdrop-blur-sm focus:outline-none text-xs sm:text-sm"
                   >
                     ›
                   </button>
-                  <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1">
+                  <div className="absolute bottom-1.5 sm:bottom-2 left-0 right-0 flex items-center justify-center gap-1">
                     {imageUrls.map((_, i) => (
                       <button
                         key={i}
                         aria-label={`Go to image ${i + 1}`}
                         onClick={(e) => { e.stopPropagation(); setActiveIndex(i); }}
-                        className={`h-1.5 rounded-full transition-all ${i === activeIndex ? 'bg-white w-4' : 'bg-white/50 w-2'}`}
+                        className={`h-1 sm:h-1.5 rounded-full transition-all ${i === activeIndex ? 'bg-white w-3 sm:w-4' : 'bg-white/50 w-1.5 sm:w-2'}`}
                         style={{ lineHeight: 0 }}
                       />
                     ))}
@@ -219,22 +219,22 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
           )}
         </div>
 
-        <div className="p-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+        <div className="p-3 sm:p-4">
+          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
             {slipper.name}
           </h3>
 
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">
+            <span className="text-xs sm:text-sm text-gray-600 truncate">
               {t('product.size')}: {slipper.size}
             </span>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-xl font-bold text-blue-600">
+            <span className="text-base sm:text-lg lg:text-xl font-bold text-blue-600 truncate">
               {formattedPrice}
             </span>
-            <div className="flex space-x-2">
+            <div className="flex space-x-1 sm:space-x-2">
               {onAddToCart && !isAdmin && (
                 <button
                   onClick={(e) => {
@@ -242,7 +242,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
                     handleAddToCart();
                   }}
                   disabled={!availabilityInfo.canAddToCart}
-                  className={`p-2 rounded-lg transition-colors flex items-center justify-center ${
+                  className={`p-1.5 sm:p-2 rounded-md sm:rounded-lg transition-colors flex items-center justify-center ${
                     inCart && !isAdmin
                       ? "bg-green-600 text-white hover:bg-green-700"
                       : "bg-blue-600 text-white hover:bg-blue-700"
@@ -256,9 +256,9 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
                   }
                 >
                   {inCart && !isAdmin ? (
-                    <Check className="h-5 w-5" />
+                    <Check className="h-4 sm:h-5 w-4 sm:w-5" />
                   ) : (
-                    <ShoppingCart className="h-5 w-5" />
+                    <ShoppingCart className="h-4 sm:h-5 w-4 sm:w-5" />
                   )}
                 </button>
               )}

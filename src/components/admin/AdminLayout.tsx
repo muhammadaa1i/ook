@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import { BarChart3, Users, Package, ShoppingCart, Home, Menu, X } from "lucide-react";
+import { BarChart3, Users, Package, ShoppingCart, DollarSign, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 

@@ -15,3 +15,28 @@ declare module 'js-cookie' {
   const Cookies: CookiesStatic;
   export default Cookies;
 }
+
+// CSS Module declarations
+declare module '*.css' {
+  const content: { [className: string]: string };
+  export default content;
+}
+
+declare module '*.scss' {
+  const content: { [className: string]: string };
+  export default content;
+}
+
+declare module '*.sass' {
+  const content: { [className: string]: string };
+  export default content;
+}
+
+// Side-effect CSS imports (for global stylesheets)
+declare module '*.css' {
+  const content: Record<string, string>;
+  export = content;
+}
+
+// React Toastify CSS
+declare module 'react-toastify/dist/ReactToastify.css';

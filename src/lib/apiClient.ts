@@ -69,16 +69,26 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
   return api(originalRequest);
       } catch (refreshError) {
-        Cookies.remove("access_token");
-        Cookies.remove("refresh_token");
-        Cookies.remove("user");
-        // Dispatch custom event for AuthContext to handle
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("auth:logout"));
-        }
-        // Don't redirect to login if already on login page
-        if (typeof window !== "undefined" && !window.location.pathname.includes('/auth/login')) {
-          setTimeout(() => (window.location.href = "/auth/login"), 100);
+        // Don't immediately logout during payment flows
+        const isPaymentFlow = typeof window !== "undefined" && 
+          (window.location.pathname.includes('/payment/') || 
+           window.location.search.includes('transfer_id') ||
+           window.location.search.includes('payment_uuid'));
+           
+        if (!isPaymentFlow) {
+          Cookies.remove("access_token");
+          Cookies.remove("refresh_token");
+          Cookies.remove("user");
+          // Dispatch custom event for AuthContext to handle
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("auth:logout"));
+          }
+          // Don't redirect to login if already on login page
+          if (typeof window !== "undefined" && !window.location.pathname.includes('/auth/login')) {
+            setTimeout(() => (window.location.href = "/auth/login"), 100);
+          }
+        } else {
+          console.warn("Token refresh failed during payment flow - preserving session");
         }
         return Promise.reject(refreshError);
       }

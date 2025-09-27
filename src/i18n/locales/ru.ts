@@ -4,6 +4,28 @@ export default {
     tagline: 'Интернет магазин',
     description: 'Качественная и современная обувь. Комфорт и стиль в каждом шаге.'
   },
+  home: {
+    heroLine1: 'Комфорт в каждом',
+    heroLine2: 'шаге',
+    heroSubtitle: 'Откройте для себя коллекцию современной и качественной обуви',
+    heroSubtitleAlt: 'Выберите из нашей самой популярной коллекции',
+    viewCatalog: 'Перейти в каталог',
+    myOrders: 'Мои заказы',
+    categories: 'Категории',
+    popularProducts: 'Популярные товары',
+    popularProductsSubtitle: 'Оцените модели, которые чаще всего выбирают наши покупатели',
+    viewAllProducts: 'Смотреть все товары',
+    whyChooseUs: 'Почему выбирают нас',
+    features: {
+      quality: { title: 'Качество', description: 'Только проверенные материалы и контроль производства' },
+      delivery: { title: 'Доставка', description: 'Быстрая и надежная доставка по всему Узбекистану' },
+      support: { title: 'Поддержка', description: 'Оперативно отвечаем на ваши вопросы' },
+      customers: { title: 'Довольные клиенты', description: 'Тысячи покупателей доверяют нам' }
+    },
+    ctaTitle: 'Сделайте новый шаг уже сегодня',
+    ctaSubtitle: 'Выберите коллекцию, где комфорт сочетается со стилем',
+    ctaStartShopping: 'Начать покупки'
+  },
   common: {
     home: 'Главная',
     catalog: 'Каталог',
@@ -168,6 +190,8 @@ export default {
     },
     continueShopping: 'Продолжить покупки',
     viewOrders: 'Посмотреть заказы',
+    orderCreated: 'Заказ успешно создан!',
+    orderCreateError: 'Ошибка при создании заказа',
     noCancellationNotice: 'Внимание! После успешной оплаты отмена заказа или возврат средств невозможны.'
   },
   ordersPage: {
@@ -181,7 +205,77 @@ export default {
     tryAdjustSearch: 'Попробуйте изменить критерии поиска',
     startShopping: 'Начните покупки в нашем каталоге',
     resetFilters: 'Сбросить фильтры',
-    goToCatalog: 'Перейти в каталог'
+    goToCatalog: 'Перейти в каталог',
+    status: {
+      CREATED: 'Создан',
+      PENDING: 'Ожидает',
+      PAID: 'Оплачен',
+      FAILED: 'Ошибка',
+      CANCELLED: 'Отменён',
+      REFUNDED: 'Возврат',
+      confirmed: 'Подтверждён',
+      pending: 'Ожидает',
+      processing: 'Обрабатывается',
+      shipped: 'Отправлен',
+      delivered: 'Доставлен',
+      cancelled: 'Отменён'
+    }
+  },
+  // Added orders.status.* section to mirror uz locale so that t('orders.status.*') works
+  orders: {
+    status: {
+      created: 'Создан',
+      pending: 'Ожидает',
+      paid: 'Оплачен',
+      failed: 'Ошибка',
+      cancelled: 'Отменён',
+      refunded: 'Возврат',
+      confirmed: 'Подтверждён',
+      processing: 'Обрабатывается',
+      shipped: 'Отправлен',
+      delivered: 'Доставлен'
+    },
+    itemCount: '{count} товар(ов)',
+    viewDetails: 'Подробнее',
+    refund: {
+      request: 'Возврат',
+      requesting: 'Запрашиваем...',
+      requestSuccess: 'Запрос на возврат отправлен',
+      requestError: 'Ошибка отправки запроса на возврат',
+      confirmTitle: 'Подтвердить возврат',
+      confirmMessage: 'Вы уверены, что хотите запросить возврат для этого заказа?',
+      amount: 'Сумма',
+      orderNumber: 'Заказ',
+      pendingImplementation: 'Система возвратов внедряется. Пожалуйста, обратитесь в поддержку для ручной обработки.',
+      requestReceived: 'Запрос на возврат получен. С вами свяжутся в течение 24 часов.',
+      confirmSubtitle: 'Обработка запроса на возврат',
+      warningTitle: 'Важное уведомление',
+      orderDetails: 'Детали заказа',
+      itemCount: 'Товаров',
+      refundAmount: 'Сумма возврата',
+      processingNotice: 'Возврат будет обработан в течение 24-48 часов',
+      confirmButton: 'Подтвердить возврат',
+      contactModal: {
+        title: 'Возврат средств',
+        message: 'Если вы хотите вернуть деньги, свяжитесь с администратором',
+        contactInfo: 'Контактная информация:',
+        phone: 'Телефон:',
+        telegram: 'Telegram:',
+        closeButton: 'Закрыть'
+      }
+    },
+    modal: {
+      title: 'Заказ №{id}',
+      client: 'Клиент',
+      status: 'Статус',
+      shippingAddress: 'Адрес доставки',
+      items: 'Товары',
+      quantity: 'Количество',
+      price: 'Цена',
+      size: 'Размер',
+      notes: 'Примечание',
+      total: 'Итого'
+    }
   },
   profilePage: {
     title: 'Мой профиль',
@@ -202,7 +296,8 @@ export default {
     },
     validation: {
       currentPasswordRequired: 'Текущий пароль обязателен для смены пароля',
-      newPasswordMin: 'Новый пароль должен содержать минимум 8 символов'
+      newPasswordMin: 'Новый пароль должен содержать минимум 8 символов',
+      allPasswordFieldsRequired: 'Для смены пароля заполните все поля пароля'
     }
   },
   catalog: {
@@ -248,7 +343,7 @@ export default {
       orderPayment: {
         title: '1. Способы заказа и оплаты',
         li1: 'Заказы принимаются через сайт: https://www.optomoyoqkiyim.uz/',
-        li2: 'Оплата возможна: банковской картой (UZCARD, HUMO, Visa, MasterCard) через защищённый платёжный сервис OCTO; иными методами оплаты, указанными на сайте.',
+        li2: 'Оплата возможна: банковской картой (UZCARD, HUMO, Visa, MasterCard) через защищённый платёжный сервис; иными методами оплаты, указанными на сайте.',
         li3: 'Все расчёты производятся в сумах Республики Узбекистан.'
       },
       returns: {
@@ -266,7 +361,7 @@ export default {
       },
       security: {
         title: '4. Безопасность операций',
-        li1: 'Оплата банковскими картами осуществляется через защищённый платёжный шлюз OCTO, который использует современные методы защиты.',
+        li1: 'Оплата банковскими картами осуществляется через защищённый платёжный шлюз, который использует современные методы защиты.',
         li2: 'Данные банковской карты обрабатываются исключительно платёжным сервисом и не передаются Продавцу.',
         li3: 'Продавец гарантирует, что персональные данные клиентов защищены и используются только в целях исполнения договора.'
       },
@@ -289,33 +384,7 @@ export default {
     },
     notice: 'Продолжая оформление заказа и переходя к оплате, вы подтверждаете, что ознакомлены и принимаете условия данной публичной оферты.'
   },
-  home: {
-    heroLine1: 'Комфорт для',
-    heroLine2: 'ваших ног',
-    heroSubtitle: 'Откройте для себя коллекцию тапочек, созданных для идеального комфорта и стиля',
-    heroSubtitleAlt: 'Откройте для себя коллекцию качественных и стильных тапочек',
-    viewCatalog: 'Посмотреть каталог',
-    myOrders: 'Мои заказы',
-    categories: 'Категории',
-    popularProducts: 'Популярные товары',
-    popularProductsSubtitle: 'Самые популярные модели тапочек, которые выбирают наши покупатели',
-    whyChooseUs: 'Почему выбирают нас',
-    ctaTitle: 'Готовы найти идеальные тапочки?',
-    ctaSubtitle: 'Присоединяйтесь к тысячам довольных покупателей',
-    ctaStartShopping: 'Начать покупки',
-    viewAllProducts: 'Посмотреть все товары',
-    features: {
-      quality: { title: 'Качество гарантировано', description: 'Все товары проходят строгий контроль качества' },
-      delivery: { title: 'Быстрая доставка', description: 'Доставка по всей стране в течение 1-3 дней' },
-      support: { title: 'Поддержка 24/7', description: 'Наша команда готова помочь в любое время' },
-      customers: { title: 'Довольные клиенты', description: 'Тысячи положительных отзывов от покупателей' },
-      highQuality: { title: 'Высокое качество', description: 'Только лучшие материалы и проверенные производители' },
-      fastDelivery: { title: 'Быстрая доставка', description: 'Доставляем по всему Узбекистану в кратчайшие сроки' },
-      supportAlt: { title: 'Поддержка 24/7', description: 'Наша служба поддержки всегда готова помочь' },
-      bestPrices: { title: 'Лучшие цены', description: 'Конкурентные цены и регулярные скидки' }
-    }
-  }
-  ,
+  // duplicate home block removed (consolidated at top)
   admin: {
     nav: {
       home: 'Главная',
@@ -447,6 +516,30 @@ export default {
         date: 'Дата',
         actions: 'Действия'
       },
+      actions: {
+        refund: 'Возврат',
+        refundRequest: 'Запросить возврат'
+      },
+      refund: {
+        request: 'Возврат',
+        requesting: 'Запрашиваем...',
+        requestSuccess: 'Запрос на возврат отправлен',
+        requestError: 'Ошибка отправки запроса на возврат',
+        confirmTitle: 'Подтвердить возврат',
+        confirmMessage: 'Вы уверены, что хотите запросить возврат для этого заказа?',
+        amount: 'Сумма',
+        orderNumber: 'Заказ',
+        pendingImplementation: 'Система возвратов внедряется. Пожалуйста, обратитесь в поддержку для ручной обработки.',
+        requestReceived: 'Запрос на возврат получен. С вами свяжутся в течение 24 часов.',
+        requestSent: 'Запрос на возврат отправлен администратору. С вами свяжутся в течение 24 часов.',
+        confirmSubtitle: 'Обработка запроса на возврат',
+        warningTitle: 'Важное уведомление',
+        orderDetails: 'Детали заказа',
+        itemCount: 'Товаров',
+        refundAmount: 'Сумма возврата',
+        processingNotice: 'Возврат будет обработан в течение 24-48 часов',
+        confirmButton: 'Подтвердить возврат'
+      },
       itemsCount: '{count} товар(ов)',
       empty: {
         title: 'Заказы не найдены',
@@ -457,7 +550,23 @@ export default {
         processing: 'Обрабатывается',
         shipped: 'Отправлен',
         delivered: 'Доставлен',
-        cancelled: 'Отменен'
+        cancelled: 'Отменен',
+        confirmed: 'Подтвержден',
+        created: 'Создан',
+        paid: 'Оплачен',
+        failed: 'Неудачно',
+        refunded: 'Возврат',
+        // Uppercase versions for backend compatibility
+        PENDING: 'Ожидает',
+        PROCESSING: 'Обрабатывается',
+        SHIPPED: 'Отправлен',
+        DELIVERED: 'Доставлен',
+        CANCELLED: 'Отменен',
+        CONFIRMED: 'Подтвержден',
+        CREATED: 'Создан',
+        PAID: 'Оплачен',
+        FAILED: 'Неудачно',
+        REFUNDED: 'Возврат'
       },
       toasts: {
         loadError: 'Ошибка загрузки заказов',
@@ -465,6 +574,51 @@ export default {
         statusUpdateError: 'Ошибка обновления статуса заказа'
       },
       unspecifiedUser: 'Не указано'
+    },
+    refunds: {
+      title: 'Запросы на возврат',
+      subtitle: 'Обработка запросов на возврат средств',
+      table: {
+        request: 'Запрос',
+        order: 'Заказ',
+        user: 'Пользователь',
+        amount: 'Сумма',
+        reason: 'Причина',
+        status: 'Статус',
+        date: 'Дата',
+        actions: 'Действия'
+      },
+      status: {
+        pending: 'Ожидает',
+        approved: 'Одобрено',
+        rejected: 'Отклонено'
+      },
+      actions: {
+        approve: 'Одобрить',
+        reject: 'Отклонить',
+        processing: 'Обработка...'
+      },
+      confirmDialog: {
+        approve: {
+          title: 'Одобрить возврат?',
+          message: 'Вы уверены, что хотите одобрить этот запрос на возврат?'
+        },
+        reject: {
+          title: 'Отклонить возврат?',
+          message: 'Вы уверены, что хотите отклонить этот запрос на возврат?'
+        }
+      },
+      toasts: {
+        loadError: 'Ошибка загрузки запросов на возврат',
+        approveSuccess: 'Возврат одобрен',
+        approveError: 'Ошибка одобрения возврата',
+        rejectSuccess: 'Возврат отклонен',
+        rejectError: 'Ошибка отклонения возврата'
+      },
+      empty: {
+        title: 'Запросы на возврат не найдены',
+        subtitle: 'На данный момент нет запросов на возврат'
+      }
     },
     dashboard: {
       title: 'Панель администратора',

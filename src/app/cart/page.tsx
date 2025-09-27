@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
+import { modernApiClient } from "@/lib/modernApiClient";
+import { API_ENDPOINTS } from "@/lib/constants";
+import { CreateOrderRequest, Order } from "@/types";
 
 // Component for handling product images with error fallback
 const ProductImage = ({
@@ -99,39 +102,126 @@ export default function CartPage() {
     setIsProcessingPayment(true);
 
     try {
-      const orderId = PaymentService.generateOrderId();
-      const { success_url, fail_url } = PaymentService.getReturnUrls();
+      console.log('User info:', { id: user?.id, isAuthenticated, user });
+      console.log('Cart items:', items);
       
+      // Step 1: Create the order first (order-first approach)
+      const orderItems = items.map(item => ({
+        slipper_id: item.id,
+        quantity: item.quantity,
+        unit_price: item.price,
+        notes: `${item.size ? `Size: ${item.size}` : ''}${item.color ? `, Color: ${item.color}` : ''}`.trim()
+      }));
+      
+      const createOrderRequest: CreateOrderRequest = {
+        user_id: user?.id,
+        items: orderItems,
+        notes: `Order created for payment`,
+        payment_method: 'OCTO',
+        status: 'CREATED'
+      };
+
+      console.log('Creating order first:', createOrderRequest);
+      console.log('API Endpoint:', API_ENDPOINTS.ORDERS);
+      
+      let createdOrder: Order;
+      try {
+        const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest);
+        console.log('Order API response:', orderResponse);
+        
+        // Handle both envelope and direct response formats
+        interface ApiEnvelope<T> { data?: T; items?: T; }
+        const env = orderResponse as ApiEnvelope<Order> | Order;
+        const rawOrder = (env as ApiEnvelope<Order>).data || (env as Order);
+        
+        // Transform the API response to match our Order interface
+        interface ApiOrderResponse {
+          id?: number;
+          order_id?: string;
+          user_id?: number;
+          status?: string;
+          total_amount?: number;
+          notes?: string;
+          payment_method?: string;
+          items?: unknown[];
+          created_at?: string;
+          updated_at?: string;
+        }
+        
+        const apiOrder = rawOrder as ApiOrderResponse;
+        createdOrder = {
+          ...apiOrder,
+          id: apiOrder.id || parseInt(apiOrder.order_id || '0', 10), // Convert order_id to id
+          order_id: apiOrder.order_id, // Keep original order_id if present
+          user_id: apiOrder.user_id || user?.id || 0,
+          items: apiOrder.items || [],
+          created_at: apiOrder.created_at || new Date().toISOString(),
+          updated_at: apiOrder.updated_at || apiOrder.created_at || new Date().toISOString(),
+        } as Order;
+        
+        console.log('Order created successfully:', createdOrder);
+      } catch (orderError) {
+        console.error('Order creation failed:', orderError);
+        console.error('Order request was:', JSON.stringify(createOrderRequest, null, 2));
+        throw new Error(`Failed to create order: ${orderError instanceof Error ? orderError.message : String(orderError)}`);
+      }
+      
+      if (!createdOrder || (!createdOrder.id && !createdOrder.order_id)) {
+        console.error('Invalid order response structure:', createdOrder);
+        throw new Error('Failed to create order: Invalid response structure');
+      }
+
+      // Step 2: Create payment with the actual order ID
       const description = t('payment.orderDescription', {
         itemCount: String(itemCount),
         customerName: user?.name || 'Customer'
       });
 
       const paymentRequest = {
-        order_id: orderId,
         amount: PaymentService.formatAmount(totalAmount),
         description,
-        success_url: `${success_url}?order_id=${orderId}`,
-        fail_url: `${fail_url}?order_id=${orderId}`,
-        expires_in_minutes: 30,
-        card_systems: ['uzcard', 'humo', 'visa', 'mastercard']
+        order_id: createdOrder.id || parseInt(createdOrder.order_id || '0', 10)
       };
 
+      console.log('Creating payment for order:', paymentRequest);
       const paymentResponse = await PaymentService.createPayment(paymentRequest);
+      console.log('Payment response received:', paymentResponse);
       
-      if (paymentResponse.payment_url) {
-        // Immediately check payment status and store it for admin panel
-        try {
-          await PaymentService.getPaymentStatus(paymentResponse.transfer_id);
-          // Optionally, send paymentStatus.status to your backend to update the order's payment status
-          // await modernApiClient.put(API_ENDPOINTS.ORDER_BY_ID(orderId), { payment_status: paymentStatus.status });
-        } catch {
-          // Optionally handle error
-        }
+      // Check for various possible URL field names  
+      interface PaymentResponseExtended {
+        url?: string;
+        redirect_url?: string;
+        payment_id?: string;
+      }
+      
+      const extendedResponse = paymentResponse as PaymentResponseExtended;
+      const paymentUrl = paymentResponse.octo_pay_url || 
+                        paymentResponse.payment_url || 
+                        paymentResponse.pay_url ||
+                        extendedResponse.url ||
+                        extendedResponse.redirect_url;
+      
+      if (paymentResponse.success && paymentUrl) {
+        // Store order and payment info for status updates after payment
+        const paymentData = {
+          order_id: createdOrder.order_id || createdOrder.id,
+          payment_id: paymentResponse.octo_payment_UUID || extendedResponse.payment_id,
+          user_id: user?.id,
+          payment_method: 'OCTO',
+          created_at: new Date().toISOString()
+        };
+        
+        sessionStorage.setItem('paymentOrder', JSON.stringify(paymentData));
+        
+        console.log('Redirecting to payment URL:', paymentUrl);
+        
+        // Payment status will be handled by the webhook notification endpoint
+        // The backend will automatically update order status when payment is completed
         // Redirect to payment gateway
-        window.location.href = paymentResponse.payment_url;
+        window.location.href = paymentUrl;
       } else {
-        throw new Error('Payment URL not received');
+        console.error('Payment failed - Response:', paymentResponse);
+        throw new Error(paymentResponse.errMessage || `Payment URL not received. Success: ${paymentResponse.success}, URL: ${paymentUrl}`);
       }
     } catch (error) {
       console.error('Payment initiation failed:', error);
@@ -143,21 +233,21 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-8 sm:py-12">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
           <div className="text-center">
-            <ShoppingBag className="h-24 w-24 text-gray-400 mx-auto mb-6" />
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            <ShoppingBag className="h-16 sm:h-20 lg:h-24 w-16 sm:w-20 lg:w-24 text-gray-400 mx-auto mb-4 sm:mb-6" />
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 px-4">
               {t('cartPage.emptyTitle')}
             </h1>
-            <p className="text-gray-600 mb-8">
+            <p className="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8 px-4">
               {t('cartPage.emptySubtitle')}
             </p>
             <Link
               href="/catalog"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
+              <ArrowLeft className="h-4 sm:h-5 w-4 sm:w-5 mr-2" />
               {t('cartPage.continueShopping')}
             </Link>
           </div>
@@ -167,68 +257,70 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+        <div className="mb-6 sm:mb-8">
           <Link
             href="/catalog"
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
+            className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-3 sm:mb-4 text-sm sm:text-base"
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
+            <ArrowLeft className="h-4 sm:h-5 w-4 sm:w-5 mr-1 sm:mr-2" />
             {t('cartPage.continue')}
           </Link>
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <ShoppingCart className="h-8 w-8 mr-3" />
-              {t('cartPage.heading')} ({t('cartPage.itemsCount', { count: String(itemCount) })})
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 flex items-center leading-tight">
+              <ShoppingCart className="h-5 sm:h-6 lg:h-8 w-5 sm:w-6 lg:w-8 mr-2 sm:mr-3 flex-shrink-0" />
+              <span className="break-words">
+                {t('cartPage.heading')} ({t('cartPage.itemsCount', { count: String(itemCount) })})
+              </span>
             </h1>
             <button
               onClick={clearCart}
-              className="bg-red-600 text-white hover:bg-red-500 px-3 py-1 rounded-md font-medium transition-colors"
+              className="bg-red-600 text-white hover:bg-red-500 px-3 py-1.5 sm:py-1 rounded-md text-sm font-medium transition-colors flex-shrink-0 self-start sm:self-auto"
             >
               {t('cartPage.clear')}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-sm">
               {items.map((item, index) => (
                 <div
                   key={`${item.id}-${item.size || 'no-size'}-${item.color || 'no-color'}-${index}`}
-                  className={`p-6 ${
+                  className={`p-3 sm:p-4 lg:p-6 ${
                     index !== items.length - 1 ? "border-b border-gray-200" : ""
                   }`}
                 >
-                  <div className="flex items-start space-x-4">
+                  <div className="flex items-start space-x-3 sm:space-x-4">
                     {/* Product Image */}
                     <div className="flex-shrink-0">
-                      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center border border-blue-100">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gray-100 rounded-md sm:rounded-lg overflow-hidden flex items-center justify-center border border-blue-100">
                         <ProductImage item={item} />
                       </div>
                     </div>
 
                     {/* Product Details */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-1 leading-tight break-words">
                         {item.name}
                       </h3>
                       {(item.size || item.color) && (
-                        <div className="text-sm text-gray-600 mb-2">
+                        <div className="text-xs sm:text-sm text-gray-600 mb-2">
                           {item.size && <span>{t('product.size')}: {item.size}</span>}
                           {item.size && item.color && <span> • </span>}
                           {item.color && <span>{t('cartPage.color')}: {item.color}</span>}
                         </div>
                       )}
-                      <p className="text-xl font-bold text-blue-600 mb-4">
+                      <p className="text-base sm:text-lg lg:text-xl font-bold text-blue-600 mb-3 sm:mb-4 break-words">
                         {formatPrice(item.price, t('common.currencySom'))}
                       </p>
 
                       {/* Quantity Controls */}
                       <div className="flex items-center">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
                           <button
                             onClick={() =>
                               updateQuantity(item.id, item.quantity - 6)
@@ -236,9 +328,9 @@ export default function CartPage() {
                             className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
                             disabled={item.quantity <= 60}
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-3 sm:h-4 w-3 sm:w-4" />
                           </button>
-                          <span className="w-12 text-center font-semibold text-gray-900">
+                          <span className="w-8 sm:w-12 text-center text-sm sm:text-base font-semibold text-gray-900">
                             {item.quantity}
                           </span>
                           <button
@@ -247,23 +339,23 @@ export default function CartPage() {
                             }
                             className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-3 sm:h-4 w-3 sm:w-4" />
                           </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Item Total */}
-                    <div className="text-right flex flex-col items-end justify-between ml-auto">
-                      <p className="text-lg font-bold text-gray-900">
+                    {/* Item Total & Remove */}
+                    <div className="flex flex-col items-end justify-between ml-2 sm:ml-auto">
+                      <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 mb-2 break-words text-right">
                         {formatPrice(item.price * item.quantity, t('common.currencySom'))}
                       </p>
                       <button
                         onClick={() => removeFromCart(item.id)}
-                        className="text-red-600 hover:text-red-700 p-2 rounded-md hover:bg-red-50 mt-10"
+                        className="text-red-600 hover:text-red-700 p-1 sm:p-2 rounded-md hover:bg-red-50"
                         aria-label="Remove from cart"
                       >
-                        <Trash2 className="h-5 w-5" />
+                        <Trash2 className="h-4 sm:h-5 w-4 sm:w-5" />
                       </button>
                     </div>
                   </div>
@@ -274,30 +366,24 @@ export default function CartPage() {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:sticky lg:top-8">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">
                 {t('cartPage.orderSummary')}
               </h2>
 
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">
+              <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+                <div className="flex justify-between items-start">
+                  <span className="text-sm sm:text-base text-gray-600">
                     {t('cartPage.productsLine', { count: String(itemCount) })}
                   </span>
-                  <span className="font-semibold">
+                  <span className="text-sm sm:text-base font-semibold break-words text-right">
                     {formatPrice(totalAmount, t('common.currencySom'))}
                   </span>
                 </div>
-                {/* <div className="flex justify-between">
-                  <span className="text-gray-600">Доставка</span>
-                  <span className="font-semibold text-green-600">
-                    Бесплатно
-                  </span>
-                </div> */}
-                <div className="border-t pt-3">
-                  <div className="flex justify-between">
-                    <span className="text-lg font-bold">{t('cartPage.total')}</span>
-                    <span className="text-lg font-bold text-blue-600">
+                <div className="border-t pt-2 sm:pt-3">
+                  <div className="flex justify-between items-start">
+                    <span className="text-base sm:text-lg font-bold">{t('cartPage.total')}</span>
+                    <span className="text-base sm:text-lg font-bold text-blue-600 break-words text-right">
                       {formatPrice(totalAmount, t('common.currencySom'))}
                     </span>
                   </div>
@@ -305,23 +391,23 @@ export default function CartPage() {
               </div>
 
               {/* Offer acceptance */}
-              <div className="mb-5 rounded-md border border-gray-200 bg-gray-50 p-4">
-                <label className="flex items-start gap-3 cursor-pointer  select-none">
+              <div className="mb-4 sm:mb-5 rounded-md border border-gray-200 bg-gray-50 p-3 sm:p-4">
+                <label className="flex items-start gap-2 sm:gap-3 cursor-pointer select-none">
                   <input
                     id="offer-accept"
                     type="checkbox"
-                    className="mt-1 h-5 w-5 border-gray-300 focus:border-none text-blue-600"
+                    className="mt-0.5 h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 text-green-600 accent-green-600 flex-shrink-0"
                     checked={offerAccepted}
                     onChange={(e) => setOfferAccepted(e.target.checked)}
                   />
-                  <span className="text-sm text-gray-700">
+                  <span className="text-xs sm:text-sm text-gray-700 leading-5">
                     {t('offer.acceptLabel')}
                     {" "}
                     <a
                       href="/offer"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 underline"
+                      className="text-blue-600 hover:text-blue-700 underline break-words"
                     >
                       ({t('offer.viewLink')})
                     </a>
@@ -332,40 +418,30 @@ export default function CartPage() {
               <button
                 onClick={handleCheckout}
                 disabled={isProcessingPayment || !offerAccepted}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className="w-full bg-blue-600 text-white py-2.5 sm:py-4 px-4 sm:px-6 rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {isProcessingPayment ? (
                   <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    {t('payment.processing')}
+                    <Loader2 className="h-4 sm:h-5 w-4 sm:w-5 mr-2 animate-spin" />
+                    <span className="truncate">{t('payment.processing')}</span>
                   </>
                 ) : (
                   <>
-                    <CreditCard className="h-5 w-5 mr-2" />
-                    {t('cartPage.checkout')}
+                    <CreditCard className="h-4 sm:h-5 w-4 sm:w-5 mr-2 flex-shrink-0" />
+                    <span className="truncate">{t('cartPage.checkout')}</span>
                   </>
                 )}
               </button>
 
-              {/* Payment cancellation notice */}
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-                <div className="flex items-start gap-2">
-                  <span className="mt-0.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full bg-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.3)]" aria-hidden="true" />
-                  <p className="text-sm leading-6">
-                    {t('payment.noCancellationNotice')}
-                  </p>
-                </div>
-              </div>
-
               {!isAuthenticated && (
-                <p className="text-sm text-gray-600 text-center mt-4">
+                <p className="text-xs sm:text-sm text-gray-600 text-center mt-3 sm:mt-4 leading-5">
                   <Link
                     href="/auth/login"
-                    className="text-blue-600 hover:underline"
+                    className="text-blue-600 hover:underline break-words"
                   >
                     {t('cartPage.loginForCheckout')}
                   </Link>{' '}
-                  {t('cartPage.loginForCheckoutSuffix')}
+                  <span className="break-words">{t('cartPage.loginForCheckoutSuffix')}</span>
                 </p>
               )}
             </div>

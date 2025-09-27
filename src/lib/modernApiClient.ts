@@ -254,12 +254,23 @@ class ModernApiClient {
         }
         return typeof access === "string" && !!access;
       } catch {
-        // Clear auth data & notify app to logout
-        Cookies.remove("access_token");
-        Cookies.remove("refresh_token");
-        Cookies.remove("user");
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("auth:logout"));
+        // Don't immediately logout during payment flows - could be temporary network issues
+        const isPaymentFlow = typeof window !== "undefined" && 
+          (window.location.pathname.includes('/payment/') || 
+           window.location.search.includes('transfer_id') ||
+           window.location.search.includes('payment_uuid'));
+           
+        if (!isPaymentFlow) {
+          // Clear auth data & notify app to logout only if not in payment flow
+          Cookies.remove("access_token");
+          Cookies.remove("refresh_token");
+          Cookies.remove("user");
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("auth:logout"));
+          }
+        } else {
+          // During payment flow, just log the error but don't logout
+          console.warn("Token refresh failed during payment flow - preserving session");
         }
         return false;
       } finally {

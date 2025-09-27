@@ -237,15 +237,18 @@ export default function ProductDetailPage() {
           {t('common.back')}
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          {/* Product Images / Carousel */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden order-2 lg:order-1" role={imageUrls.length > 1 ? "region" : undefined} aria-roledescription={imageUrls.length > 1 ? "carousel" : undefined} aria-label={imageUrls.length > 1 ? t('productDetail.imageGallery', { count: String(imageUrls.length) }) : undefined}>
+        <div className="bg-white rounded-xl shadow-md p-6 lg:p-8 flex flex-col lg:flex-row gap-8">
+          {/* Gallery */}
+          <div className="w-full lg:w-1/2">
             <div
-              className="relative h-96 bg-gray-200 group select-none"
+              className="relative aspect-[4/3] w-full bg-gray-100 rounded-lg overflow-hidden group select-none"
               onTouchStart={onTouchStart}
               onTouchEnd={onTouchEnd}
               onMouseEnter={() => { if (autoplayRef.current) { clearInterval(autoplayRef.current); autoplayRef.current = null; } }}
               onMouseLeave={() => { if (!autoplayRef.current && imageUrls.length > 1) { autoplayRef.current = setInterval(() => setActiveIndex(i => (i + 1) % imageUrls.length), 4000); } }}
+              role={imageUrls.length > 1 ? "region" : undefined}
+              aria-roledescription={imageUrls.length > 1 ? "carousel" : undefined}
+              aria-label={imageUrls.length > 1 ? t('productDetail.imageGallery', { count: String(imageUrls.length) }) : undefined}
             >
               {!imageError && currentImage !== "/placeholder-product.svg" ? (
                 <Image
@@ -254,12 +257,12 @@ export default function ProductDetailPage() {
                   src={currentImage}
                   alt={product.name}
                   unoptimized
-                  className="object-cover transition-opacity duration-300"
+                  className="object-contain transition-opacity duration-300"
                   onError={() => setImageError(true)}
                   priority={safeActive === 0}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                <div className="w-full h-full flex items-center justify-center bg-gray-50">
                   <div className="text-center text-gray-500">
                     <div className="text-6xl mb-4">👟</div>
                     <div className="text-lg">{t('common.imageUnavailable')}</div>
@@ -269,20 +272,14 @@ export default function ProductDetailPage() {
               {imageUrls.length > 1 && (
                 <>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goPrev();
-                    }}
+                    onClick={(e) => { e.stopPropagation(); goPrev(); }}
                     className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full h-9 w-9 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                     aria-label={t('common.previousImage')}
                   >
                     ‹
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goNext();
-                    }}
+                    onClick={(e) => { e.stopPropagation(); goNext(); }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full h-9 w-9 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                     aria-label={t('common.nextImage')}
                   >
@@ -292,51 +289,36 @@ export default function ProductDetailPage() {
                     {imageUrls.map((u, i) => (
                       <button
                         key={u + i}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveIndex(i);
-                        }}
-                        className={`h-2.5 w-2.5 rounded-full border border-white transition ${i === safeActive ? "bg-white" : "bg-white/40 hover:bg-white/70"
-                          }`}
+                        onClick={(e) => { e.stopPropagation(); setActiveIndex(i); }}
+                        className={`h-2.5 w-2.5 rounded-full border border-white transition ${i === safeActive ? "bg-white" : "bg-white/40 hover:bg-white/70"}`}
                         aria-label={t('common.showImage', { index: String(i + 1) })}
                       />
                     ))}
                   </div>
-                  {/* Slide counter */}
                   <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full font-medium">
                     {safeActive + 1}/{imageUrls.length}
                   </div>
                 </>
               )}
             </div>
-            {/* Thumbnails */}
             {imageUrls.length > 1 && (
-              <div className="grid grid-cols-6 gap-2 p-3 bg-gray-50 border-t">
+              <div className="flex gap-2 mt-4 overflow-x-auto pb-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300">
                 {imageUrls.map((u, i) => (
                   <button
                     key={u + i}
                     onClick={() => setActiveIndex(i)}
-                    className={`relative h-16 rounded-md overflow-hidden border ${i === safeActive
-                      ? "border-blue-500 ring-2 ring-blue-300"
-                      : "border-gray-200 hover:border-blue-400"
-                      }`}
+                    className={`relative flex-shrink-0 h-16 w-16 rounded-md overflow-hidden border ${i === safeActive ? "border-blue-500 ring-2 ring-blue-300" : "border-gray-200 hover:border-blue-400"}`}
                     aria-label={t('productDetail.thumbnail', { index: String(i + 1) })}
                   >
-                    <Image
-                      src={u}
-                      alt={product.name + " thumbnail " + (i + 1)}
-                      fill
-                      className="object-cover"
-                      sizes="100px"
-                    />
+                    <Image src={u} alt={product.name + ' thumbnail ' + (i + 1)} fill className="object-cover" sizes="64px" />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Product Details */}
-          <div className="bg-white rounded-lg shadow-md p-6 self-start order-1 lg:order-2 lg:sticky lg:top-8">
+          {/* Info */}
+          <div className="w-full lg:w-1/2 flex flex-col justify-between">
             {/* Cart Status Indicator */}
             {cartItem && (
               <div className="flex items-center justify-between mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
@@ -397,7 +379,7 @@ export default function ProductDetailPage() {
 
                 <button
                   onClick={handleAddToCart}
-                  className={`w-full py-3 px-6 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm ${cartItem
+                  className={`w-full py-3 px-3 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm ${cartItem
                     ? 'bg-green-500 hover:bg-green-600 text-white'
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
                     }`}

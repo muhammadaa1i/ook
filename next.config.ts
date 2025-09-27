@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "oyoqkiyim.duckdns.org",
-        port: "",
+        // port: "",
         pathname: "/**",
       },
     ],

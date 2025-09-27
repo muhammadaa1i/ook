@@ -63,20 +63,39 @@ const Footer = () => {
           {/* Social Media */}
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">{t('footer.followUs')}</h4>
-            <div className="flex space-x-4">
+            <div className="flex flex-col items-center md:items-start space-y-4">
               {/* Instagram */}
-              <a 
-                href="https://www.instagram.com/velora_shoes.uz?igsh=MW5tZ2RqajNwYTdiYg==" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
-              >
-                <Instagram size={20} />
-              </a>
+              <div className="flex items-center space-x-3">
+                <a 
+                  href="https://www.instagram.com/velora_shoes.uz?igsh=MW5tZ2RqajNwYTdiYg==" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
+                  title="Instagram"
+                >
+                  <Instagram size={20} />
+                </a>
+                <p className="text-sm text-gray-500">
+                  @velora_shoes.uz
+                </p>
+              </div>
+              
+              {/* Telegram Channel */}
+              <div className="flex items-center space-x-3">
+                <a 
+                  href="https://t.me/ElbekoptomEshonguzar" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
+                  title="Telegram Channel"
+                >
+                  <Send size={20} />
+                </a>
+                <p className="text-sm text-gray-500">
+                  @ElbekoptomEshonguzar
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              @velora_shoes.uz
-            </p>
           </div>
 
           {/* Payment Methods */}

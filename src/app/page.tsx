@@ -4,10 +4,16 @@ import React from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/contexts/AuthContext";
 
 
 export default function HomePage() {
   const { t } = useI18n();
+  const { isAuthenticated, user } = useAuth();
+  
+  // Check if user is admin
+  const isAdmin = user?.is_admin || false;
+  
   return (
     <>
       {/* Modern Hero Section */}
@@ -33,12 +39,15 @@ export default function HomePage() {
                 {t('home.viewCatalog')}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
-              <Link
-                href="/orders"
-                className="inline-flex items-center px-8 py-4 border-2 border-white text-white font-semibold rounded-xl hover:bg-white hover:!text-blue-600 transition-all duration-200"
-              >
-                {t('home.myOrders')}
-              </Link>
+              {/* Show My Orders button only for authenticated non-admin users */}
+              {isAuthenticated && !isAdmin && (
+                <Link
+                  href="/orders"
+                  className="inline-flex items-center px-8 py-4 border-2 border-white text-white font-semibold rounded-xl hover:bg-white hover:!text-blue-600 transition-all duration-200"
+                >
+                  {t('home.myOrders')}
+                </Link>
+              )}
             </div>
           </div>
         </div>

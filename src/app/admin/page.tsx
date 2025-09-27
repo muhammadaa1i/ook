@@ -123,46 +123,7 @@ export default function AdminDashboard() {
             );
           })}
         </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">{t('admin.dashboard.quickActions.title')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a
-              href="/admin/products"
-              className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors"
-            >
-              <Package className="h-8 w-8 text-gray-400 mr-3" />
-              <div>
-                <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.products.title')}</p>
-                <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.products.subtitle')}</p>
-              </div>
-            </a>
-
-            <a
-              href="/admin/orders"
-              className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors"
-            >
-              <ShoppingCart className="h-8 w-8 text-gray-400 mr-3" />
-              <div>
-                <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.orders.title')}</p>
-                <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.orders.subtitle')}</p>
-              </div>
-            </a>
-
-            <a
-              href="/admin/users"
-              className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors"
-            >
-              <Users className="h-8 w-8 text-gray-400 mr-3" />
-              <div>
-                <p className="font-medium text-gray-900">{t('admin.dashboard.quickActions.users.title')}</p>
-                <p className="text-sm text-gray-600">{t('admin.dashboard.quickActions.users.subtitle')}</p>
-              </div>
-            </a>
-          </div>
-        </div>
-
+        
       </div>
     </AdminLayout>
   );

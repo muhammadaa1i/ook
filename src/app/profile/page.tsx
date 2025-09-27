@@ -112,9 +112,29 @@ export default function ProfilePage() {
   const onSubmit = async (data: ProfileFormData) => {
     try {
       const isPasswordChange = Boolean(
+        (data.current_password && data.current_password.trim()) ||
         (data.new_password && data.new_password.trim()) ||
         (data.confirm_new_password && data.confirm_new_password.trim())
       );
+
+      if (isPasswordChange) {
+        const current = data.current_password?.trim() || '';
+        const next = data.new_password?.trim() || '';
+        const confirm = data.confirm_new_password?.trim() || '';
+        // Require all three fields
+        if (!current || !next || !confirm) {
+          toast.error(t('profilePage.validation.allPasswordFieldsRequired'));
+          return;
+        }
+        if (next.length < 8) {
+          toast.error(t('profilePage.validation.newPasswordMin'));
+          return;
+        }
+        if (next !== confirm) {
+          toast.error(t('auth.validation.passwordsMismatch'));
+          return;
+        }
+      }
 
       // If user is trying to change password, verify the current password against backend first
       if (isPasswordChange) {
@@ -214,7 +234,7 @@ export default function ProfilePage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white shadow rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2 max-[460px]:justify-center max-[460px]:gap-3">
             <div className="flex items-center space-x-3">
               <div className="bg-blue-100 rounded-full p-3">
                 <User className="h-6 w-6 text-blue-600" />
