@@ -16,12 +16,14 @@ import {
   CreditCard,
   ShoppingCart,
   Loader2,
+  Package,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
 import { modernApiClient } from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { CreateOrderRequest, Order } from "@/types";
+import { OrderBatchManager } from "../../lib/orderBatchManager";
 
 // Component for handling product images with error fallback
 const ProductImage = ({
@@ -60,7 +62,6 @@ const ProductImage = ({
       height={96}
       className="w-full h-full object-contain bg-white"
       onError={() => {
-        console.error("Failed to load image:", fullImageUrl);
         setImageError(true);
       }}
       priority
@@ -102,10 +103,10 @@ export default function CartPage() {
     setIsProcessingPayment(true);
 
     try {
-      console.log('User info:', { id: user?.id, isAuthenticated, user });
-      console.log('Cart items:', items);
+      // Calculate total quantity to determine if batching is needed
+      const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
       
-      // Step 1: Create the order first (order-first approach)
+      // Step 1: Create the order(s) - use batching for large quantities
       const orderItems = items.map(item => ({
         slipper_id: item.id,
         quantity: item.quantity,
@@ -121,71 +122,150 @@ export default function CartPage() {
         status: 'CREATED'
       };
 
-      console.log('Creating order first:', createOrderRequest);
-      console.log('API Endpoint:', API_ENDPOINTS.ORDERS);
-      
-      let createdOrder: Order;
-      try {
-        const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest);
-        console.log('Order API response:', orderResponse);
-        
-        // Handle both envelope and direct response formats
-        interface ApiEnvelope<T> { data?: T; items?: T; }
-        const env = orderResponse as ApiEnvelope<Order> | Order;
-        const rawOrder = (env as ApiEnvelope<Order>).data || (env as Order);
-        
-        // Transform the API response to match our Order interface
-        interface ApiOrderResponse {
-          id?: number;
-          order_id?: string;
-          user_id?: number;
-          status?: string;
-          total_amount?: number;
-          notes?: string;
-          payment_method?: string;
-          items?: unknown[];
-          created_at?: string;
-          updated_at?: string;
-        }
-        
-        const apiOrder = rawOrder as ApiOrderResponse;
-        createdOrder = {
-          ...apiOrder,
-          id: apiOrder.id || parseInt(apiOrder.order_id || '0', 10), // Convert order_id to id
-          order_id: apiOrder.order_id, // Keep original order_id if present
-          user_id: apiOrder.user_id || user?.id || 0,
-          items: apiOrder.items || [],
-          created_at: apiOrder.created_at || new Date().toISOString(),
-          updated_at: apiOrder.updated_at || apiOrder.created_at || new Date().toISOString(),
-        } as Order;
-        
-        console.log('Order created successfully:', createdOrder);
-      } catch (orderError) {
-        console.error('Order creation failed:', orderError);
-        console.error('Order request was:', JSON.stringify(createOrderRequest, null, 2));
-        throw new Error(`Failed to create order: ${orderError instanceof Error ? orderError.message : String(orderError)}`);
+      // Validate order data before processing
+      if (!orderItems || orderItems.length === 0) {
+        throw new Error('No items to order');
       }
       
-      if (!createdOrder || (!createdOrder.id && !createdOrder.order_id)) {
-        console.error('Invalid order response structure:', createdOrder);
+      // Check for any invalid quantities
+      const invalidItems = orderItems.filter(item => item.quantity <= 0 || !Number.isFinite(item.quantity));
+      if (invalidItems.length > 0) {
+        throw new Error(`Invalid quantities found in ${invalidItems.length} items`);
+      }
+      
+      let createdOrders: Order[];
+      
+      // Use batching if total quantity > 120 to avoid 422 errors
+      if (totalQuantity > 120) {
+        // Conservative config to ensure no backend limits are hit
+        const batchConfig = {
+          maxTotalQuantityPerBatch: 100, // Even more conservative than 120
+        };
+        
+        try {
+          // Show single notification for batch processing
+          toast.info(t('cartPage.batchProcessingStart', { total: String(Math.ceil(totalQuantity / 100)) }));
+          
+          const batchResult = await OrderBatchManager.processOrder(
+            createOrderRequest,
+            batchConfig,
+            (current: number, total: number, batch: CreateOrderRequest) => {
+              // Only log to console, don't show toast for each batch
+            }
+          );
+          
+          if (!batchResult.success || batchResult.orders.length === 0) {
+            const errorMsg = batchResult.errors.length > 0 
+              ? batchResult.errors.map((e: any) => `Batch ${e.batch}: ${e.error}`).join('; ')
+              : 'Unknown error during batch processing';
+            throw new Error(`Failed to create orders: ${errorMsg}`);
+          }
+          
+          createdOrders = batchResult.orders;
+          
+          // Show success notification
+          toast.success(t('cartPage.batchProcessingSuccess', { count: String(createdOrders.length) }));
+        } catch (batchError) {
+          // Fallback: try with even smaller batches (50 items per batch)
+          const fallbackConfig = {
+            maxTotalQuantityPerBatch: 50,
+          };
+          
+          try {
+            // Show single notification for fallback processing
+            toast.info(t('cartPage.batchProcessingFallback', { total: String(Math.ceil(totalQuantity / 50)) }));
+            
+            const fallbackResult = await OrderBatchManager.processOrder(
+              createOrderRequest,
+              fallbackConfig,
+              (current: number, total: number, batch: CreateOrderRequest) => {
+                // Only log to console, don't show toast for each batch
+              }
+            );
+            
+            if (!fallbackResult.success || fallbackResult.orders.length === 0) {
+              throw new Error('Fallback batch processing also failed');
+            }
+            
+            createdOrders = fallbackResult.orders;
+            
+            // Show success notification
+            toast.success(t('cartPage.batchProcessingSuccess', { count: String(createdOrders.length) }));
+          } catch (fallbackError) {
+            throw new Error(`All batch processing attempts failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+          }
+        }
+      } else {
+        // Single order for smaller quantities
+        
+        try {
+          const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest);
+          
+          // Handle both envelope and direct response formats
+          interface ApiEnvelope<T> { data?: T; items?: T; }
+          const env = orderResponse as ApiEnvelope<Order> | Order;
+          const rawOrder = (env as ApiEnvelope<Order>).data || (env as Order);
+          
+          // Transform the API response to match our Order interface
+          interface ApiOrderResponse {
+            id?: number;
+            order_id?: string;
+            user_id?: number;
+            status?: string;
+            total_amount?: number;
+            notes?: string;
+            payment_method?: string;
+            items?: unknown[];
+            created_at?: string;
+            updated_at?: string;
+          }
+          
+          const apiOrder = rawOrder as ApiOrderResponse;
+          const createdOrder = {
+            ...apiOrder,
+            id: apiOrder.id || parseInt(apiOrder.order_id || '0', 10),
+            order_id: apiOrder.order_id,
+            user_id: apiOrder.user_id || user?.id || 0,
+            items: apiOrder.items || [],
+            created_at: apiOrder.created_at || new Date().toISOString(),
+            updated_at: apiOrder.updated_at || apiOrder.created_at || new Date().toISOString(),
+          } as Order;
+          
+          createdOrders = [createdOrder];
+        } catch (orderError) {
+          throw new Error(`Failed to create order: ${orderError instanceof Error ? orderError.message : String(orderError)}`);
+        }
+      }
+      
+      if (!createdOrders || createdOrders.length === 0) {
+        throw new Error('Failed to create orders: No orders were created');
+      }
+      
+      // For payment, we'll use the first order (main order)
+      const mainOrder = createdOrders[0];
+      if (!mainOrder.id && !mainOrder.order_id) {
         throw new Error('Failed to create order: Invalid response structure');
       }
 
-      // Step 2: Create payment with the actual order ID
-      const description = t('payment.orderDescription', {
-        itemCount: String(itemCount),
-        customerName: user?.name || 'Customer'
-      });
+      // Step 2: Create payment with the main order ID
+      const description = createdOrders.length > 1 
+        ? t('payment.batchOrderDescription', {
+            itemCount: String(itemCount),
+            customerName: user?.name || 'Customer',
+            batchCount: String(createdOrders.length)
+          })
+        : t('payment.orderDescription', {
+            itemCount: String(itemCount),
+            customerName: user?.name || 'Customer'
+          });
 
       const paymentRequest = {
         amount: PaymentService.formatAmount(totalAmount),
         description,
-        order_id: createdOrder.id || parseInt(createdOrder.order_id || '0', 10)
+        order_id: mainOrder.id || parseInt(mainOrder.order_id || '0', 10)
       };
 
-      console.log('Creating payment for order:', paymentRequest);
       const paymentResponse = await PaymentService.createPayment(paymentRequest);
-      console.log('Payment response received:', paymentResponse);
       
       // Check for various possible URL field names  
       interface PaymentResponseExtended {
@@ -204,27 +284,28 @@ export default function CartPage() {
       if (paymentResponse.success && paymentUrl) {
         // Store order and payment info for status updates after payment
         const paymentData = {
-          order_id: createdOrder.order_id || createdOrder.id,
+          order_id: mainOrder.order_id || mainOrder.id,
           payment_id: paymentResponse.octo_payment_UUID || extendedResponse.payment_id,
           user_id: user?.id,
           payment_method: 'OCTO',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Store info about batch orders if applicable
+          batch_info: createdOrders.length > 1 ? {
+            total_orders: createdOrders.length,
+            all_order_ids: createdOrders.map(o => o.id || o.order_id)
+          } : undefined
         };
         
         sessionStorage.setItem('paymentOrder', JSON.stringify(paymentData));
-        
-        console.log('Redirecting to payment URL:', paymentUrl);
         
         // Payment status will be handled by the webhook notification endpoint
         // The backend will automatically update order status when payment is completed
         // Redirect to payment gateway
         window.location.href = paymentUrl;
       } else {
-        console.error('Payment failed - Response:', paymentResponse);
         throw new Error(paymentResponse.errMessage || `Payment URL not received. Success: ${paymentResponse.success}, URL: ${paymentUrl}`);
       }
     } catch (error) {
-      console.error('Payment initiation failed:', error);
       toast.error(error instanceof Error ? error.message : t('payment.error.initiation'));
     } finally {
       setIsProcessingPayment(false);
@@ -367,26 +448,15 @@ export default function CartPage() {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:sticky lg:top-8">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">
-                {t('cartPage.orderSummary')}
-              </h2>
 
               <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm sm:text-base text-gray-600">
-                    {t('cartPage.productsLine', { count: String(itemCount) })}
-                  </span>
-                  <span className="text-sm sm:text-base font-semibold break-words text-right">
-                    {formatPrice(totalAmount, t('common.currencySom'))}
-                  </span>
-                </div>
-                <div className="border-t pt-2 sm:pt-3">
+                {/* <div className="flex justify-between items-start">
+                </div> */}
                   <div className="flex justify-between items-start">
                     <span className="text-base sm:text-lg font-bold">{t('cartPage.total')}</span>
                     <span className="text-base sm:text-lg font-bold text-blue-600 break-words text-right">
                       {formatPrice(totalAmount, t('common.currencySom'))}
                     </span>
-                  </div>
                 </div>
               </div>
 

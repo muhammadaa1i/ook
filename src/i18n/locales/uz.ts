@@ -212,8 +212,40 @@
     checkout: 'Buyurtma berish',
     loginForCheckout: 'Tizimga kiring',
     loginForCheckoutSuffix: 'buyurtma berish uchun',
+    processingBatch: 'Paket {current}/{total} qayta ishlanmoqda...',
+    batchProcessingStart: 'Katta buyurtma qayta ishlanmoqda ({total} ta qism)...',
+    batchProcessingFallback: 'Buyurtma qayta qayta ishlanmoqda ({total} ta qism)...',
+    batchProcessingSuccess: 'Buyurtma muvaffaqiyatli {count} ta qismga bo\'linadi!',
+    largeOrderNotice: {
+      title: 'Katta buyurtma',
+      message: 'Sizning buyurtmangizda {total} ta mahsulot bor. Optimal qayta ishlash uchun qismlar bo\'yicha qayta ishlanadi.',
+      extraLargeMessage: 'Juda katta buyurtma. Qayta ishlash bir necha daqiqa vaqt olishi mumkin.'
+    },
     size: 'Oʻlcham',
     color: 'Rang'
+  },
+  payment: {
+    processing: 'Toʻlov qayta ishlanmoqda...',
+    checking: 'Toʻlov holatini tekshirish',
+    pleaseWait: 'Iltimos, kuting',
+    orderId: 'Buyurtma raqami',
+    amount: 'Summa',
+    status: 'Holat',
+    orderDescription: '{customerName} uchun buyurtma ({itemCount} ta mahsulot)',
+    batchOrderDescription: '{customerName} uchun paket buyurtma ({itemCount} ta mahsulot, {batchCount} ta qism)',
+    success: {
+      title: 'Toʻlov muvaffaqiyatli yakunlandi',
+      message: 'Sizning buyurtmangiz qabul qilindi',
+      orderNumber: 'Buyurtma raqami',
+      returnToHome: 'Bosh sahifaga qaytish',
+      viewOrders: 'Buyurtmalarni koʻrish'
+    },
+    failure: {
+      title: 'Toʻlov muvaffaqiyatsiz',
+      message: 'Toʻlovda xatolik yuz berdi',
+      tryAgain: 'Qayta urinish',
+      returnToCart: 'Savatga qaytish'
+    }
   },
   admin: {
     nav: {

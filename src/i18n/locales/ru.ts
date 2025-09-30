@@ -140,6 +140,15 @@ export default {
     checkout: 'Оформить заказ',
     loginForCheckout: 'Войдите в систему',
     loginForCheckoutSuffix: 'для оформления заказа',
+    processingBatch: 'Обработка пакета {current} из {total}...',
+    batchProcessingStart: 'Обработка крупного заказа ({total} частей)...',
+    batchProcessingFallback: 'Повторная обработка заказа ({total} частей)...',
+    batchProcessingSuccess: 'Заказ успешно разделен на {count} частей!',
+    largeOrderNotice: {
+      title: 'Крупный заказ',
+      message: 'В вашем заказе {total} товаров. Он будет обработан по частям для оптимальной обработки.',
+      extraLargeMessage: 'Очень крупный заказ. Обработка может занять несколько минут.'
+    },
     size: 'Размер',
     color: 'Цвет'
   },
@@ -170,6 +179,7 @@ export default {
     amount: 'Сумма',
     status: 'Статус',
     orderDescription: 'Заказ из {itemCount} товаров для {customerName}',
+    batchOrderDescription: 'Пакетный заказ для {customerName} ({itemCount} товаров, {batchCount} частей)',
     success: {
       title: 'Платеж успешно завершен',
       message: 'Ваш платеж обработан успешно. Спасибо за покупку!'
