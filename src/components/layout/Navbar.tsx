@@ -156,10 +156,10 @@ const Navbar = React.memo(() => {
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">  
         <div className="flex justify-between items-center h-16 relative">
           {/* Logo + Tagline */}
-          <div className="flex flex-col items-start min-w-0 flex-1 max-w-[200px] sm:max-w-none">
+          <div className="flex flex-col justify-around items-start min-w-0 flex-1 max-w-[200px]">
             <Link href="/" className="flex items-center space-x-1 sm:space-x-2 min-w-0" suppressHydrationWarning>
               <div className="flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 flex-shrink-0">
                 <Image src="/logo.svg" alt={t('brand.name')} width={40} height={40} priority className="object-contain" />
@@ -174,7 +174,7 @@ const Navbar = React.memo(() => {
           </div>
 
           {/* Desktop Navigation (centered) */}
-          <div className="hidden md:flex items-center space-x-4 absolute left-1/2 -translate-x-1/2">
+          <div className="hidden md:flex items-center ">
             {navigation.map((item) => {
               // Skip profile from main nav
               if (item.href === "/profile") return null;
@@ -195,13 +195,13 @@ const Navbar = React.memo(() => {
                 </Link>
               );
             })}
+
+            {/* Cart Icon (only for non-admin users and not on admin pages) */}
           </div>
 
           {/* User Menu + Profile + Language Switcher (desktop) */}
           <div className="hidden md:flex items-center space-x-2 lg:space-x-4 min-w-0">
-            {/* Cart Icon (only for non-admin users and not on admin pages) */}
             <CartIcon />
-
             {/* Profile dropdown with logout */}
             {isAuthenticated && !isAdmin ? (
               <div className="relative" data-profile-dropdown>
@@ -339,13 +339,26 @@ const Navbar = React.memo(() => {
                   href="/cart"
                   onClick={closeMenu}
                   className={cn(
-                    "flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors",
+                    "flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium transition-colors relative",
                     pathname === "/cart"
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   )}
                 >
-                  <ShoppingCart className="h-5 w-5" />
+                  <span className="relative inline-flex">
+                    <ShoppingCart className="h-5 w-5" />
+                    {distinctCount > 0 && (
+                      <span
+                        className={cn(
+                          "absolute -top-1.5 -right-1.5 min-w-[1.15rem] h-5 px-1.5 flex items-center justify-center rounded-full",
+                          "bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-semibold shadow-md ring-1 ring-white/70 select-none",
+                          "animate-[fadeIn_120ms_ease-out]"
+                        )}
+                      >
+                        {formatCartCount(distinctCount)}
+                      </span>
+                    )}
+                  </span>
                   <span className="select-none">{t('common.cart')}</span>
                 </Link>
               )}

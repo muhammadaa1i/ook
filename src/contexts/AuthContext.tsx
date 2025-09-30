@@ -107,10 +107,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const handleAutoLogout = () => {
       // Don't logout if user is on payment pages
-      const isPaymentPage = window.location.pathname.includes('/payment/') || 
-                          window.location.search.includes('transfer_id') ||
-                          window.location.search.includes('payment_uuid');
-      
+      const isPaymentPage = window.location.pathname.includes('/payment/') ||
+        window.location.search.includes('transfer_id') ||
+        window.location.search.includes('payment_uuid');
+
       if (!isPaymentPage) {
         setUser(null);
         tokenVerificationRef.current = false;
@@ -128,15 +128,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Detect payment returns and restore session
   useEffect(() => {
     const handlePaymentReturn = async () => {
-      const isPaymentReturn = window.location.pathname.includes('/payment/') && 
-                             (window.location.search.includes('transfer_id') || 
-                              window.location.search.includes('payment_uuid'));
-      
+      const isPaymentReturn = window.location.pathname.includes('/payment/') &&
+        (window.location.search.includes('transfer_id') ||
+          window.location.search.includes('payment_uuid'));
+
       if (isPaymentReturn && !user) {
         // Try to restore user session from stored data
         const storedUser = Cookies.get("user");
         const accessToken = Cookies.get("access_token");
-        
+
         if (storedUser && accessToken) {
           try {
             const userData = JSON.parse(storedUser);
@@ -159,30 +159,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = useCallback(async (credentials: LoginRequest) => {
     try {
       setIsLoading(true);
-      
-  // Direct backend login (bypass removed proxy)
-  const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
-  const response = await fetch(base + "/auth/login", {
+
+      // Direct backend login (bypass removed proxy)
+      const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
+      const response = await fetch(base + "/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(credentials),
       });
-      
+
       const responseData = await response.json();
-      
-      
+
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${responseData.error || 'Login failed'}`);
       }
-      
+
       const { access_token, refresh_token, user: userData } = responseData || {};
-      
+
       if (!access_token || !refresh_token || !userData) {
-  // Invalid server response structure
-  toast.error(t('auth.errors.invalidServerResponse'));
-  throw new Error('invalid server response');
+        // Invalid server response structure
+        toast.error(t('auth.errors.invalidServerResponse'));
+        throw new Error('invalid server response');
       }
       // Store tokens and user data
       const cookieOptions = {
@@ -204,16 +204,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(userData);
       tokenVerificationRef.current = true;
       setTimeout(() => {
-  toast.success(t('auth.toasts.loginSuccess'));
+        toast.success(t('auth.toasts.loginSuccess'));
       }, 100);
     } catch (error: unknown) {
-  // Login error handled by toast below
-      
+      // Login error handled by toast below
+
       // Show error message for failed login
       setTimeout(() => {
-  toast.error(t('auth.toasts.loginInvalid'));
+        toast.error(t('auth.toasts.loginInvalid'));
       }, 0);
-      
+
       throw error;
     } finally {
       setIsLoading(false);
@@ -248,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setUser(newUser);
       tokenVerificationRef.current = true; // Mark as verified since we just registered
-  toast.success(t('auth.toasts.registrationSuccess'));
+      toast.success(t('auth.toasts.registrationSuccess'));
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: unknown } };
       let message = extractErrorMessage(
@@ -268,7 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const forgotPassword = useCallback(async (payload: { name: string; password?: string; confirm_password?: string }) => {
     try {
       setIsLoading(true);
-      
+
       // Backend expects all fields at once: name, new_password, confirm_new_password
       if (payload.password) {
         const resetBody = {
@@ -283,9 +283,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
       if (payload.password) {
-  toast.success(t('auth.toasts.passwordChangeSuccess'));
+        toast.success(t('auth.toasts.passwordChangeSuccess'));
       } else {
-  toast.success(t('auth.toasts.userFoundEnterNewPassword'));
+        toast.success(t('auth.toasts.userFoundEnterNewPassword'));
       }
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: unknown } };
@@ -301,7 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       const message = extractErrorMessage(
         axiosError.response?.data,
-  payload.password ? t('auth.errors.passwordChangeFailed') : t('auth.errors.userSearchFailed')
+        payload.password ? t('auth.errors.passwordChangeFailed') : t('auth.errors.userSearchFailed')
       );
       toast.error(message);
       throw error;
@@ -316,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("cart:clear"));
     }
-  toast.success(t('auth.toasts.logoutSuccess'));
+    toast.success(t('auth.toasts.logoutSuccess'));
   }, [clearAuthData, t]);
 
   const updateUser = useCallback(

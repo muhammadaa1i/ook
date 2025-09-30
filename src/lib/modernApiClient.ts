@@ -125,6 +125,16 @@ class ModernApiClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       try {
+        // Log request details for debugging refund issues
+        if (url.toString().includes('/payments/octo/refund')) {
+          console.log('🔍 OCTO Refund Request Debug:', {
+            url: url.toString(),
+            method: options.method || "GET",
+            headers: headers,
+            body: options.body
+          });
+        }
+        
         const response = await fetch(url.toString(), {
           method: options.method || "GET",
           headers,
@@ -157,6 +167,23 @@ class ModernApiClient {
       }
 
       if (!response.ok) {
+        // Log error response for debugging refund issues
+        if (endpoint.includes('/payments/octo/refund')) {
+          try {
+            const errorText = await response.clone().text();
+            console.error('🔍 OCTO Refund Error Response:', {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              body: errorText
+            });
+            // Make error more visible
+            alert(`REFUND ERROR:\nStatus: ${response.status}\nResponse: ${errorText}`);
+          } catch (e) {
+            console.error('Could not read error response body:', e);
+          }
+        }
+
         let errorMessage = `HTTP error! status: ${response.status}`;
         switch (response.status) {
           case 503:

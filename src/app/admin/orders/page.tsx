@@ -7,10 +7,12 @@ import { Order, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
 import { toast } from "react-toastify";
-import { ChevronLeft, ChevronRight, Package, Check, X, Clock, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Check, X, Clock, Truck, RefreshCcw } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { AdminRefundService } from "@/services/adminRefundService";
+import RefundConfirmDialog from "@/components/admin/RefundConfirmDialog";
 
 const statusIcons: Record<string, React.ReactElement> = {
   // Lowercase statuses
@@ -78,6 +80,9 @@ export default function AdminOrdersPage() {
     skip: 0,
     limit: PAGINATION.DEFAULT_LIMIT,
   });
+  // Refund state
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [selectedOrderForRefund, setSelectedOrderForRefund] = useState<Order | null>(null);
   // Search and global status filter removed
 
   // Debounced search removed
@@ -210,6 +215,59 @@ export default function AdminOrdersPage() {
     },
     [pagination.limit]
   );
+
+  // Refund handling functions
+  const handleRefundClick = useCallback((order: Order) => {
+    if (!AdminRefundService.canOrderBeRefunded(order.status)) {
+      toast.error(t('admin.orders.toasts.refundNotAllowed'));
+      return;
+    }
+    setSelectedOrderForRefund(order);
+    setShowRefundDialog(true);
+  }, []);
+
+  const handleRefundConfirm = useCallback(async (orderId: number) => {
+    if (!selectedOrderForRefund) return;
+
+    try {
+      console.log('Processing refund for order ID:', orderId);
+
+      const result = await AdminRefundService.processRefund({
+        order_id: orderId
+      });
+
+      if (result.success) {
+        // Enhanced success message with order details
+        toast.success(
+          `${t('admin.orders.toasts.refundSuccess')} - Order #${orderId} (${formatPrice(selectedOrderForRefund.total_amount)})`, 
+          {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          }
+        );
+        // Refresh orders to update status
+        fetchOrders();
+        // Close the dialog
+        setShowRefundDialog(false);
+        setSelectedOrderForRefund(null);
+      } else {
+        console.error('Refund failed:', result);
+        toast.error(result.message || t('admin.orders.toasts.refundError'));
+      }
+    } catch (error) {
+      console.error('Refund processing error:', error);
+      toast.error(t('admin.orders.toasts.refundError'));
+    }
+  }, [selectedOrderForRefund, t, fetchOrders]);
+
+  const handleRefundCancel = useCallback(() => {
+    setShowRefundDialog(false);
+    setSelectedOrderForRefund(null);
+  }, []);
 
   // Status change dropdown removed from UI; handler not needed
 
@@ -349,6 +407,9 @@ export default function AdminOrdersPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {t('admin.orders.table.date')}
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('admin.orders.table.actions')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -393,6 +454,20 @@ export default function AdminOrdersPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(order.created_at, locale)}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {AdminRefundService.canOrderBeRefunded(order.status) ? (
+                            <button
+                              onClick={() => handleRefundClick(order)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                              title={t('admin.orders.actions.adminRefund')}
+                            >
+                              <RefreshCcw className="h-3 w-3" />
+                              {t('admin.orders.actions.adminRefund')}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -400,7 +475,7 @@ export default function AdminOrdersPage() {
               </div>
 
               {/* Tablet/Mobile Cards */}
-              <div className="xl:hidden divide-y divide-gray-200">
+              <div className="xl:hidden divide-y divide-gray-900">
                 {orders.map((order) => (
                   <div key={order.id} className="p-4 lg:p-6 hover:bg-gray-50 transition-colors">
                     {/* Order Header */}
@@ -465,11 +540,27 @@ export default function AdminOrdersPage() {
                     </div>
 
                     {/* Date for mobile only */}
-                    <div className="mt-3 pt-3 border-t border-gray-100 lg:hidden">
+                    <div className="mt-3 pt-3 lg:hidden">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                        {t('admin.orders.table.date')} ({t('admin.orders.createdAt')})
+                      </div>
                       <div className="text-xs text-gray-500">
                         {formatDate(order.created_at, locale)}
                       </div>
                     </div>
+
+                    {/* Action buttons */}
+                    {AdminRefundService.canOrderBeRefunded(order.status) && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => handleRefundClick(order)}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                        >
+                          <RefreshCcw className="h-4 w-4" />
+                          {t('admin.orders.actions.adminRefund')}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -485,6 +576,14 @@ export default function AdminOrdersPage() {
 
         {renderPagination()}
       </div>
+
+      {/* Refund Confirmation Dialog */}
+      <RefundConfirmDialog
+        isOpen={showRefundDialog}
+        order={selectedOrderForRefund}
+        onConfirm={handleRefundConfirm}
+        onCancel={handleRefundCancel}
+      />
     </AdminLayout>
   );
 }

@@ -111,7 +111,7 @@ export default function OrdersPage() {
   }, [t]);
 
   // Refund functionality
-  const handleRefundRequest = (order: Order) => {
+  const handleRefundRequest = () => {
     setShowRefundModal(true);
   };
 
@@ -249,7 +249,7 @@ export default function OrdersPage() {
             {(['delivered', 'DELIVERED', 'PAID', 'confirmed'].includes(order.status as string)) && 
              !(['REFUNDED', 'refunded'].includes(order.status as string)) && (
               <button
-                onClick={() => handleRefundRequest(order)}
+                onClick={() => handleRefundRequest()}
                 className="group inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-red-700 hover:text-red-800 font-medium text-sm rounded-lg border border-red-200 hover:border-red-300 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
               >
                 <XCircle className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />

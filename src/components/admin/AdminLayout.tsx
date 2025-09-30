@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import { BarChart3, Users, Package, ShoppingCart, DollarSign, Menu, X } from "lucide-react";
+import { BarChart3, Users, Package, ShoppingCart, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
@@ -89,7 +89,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <div className="flex items-center gap-4 min-w-0 flex-1">
               <button
                 type="button"
-                className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="lg:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label="Toggle navigation"
                 aria-expanded={mobileNavOpen}
                 onClick={() => setMobileNavOpen(o => !o)}
@@ -109,7 +109,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
       {/* Mobile slide-over (always mounted for animation) */}
       <div
-        className={`md:hidden fixed inset-0 z-50 ${mobileNavOpen ? '' : 'pointer-events-none'}`}
+        className={`lg:hidden fixed inset-0 z-50 ${mobileNavOpen ? '' : 'pointer-events-none'}`}
         aria-modal={mobileNavOpen || undefined}
         role={mobileNavOpen ? 'dialog' : undefined}
       >
@@ -135,13 +135,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row">
-          <aside className="hidden md:block w-64 flex-shrink-0">
+  <div className="flex flex-col lg:flex-row">
+          <aside className="hidden lg:block w-64 flex-shrink-0">
             <div className="py-8 sticky top-16">
               <NavItems />
             </div>
           </aside>
-          <div className="flex-1 py-6 md:py-8 md:pl-8">{children}</div>
+          <div className="flex-1 py-6 lg:py-8 lg:pl-8">{children}</div>
         </div>
       </div>
     </div>

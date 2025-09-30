@@ -92,6 +92,21 @@ export interface Order {
   items: OrderItem[];
   created_at: string;
   updated_at: string;
+  // Payment-related fields that might be present
+  payment_uuid?: string;
+  paymentUuid?: string;
+  octo_payment_UUID?: string;
+  payment_id?: string;
+  paymentId?: string;
+  transaction_id?: string;
+  transactionId?: string;
+  transaction_uuid?: string;
+  transactionUuid?: string;
+  reference_id?: string;
+  referenceId?: string;
+  external_id?: string;
+  externalId?: string;
+  payment?: Record<string, unknown>; // Nested payment object
 }
 
 export interface CreateOrderRequest {

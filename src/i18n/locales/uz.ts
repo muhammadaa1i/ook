@@ -259,7 +259,19 @@
         phone: 'Telefon',
         role: 'Rol',
         registeredAt: 'Roʻyxatdan oʻtgan sana'
-      }
+      },
+      empty: {
+        title: 'Foydalanuvchilar topilmadi',
+        subtitle: 'Qidiruv parametrlarini yoki filtrlarni oʻzgartiring'
+      },
+      toasts: {
+        loadError: 'Foydalanuvchilarni yuklashda xato'
+      },
+      role: {
+        admin: 'Administrator',
+        user: 'Foydalanuvchi'
+      },
+      dateNA: 'N/M'
     },
     products: {
       title: 'Mahsulotlarni boshqarish',
@@ -360,6 +372,7 @@
         status: 'Holat',
         date: 'Sana'
       },
+      createdAt: 'yaratilish sanasi',
       itemsCount: '{count} ta mahsulot',
       status: {
         pending: 'Kutilmoqda',
@@ -382,7 +395,39 @@
         PAID: 'Toʻlandi',
         FAILED: 'Muvaffaqiyatsiz',
         REFUNDED: 'Qaytarildi'
-      }
+      },
+      toasts: {
+        loadError: 'Buyurtmalarni yuklashda xato',
+        statusUpdateSuccess: 'Buyurtma holati yangilandi',
+        statusUpdateError: 'Holatni yangilashda xato',
+        refundSuccess: 'Pul muvaffaqiyatli qaytarildi',
+        refundError: 'Pulni qaytarishda xato',
+        refundNotAllowed: 'Faqat tasdiqlangan buyurtmalar uchun pul qaytarish mumkin'
+      },
+      actions: {
+        refund: 'Qaytarish',
+        refundRequest: 'Qaytarishni soʻrash',
+        adminRefund: 'Pulni qaytarish'
+      },
+      refundConfirm: {
+        title: 'Pulni qaytarishni tasdiqlang',
+        message: 'Ushbu buyurtma uchun pulni qaytarishni xohlaysizmi?',
+        amount: 'Qaytarish summasi',
+        paymentId: 'Toʻlov IDsi',
+        confirm: 'Qaytarishni tasdiqlang',
+        cancel: 'Bekor qilish',
+        successTitle: 'Pul qaytarildi!',
+        successMessage: '{amount} summa muvaffaqiyatli qaytarildi!',
+        processingMessage: '#{orderId} buyurtma boʻyicha qaytarish toʻlov tizimi tomonidan qayta ishlanmoqda.',
+        refundInfo: 'Buyurtmaning toʻliq summasi buyurtma IDsi yordamida qaytariladi: #{orderId}',
+        close: 'Yopish',
+        processing: 'Qayta ishlanmoqda...',
+        orderIdLabel: 'Buyurtma IDsi:',
+        customerLabel: 'Mijoz:',
+        originalAmountLabel: 'Asl summa:',
+        statusLabel: 'Holat:'
+      },
+      unspecifiedUser: 'Koʻrsatilmagan'
     }
   },
   footer: {

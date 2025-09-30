@@ -440,8 +440,7 @@ export default function CartPage() {
                     className="text-blue-600 hover:underline break-words"
                   >
                     {t('cartPage.loginForCheckout')}
-                  </Link>{' '}
-                  <span className="break-words">{t('cartPage.loginForCheckoutSuffix')}</span>
+                  </Link>
                 </p>
               )}
             </div>

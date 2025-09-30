@@ -50,7 +50,7 @@ export default {
     currencySom: 'сум',
   },
   auth: {
-    login: 'Войти в аккаунт',
+    login: 'Войдите в аккаунт',
     register: 'Создать аккаунт',
     name: 'Имя пользователя',
     password: 'Пароль',
@@ -213,7 +213,7 @@ export default {
       PAID: 'Оплачен',
       FAILED: 'Ошибка',
       CANCELLED: 'Отменён',
-      REFUNDED: 'Возврат',
+      REFUNDED: 'Возвращено',
       confirmed: 'Подтверждён',
       pending: 'Ожидает',
       processing: 'Обрабатывается',
@@ -230,7 +230,7 @@ export default {
       paid: 'Оплачен',
       failed: 'Ошибка',
       cancelled: 'Отменён',
-      refunded: 'Возврат',
+      refunded: 'Возвращено',
       confirmed: 'Подтверждён',
       processing: 'Обрабатывается',
       shipped: 'Отправлен',
@@ -517,9 +517,11 @@ export default {
         date: 'Дата',
         actions: 'Действия'
       },
+      createdAt: 'дата создания',
       actions: {
         refund: 'Возврат',
-        refundRequest: 'Запросить возврат'
+        refundRequest: 'Запросить возврат',
+        adminRefund: 'Вернуть средства'
       },
       refund: {
         request: 'Возврат',
@@ -556,7 +558,7 @@ export default {
         created: 'Создан',
         paid: 'Оплачен',
         failed: 'Неудачно',
-        refunded: 'Возврат',
+        refunded: 'Возвращено',
         // Uppercase versions for backend compatibility
         PENDING: 'Ожидает',
         PROCESSING: 'Обрабатывается',
@@ -567,12 +569,33 @@ export default {
         CREATED: 'Создан',
         PAID: 'Оплачен',
         FAILED: 'Неудачно',
-        REFUNDED: 'Возврат'
+        REFUNDED: 'Возвращено'
       },
       toasts: {
         loadError: 'Ошибка загрузки заказов',
         statusUpdateSuccess: 'Статус заказа обновлен',
-        statusUpdateError: 'Ошибка обновления статуса заказа'
+        statusUpdateError: 'Ошибка обновления статуса заказа',
+        refundSuccess: 'Возврат средств выполнен успешно',
+        refundError: 'Ошибка при возврате средств',
+        refundNotAllowed: 'Можно вернуть средства только по подтвержденным заказам'
+      },
+      refundConfirm: {
+        title: 'Подтвердить возврат средств',
+        message: 'Вы уверены, что хотите вернуть средства за этот заказ?',
+        amount: 'Сумма возврата',
+        paymentId: 'ID платежа',
+        confirm: 'Подтвердить возврат',
+        cancel: 'Отмена',
+        successTitle: 'Возврат выполнен!',
+        successMessage: 'Возврат на сумму {amount} успешно обработан!',
+        processingMessage: 'Возврат по заказу #{orderId} обрабатывается платежной системой.',
+        refundInfo: 'Полная сумма заказа будет возвращена с использованием ID заказа: #{orderId}',
+        close: 'Закрыть',
+        processing: 'Обработка...',
+        orderIdLabel: 'ID заказа:',
+        customerLabel: 'Клиент:',
+        originalAmountLabel: 'Оригинальная сумма:',
+        statusLabel: 'Статус:'
       },
       unspecifiedUser: 'Не указано'
     },
