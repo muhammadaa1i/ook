@@ -170,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         // Try to restore user session from stored data
-        let storedUser = Cookies.get("user");
+  const storedUser = Cookies.get("user");
         let accessToken = Cookies.get("access_token");
 
         // If we lost the access token but still have refresh token, try a silent refresh BEFORE backup restore
