@@ -122,7 +122,6 @@ export class OrderBatchManager {
       // Check if batching is needed
       if (!this.needsBatching(orderRequest, finalConfig)) {
         // Single order - no batching needed
-        console.log('Processing single order:', orderRequest);
         
         if (onProgress) {
           onProgress(1, 1, orderRequest);
@@ -135,30 +134,62 @@ export class OrderBatchManager {
 
       // Multiple batches needed
       const batches = this.createBatches(orderRequest, finalConfig);
-      console.log(`Order requires ${batches.length} batches:`, batches);
 
-      // Process each batch
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
+      // Process more batches in parallel for maximum speed
+      const parallelLimit = Math.min(5, batches.length); // Max 5 parallel requests for ultra-speed
+      const parallelBatches = batches.slice(0, parallelLimit);
+      const sequentialBatches = batches.slice(parallelLimit);
+
+      // Process first batches in parallel for maximum speed
+      if (parallelBatches.length > 0) {
+        const parallelPromises = parallelBatches.map(async (batch, index) => {
+          if (onProgress) {
+            onProgress(index + 1, batches.length, batch);
+          }
+          
+          try {
+            return await this.createSingleOrder(batch);
+          } catch (error) {
+            console.error(`Error processing parallel batch ${index + 1}:`, error);
+            result.errors.push({
+              batch: index + 1,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+          }
+        });
+
+        const parallelResults = await Promise.allSettled(parallelPromises);
+        
+        parallelResults.forEach((promiseResult, index) => {
+          if (promiseResult.status === 'fulfilled' && promiseResult.value) {
+            result.orders.push(promiseResult.value);
+          }
+        });
+      }
+
+      // Process remaining batches sequentially
+      for (let i = 0; i < sequentialBatches.length; i++) {
+        const batch = sequentialBatches[i];
+        const batchIndex = parallelLimit + i;
         
         if (onProgress) {
-          onProgress(i + 1, batches.length, batch);
+          onProgress(batchIndex + 1, batches.length, batch);
         }
 
         try {
           const order = await this.createSingleOrder(batch);
           result.orders.push(order);
           
-          // Add delay between batches to avoid overwhelming the server
-          // Longer delay for more batches
-          const delay = batches.length > 5 ? 2000 : 1000;
-          if (i < batches.length - 1) {
+          // Add ultra-minimal delay between sequential batches only
+          const delay = sequentialBatches.length > 3 ? 150 : 100;
+          if (i < sequentialBatches.length - 1) {
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         } catch (error) {
-          console.error(`Error processing batch ${i + 1}:`, error);
+          console.error(`Error processing sequential batch ${batchIndex + 1}:`, error);
           result.errors.push({
-            batch: i + 1,
+            batch: batchIndex + 1,
             error: error instanceof Error ? error.message : String(error),
           });
           
@@ -188,12 +219,10 @@ export class OrderBatchManager {
    * Creates a single order via API with retry logic
    */
   private static async createSingleOrder(orderRequest: CreateOrderRequest, retries = 3): Promise<Order> {
-    console.log('Creating single order:', orderRequest);
     
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const response = await modernApiClient.post(API_ENDPOINTS.ORDERS, orderRequest);
-        console.log('Order API response:', response);
         
         // Handle both envelope and direct response formats
         interface ApiEnvelope<T> { data?: T; items?: T; }
@@ -237,9 +266,8 @@ export class OrderBatchManager {
           throw error; // Last attempt failed
         }
         
-        // Wait before retry (exponential backoff)
-        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`Retrying in ${delay}ms...`);
+        // Wait before retry (ultra-fast backoff for maximum speed)
+        const delay = Math.min(200 + (attempt * 100), 400); // 200ms, 300ms, 400ms max
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

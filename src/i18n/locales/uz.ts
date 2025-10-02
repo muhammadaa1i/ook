@@ -27,7 +27,8 @@
     items: 'dona',
     yes: 'Ha',
     back: 'Orqaga',
-    currencySom: 'soʻm'
+    currencySom: 'soʻm',
+    imageUnavailable: 'Rasm mavjud emas'
   },
   catalog: {
     title: 'Katalog',
@@ -47,11 +48,13 @@
       FAILED: 'Muvaffaqiyatsiz',
       CANCELLED: 'Bekor qilingan',
       REFUNDED: 'Qaytarilgan'
-    }
+    },
+    noneYet: 'Sizda hali buyurtmalar yoʻq'
   },
   product: {
     size: 'Oʻlcham',
     price: 'Narx',
+    quantity: 'Miqdor',
     available: 'Mavjud',
     notAvailable: 'Mavjud emas',
     category: 'Kategoriya',
@@ -61,7 +64,8 @@
     availableQuantity: 'Mavjud: {count}',
     insufficientStock: 'Yetarli emas',
     insufficientForOrder: 'buyurtma uchun yetarli emas',
-    insufficientStockTooltip: 'Yetarli mahsulot yoʻq (minimum {min})'
+    insufficientStockTooltip: 'Yetarli mahsulot yoʻq (minimum {min})',
+    minimumOrderWarning: 'Minimal buyurtma {min}. Faqat {available} ta mavjud.'
   },
   productDetail: {
     notFound: 'Mahsulot topilmadi',
@@ -192,10 +196,17 @@
   },
   cart: {
     inCart: 'Savatda',
+    addToCart: 'Savatga qoʻshish',
+    addMore: 'Yana qoʻshish',
+    alreadyInCartAddMore: 'Savatda bor, yana qoʻshish',
+    addToCartHint: 'Savatga qoʻshish',
     added: '{name}: +{qty} dona qoʻshildi',
     removed: '{name}: olib tashlandi',
     emptyCart: 'Savat boʻsh',
-    cleared: 'Savat tozalandi'
+    cleared: 'Savat tozalandi',
+    outOfStock: '{name} - mavjud emas',
+    insufficientStock: '{name} - yetarli emas (mavjud: {available})',
+    limitedStock: '{name} - faqat {qty} qoʻshildi (mavjud: {available})'
   },
   cartPage: {
     emptyTitle: 'Savat boʻsh',
@@ -215,7 +226,7 @@
     processingBatch: 'Paket {current}/{total} qayta ishlanmoqda...',
     batchProcessingStart: 'Katta buyurtma qayta ishlanmoqda ({total} ta qism)...',
     batchProcessingFallback: 'Buyurtma qayta qayta ishlanmoqda ({total} ta qism)...',
-    batchProcessingSuccess: 'Buyurtma muvaffaqiyatli {count} ta qismga bo\'linadi!',
+    batchProcessingSuccess: 'Muvaffaqiyatli buyurtma',
     largeOrderNotice: {
       title: 'Katta buyurtma',
       message: 'Sizning buyurtmangizda {total} ta mahsulot bor. Optimal qayta ishlash uchun qismlar bo\'yicha qayta ishlanadi.',
@@ -226,6 +237,10 @@
   },
   payment: {
     processing: 'Toʻlov qayta ishlanmoqda...',
+    creatingOrder: 'Buyurtma yaratilmoqda...',
+    processingLargeOrder: 'Katta buyurtma qayta ishlanmoqda...',
+    creatingPayment: 'Toʻlov yaratilmoqda...',
+    redirecting: 'Toʻlovga oʻtish...',
     checking: 'Toʻlov holatini tekshirish',
     pleaseWait: 'Iltimos, kuting',
     orderId: 'Buyurtma raqami',
@@ -406,6 +421,10 @@
       },
       createdAt: 'yaratilish sanasi',
       itemsCount: '{count} ta mahsulot',
+      empty: {
+        title: 'Buyurtmalar topilmadi',
+        subtitle: 'Qidiruv parametrlarini oʻzgartiring'
+      },
       status: {
         pending: 'Kutilmoqda',
         processing: 'Qayta ishlanmoqda',

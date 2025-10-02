@@ -10,14 +10,14 @@ import { Slipper } from "@/types";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatPrice, getFullImageUrl } from "@/lib/utils";
-import { ArrowLeft, ShoppingCart, Check } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Check, Plus, Minus } from "lucide-react";
 import { ProductDetailSkeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { addToCart, getCartItem } = useCart();
+  const { addToCart, getCartItem, updateQuantity } = useCart();
   const { user } = useAuth();
   const { t } = useI18n();
   const [product, setProduct] = useState<Slipper | null>(null);
@@ -25,7 +25,6 @@ export default function ProductDetailPage() {
   const [hasError, setHasError] = useState(false);
   // Quantity logic: minimum order 60
   const MIN_ORDER = 60;
-  const quantity = MIN_ORDER;
   const [imageError, setImageError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -118,7 +117,19 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = () => {
     if (product) {
-      addToCart(product, quantity);
+      addToCart(product); // Use default quantity (will be normalized to 60)
+    }
+  };
+
+  const increaseQuantity = () => {
+    if (cartItem && product) {
+      updateQuantity(product.id, cartItem.quantity + 6);
+    }
+  };
+
+  const decreaseQuantity = () => {
+    if (cartItem && cartItem.quantity > MIN_ORDER && product) {
+      updateQuantity(product.id, cartItem.quantity - 6);
     }
   };
   // Build image list (primary first, then others, falling back to legacy product.image)
@@ -368,14 +379,33 @@ export default function ProductDetailPage() {
             {/* Quantity selector and Add to Cart (hidden for admins) */}
             {product.quantity >= MIN_ORDER && !user?.is_admin && (
               <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <span className="text-lg text-gray-600">{t('product.quantityLabel')}:</span>
-                  <div className="border border-gray-300 rounded-md">
-                    <span className="px-4 py-2 font-medium text-gray-900 bg-gray-50 block">
-                      {quantity}
-                    </span>
+                {/* Show quantity controls only if product is in cart */}
+                {cartItem && (
+                  <div className="space-y-3">
+                    <span className="text-lg text-gray-600">{t('product.quantityLabel')}:</span>
+                    <div className="flex items-center justify-center space-x-3">
+                      <button
+                        onClick={decreaseQuantity}
+                        className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
+                        disabled={cartItem.quantity <= MIN_ORDER}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <div className="border border-gray-300 rounded-md">
+                        <span className="px-6 py-2 font-medium text-gray-900 bg-gray-50 block text-center min-w-[80px]">
+                          {cartItem.quantity}
+                        </span>
+                      </div>
+                      <button
+                        onClick={increaseQuantity}
+                        className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
+                        disabled={cartItem.quantity >= (product.quantity || 0)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <button
                   onClick={handleAddToCart}
@@ -401,7 +431,7 @@ export default function ProductDetailPage() {
 
             {product.quantity > 0 && product.quantity < MIN_ORDER && (
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-yellow-800 font-medium">Минимальный заказ {MIN_ORDER}. Доступно только {product.quantity}.</p>
+                <p className="text-yellow-800 font-medium">{t('product.minimumOrderWarning', { min: String(MIN_ORDER), available: String(product.quantity) })}</p>
               </div>
             )}
 

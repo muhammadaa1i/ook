@@ -106,16 +106,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Listen for logout events from interceptors
   useEffect(() => {
     const handleAutoLogout = () => {
-      // Don't logout if user is on payment pages
-      const isPaymentPage = window.location.pathname.includes('/payment/') ||
+      // Comprehensive payment flow detection - never logout during payment operations
+      const isPaymentFlow = window.location.pathname.includes('/payment/') ||
+        window.location.pathname.includes('/cart') ||
         window.location.search.includes('transfer_id') ||
-        window.location.search.includes('payment_uuid');
+        window.location.search.includes('payment_uuid') ||
+        window.location.search.includes('octo_payment_UUID') ||
+        window.location.search.includes('octo_status') || // NEW: OCTO status param on root redirect
+        window.location.search.includes('success') ||
+        window.location.search.includes('failure') ||
+        sessionStorage.getItem('paymentRedirectTime') !== null ||
+        sessionStorage.getItem('userBackup') !== null;
 
-      if (!isPaymentPage) {
+      if (!isPaymentFlow) {
         setUser(null);
         tokenVerificationRef.current = false;
       } else {
-        console.warn("Prevented logout during payment flow");
+        console.warn("Prevented logout during payment flow - comprehensive protection active");
       }
     };
 
@@ -128,23 +135,144 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Detect payment returns and restore session
   useEffect(() => {
     const handlePaymentReturn = async () => {
-      const isPaymentReturn = window.location.pathname.includes('/payment/') &&
-        (window.location.search.includes('transfer_id') ||
-          window.location.search.includes('payment_uuid'));
+      const isPaymentReturn = (
+        // Return to dedicated payment route with known params
+        (window.location.pathname.includes('/payment/') && (
+          window.location.search.includes('transfer_id') ||
+          window.location.search.includes('payment_uuid') ||
+          window.location.search.includes('octo_payment_UUID') ||
+          window.location.search.includes('octo_status')
+        )) ||
+        // Return directly to root (e.g., /?octo_status=succeeded)
+        window.location.search.includes('octo_status') ||
+        // Session artifacts from pre-redirect
+        sessionStorage.getItem('paymentRedirectTime') !== null ||
+        sessionStorage.getItem('userBackup') !== null
+      );
 
-      if (isPaymentReturn && !user) {
+      if (isPaymentReturn) {
+        console.log("Payment return detected, preserving authentication...");
+        
+        // If user is already set, ensure cookies are still fresh
+        if (user) {
+          console.log("User already authenticated, refreshing session persistence");
+          // Refresh cookies to ensure they don't expire
+          const cookieOptions = {
+            sameSite: "lax" as const,
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
+          };
+          Cookies.set("user", JSON.stringify(user), {
+            ...cookieOptions,
+            expires: 7,
+          });
+          return;
+        }
+
         // Try to restore user session from stored data
-        const storedUser = Cookies.get("user");
-        const accessToken = Cookies.get("access_token");
+        let storedUser = Cookies.get("user");
+        let accessToken = Cookies.get("access_token");
+
+        // If we lost the access token but still have refresh token, try a silent refresh BEFORE backup restore
+        if (!accessToken) {
+          const refreshToken = Cookies.get('refresh_token');
+          if (refreshToken) {
+            try {
+              console.log('Attempting silent token refresh on payment return...');
+              const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
+              let refreshResp = await fetch(base + '/auth/refresh', { method: 'POST' });
+              if (!refreshResp.ok) {
+                // Try with trailing slash fallback
+                refreshResp = await fetch(base + '/auth/refresh/', { method: 'POST' });
+              }
+              if (refreshResp.ok) {
+                const refreshData = await refreshResp.json();
+                const { access_token: newAccess, refresh_token: newRefresh } = refreshData || {};
+                const cookieOptions = {
+                  sameSite: 'lax' as const,
+                  secure: process.env.NODE_ENV === 'production',
+                  path: '/',
+                };
+                if (newAccess) {
+                  Cookies.set('access_token', newAccess, { ...cookieOptions, expires: 1 });
+                  accessToken = newAccess;
+                }
+                if (newRefresh) {
+                  Cookies.set('refresh_token', newRefresh, { ...cookieOptions, expires: 30 });
+                }
+                console.log('Silent token refresh succeeded on payment return');
+              } else {
+                console.warn('Silent token refresh failed on payment return:', refreshResp.status);
+              }
+            } catch (e) {
+              console.warn('Silent refresh exception during payment return:', e);
+            }
+          }
+        }
+
+        // If cookies are missing, try to restore from session backup
+        if (!storedUser || !accessToken) {
+          const userBackup = sessionStorage.getItem('userBackup');
+          const redirectTime = sessionStorage.getItem('paymentRedirectTime');
+          
+          if (userBackup && redirectTime) {
+            const timeSinceRedirect = Date.now() - parseInt(redirectTime);
+            // Extended restore window (within 2 hours) for payment flows
+            if (timeSinceRedirect < 2 * 60 * 60 * 1000) {
+              try {
+                const backupUserData = JSON.parse(userBackup);
+                setUser(backupUserData);
+                console.log("Restored user from backup after payment return");
+                
+                // Re-store in cookies with "lax" sameSite and longer expiration
+                const cookieOptions = {
+                  sameSite: "lax" as const, // Changed from "strict" for better payment compatibility
+                  secure: process.env.NODE_ENV === "production",
+                  path: "/",
+                };
+                
+                Cookies.set("user", userBackup, {
+                  ...cookieOptions,
+                  expires: 7,
+                });
+                
+                // Also restore access token if available in backup
+                const tokenBackup = sessionStorage.getItem('tokenBackup');
+                if (tokenBackup) {
+                  Cookies.set("access_token", tokenBackup, {
+                    ...cookieOptions,
+                    expires: 1,
+                  });
+                  console.log("Restored access token from backup");
+                }
+                
+                // Mark token as verified to avoid unnecessary verification
+                tokenVerificationRef.current = true;
+                
+                // Clean up backup data
+                sessionStorage.removeItem('userBackup');
+                sessionStorage.removeItem('paymentRedirectTime');
+                return;
+              } catch (error) {
+                console.error("Failed to restore user from backup:", error);
+              }
+            }
+          }
+        }
 
         if (storedUser && accessToken) {
           try {
             const userData = JSON.parse(storedUser);
             setUser(userData);
             console.log("Restored user session after payment return");
+            
+            // Mark token as verified to avoid unnecessary verification
+            tokenVerificationRef.current = true;
           } catch (error) {
             console.error("Failed to restore user session:", error);
           }
+        } else {
+          console.warn("No stored user data found after payment return");
         }
       }
     };
@@ -184,10 +312,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         toast.error(t('auth.errors.invalidServerResponse'));
         throw new Error('invalid server response');
       }
-      // Store tokens and user data
+      // Store tokens and user data with enhanced persistence for payment flows
       const cookieOptions = {
-        sameSite: "strict" as const,
+        sameSite: "lax" as const, // Changed from "strict" to "lax" for better payment redirect compatibility
         secure: process.env.NODE_ENV === "production",
+        path: "/", // Ensure cookies are available across all paths
       };
       Cookies.set("access_token", access_token, {
         ...cookieOptions,

@@ -89,7 +89,7 @@ class ModernApiClient {
     const {
       params,
       headers: optionHeaders,
-      timeout = 8000,
+      timeout = 4000, // Ultra-fast timeout for maximum speed
       ...fetchOptions
     } = options;
 
@@ -139,6 +139,9 @@ class ModernApiClient {
           method: options.method || "GET",
           headers,
           signal: controller.signal,
+          // Performance optimizations
+          keepalive: true,
+          cache: method === "GET" ? "default" : "no-cache",
           ...fetchOptions,
         });
         clearTimeout(timeoutId);
@@ -283,9 +286,16 @@ class ModernApiClient {
       } catch {
         // Don't immediately logout during payment flows - could be temporary network issues
         const isPaymentFlow = typeof window !== "undefined" && 
-          (window.location.pathname.includes('/payment/') || 
+          (window.location.pathname.includes('/payment/') ||
+           window.location.pathname.includes('/cart') ||
            window.location.search.includes('transfer_id') ||
-           window.location.search.includes('payment_uuid'));
+           window.location.search.includes('payment_uuid') ||
+           window.location.search.includes('octo_payment_UUID') ||
+           window.location.search.includes('octo_status') || // NEW: OCTO gateway status param on root
+           window.location.search.includes('success') ||
+           window.location.search.includes('failure') ||
+           sessionStorage.getItem('paymentRedirectTime') !== null ||
+           sessionStorage.getItem('userBackup') !== null);
            
         if (!isPaymentFlow) {
           // Clear auth data & notify app to logout only if not in payment flow
@@ -298,6 +308,36 @@ class ModernApiClient {
         } else {
           // During payment flow, just log the error but don't logout
           console.warn("Token refresh failed during payment flow - preserving session");
+          
+          // Try to restore from comprehensive backup if available
+          const userBackup = sessionStorage.getItem('userBackup');
+          const tokenBackup = sessionStorage.getItem('tokenBackup');
+          if (userBackup) {
+            try {
+              const cookieOptions = {
+                sameSite: "lax" as const, // Changed to "lax" for better payment compatibility
+                secure: process.env.NODE_ENV === "production",
+                path: "/",
+              };
+              Cookies.set("user", userBackup, {
+                ...cookieOptions,
+                expires: 7,
+              });
+              
+              // Also restore access token if available
+              if (tokenBackup) {
+                Cookies.set("access_token", tokenBackup, {
+                  ...cookieOptions,
+                  expires: 1,
+                });
+                console.log("Restored both user and token from backup during payment flow");
+              } else {
+                console.log("Restored user cookies from backup during payment flow");
+              }
+            } catch (error) {
+              console.error("Failed to restore user from backup:", error);
+            }
+          }
         }
         return false;
       } finally {
@@ -317,7 +357,7 @@ class ModernApiClient {
     config: RequestConfig = {}
   ): Promise<unknown> {
     // Caching & dedupe disabled: strip related config
-    const { retries = 2, timeout = 10000 } = config;
+    const { retries = 1, timeout = 3000 } = config; // Ultra-fast for GET requests
     // Global safeguard: disable caching for admin product & order endpoints automatically when on /admin route
     // Admin override no longer needed since cache fully disabled
 
@@ -354,7 +394,7 @@ class ModernApiClient {
     data?: unknown,
     config: RequestConfig = {}
   ): Promise<unknown> {
-    const { retries = 2, timeout = 10000 } = config;
+    const { retries = 1, timeout = 5000 } = config; // Ultra-fast for POST requests
 
     return this.executeWithRetries(
       () =>

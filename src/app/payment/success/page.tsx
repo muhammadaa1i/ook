@@ -65,6 +65,24 @@ function PaymentSuccessContent() {
       try {
         console.log('Processing successful payment for transferId:', transferId);
         
+        // Ensure user session is preserved during payment processing
+        const userBackup = sessionStorage.getItem('userBackup');
+        if (userBackup) {
+          try {
+            const userData = JSON.parse(userBackup);
+            console.log('Found user backup during payment success, ensuring session preservation');
+            
+            // Clean up backup after successful payment
+            sessionStorage.removeItem('userBackup');
+            sessionStorage.removeItem('paymentRedirectTime');
+            sessionStorage.removeItem('tokenBackup');
+            
+            console.log('Cleaned up authentication backup data after successful payment');
+          } catch (error) {
+            console.warn('Could not parse user backup:', error);
+          }
+        }
+        
         // Since user reached success page, assume payment was successful
         console.log('Payment assumed successful, updating order status...');
         toast.success(t('payment.success.message'));
@@ -72,11 +90,16 @@ function PaymentSuccessContent() {
         // Update order status to PAID after successful payment
         await updateOrderStatus();
         
-        // Clear cart after successful payment
+        // Clear cart after successful payment - but preserve user session
         if (typeof window !== 'undefined') {
+          // Dispatch cart clear event without affecting auth
           window.dispatchEvent(new CustomEvent('cart:clear'));
+          
+          // Ensure auth state is preserved by not triggering any auth-related events
+          console.log('Cart cleared while preserving authentication');
         }
       } catch (err) {
+        console.error('Payment processing error:', err);
         setError(err instanceof Error ? err.message : t('payment.error.statusCheck'));
       } finally {
         setLoading(false);

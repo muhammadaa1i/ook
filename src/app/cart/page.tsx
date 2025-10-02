@@ -5,6 +5,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFullImageUrl, formatPrice } from "@/lib/utils";
 import { PaymentService } from "@/services/paymentService";
+import Cookies from "js-cookie";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -80,11 +81,17 @@ export default function CartPage() {
   } = useCart();
   const { isAuthenticated, user } = useAuth();
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [processingStep, setProcessingStep] = useState('');
   const [offerAccepted, setOfferAccepted] = useState(false);
 
   const { t } = useI18n();
 
   const handleCheckout = async () => {
+    // Prevent duplicate requests
+    if (isProcessingPayment) {
+      return;
+    }
+    
     if (!isAuthenticated) {
       toast.error(t('auth.login'));
       return;
@@ -101,12 +108,13 @@ export default function CartPage() {
     }
 
     setIsProcessingPayment(true);
+    // Skip step indicators for maximum speed - go straight to processing
 
     try {
       // Calculate total quantity to determine if batching is needed
       const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
       
-      // Step 1: Create the order(s) - use batching for large quantities
+      // Pre-calculate payment data for faster processing
       const orderItems = items.map(item => ({
         slipper_id: item.id,
         quantity: item.quantity,
@@ -137,15 +145,12 @@ export default function CartPage() {
       
       // Use batching if total quantity > 120 to avoid 422 errors
       if (totalQuantity > 120) {
-        // Conservative config to ensure no backend limits are hit
+        // Ultra-aggressive config for maximum speed with tiny batches
         const batchConfig = {
-          maxTotalQuantityPerBatch: 100, // Even more conservative than 120
+          maxTotalQuantityPerBatch: 40, // Very tiny batches for maximum speed
         };
         
         try {
-          // Show single notification for batch processing
-          toast.info(t('cartPage.batchProcessingStart', { total: String(Math.ceil(totalQuantity / 100)) }));
-          
           const batchResult = await OrderBatchManager.processOrder(
             createOrderRequest,
             batchConfig,
@@ -166,14 +171,14 @@ export default function CartPage() {
           // Show success notification
           toast.success(t('cartPage.batchProcessingSuccess', { count: String(createdOrders.length) }));
         } catch (batchError) {
-          // Fallback: try with even smaller batches (50 items per batch)
+          // Fallback: try with micro-batches (20 items per batch)
           const fallbackConfig = {
-            maxTotalQuantityPerBatch: 50,
+            maxTotalQuantityPerBatch: 20,
           };
           
           try {
             // Show single notification for fallback processing
-            toast.info(t('cartPage.batchProcessingFallback', { total: String(Math.ceil(totalQuantity / 50)) }));
+            toast.info(t('cartPage.batchProcessingFallback', { total: String(Math.ceil(totalQuantity / 20)) }));
             
             const fallbackResult = await OrderBatchManager.processOrder(
               createOrderRequest,
@@ -199,7 +204,10 @@ export default function CartPage() {
         // Single order for smaller quantities
         
         try {
-          const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest);
+          // Use ultra-fast timeout for payment-related order creation
+          const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest, {
+            timeout: 6000 // 6 seconds for ultra-fast payment orders
+          });
           
           // Handle both envelope and direct response formats
           interface ApiEnvelope<T> { data?: T; items?: T; }
@@ -265,7 +273,8 @@ export default function CartPage() {
         order_id: mainOrder.id || parseInt(mainOrder.order_id || '0', 10)
       };
 
-      const paymentResponse = await PaymentService.createPayment(paymentRequest);
+      // Use ultra-fast timeout for payment processing (4 seconds)
+      const paymentResponse = await PaymentService.createPayment(paymentRequest, 4000);
       
       // Check for various possible URL field names  
       interface PaymentResponseExtended {
@@ -297,6 +306,20 @@ export default function CartPage() {
         };
         
         sessionStorage.setItem('paymentOrder', JSON.stringify(paymentData));
+        
+        // Store comprehensive user authentication data as backup before payment redirect
+        if (user) {
+          sessionStorage.setItem('userBackup', JSON.stringify(user));
+          sessionStorage.setItem('paymentRedirectTime', Date.now().toString());
+          
+          // Also backup access token for full session restoration
+          const accessToken = Cookies.get('access_token');
+          if (accessToken) {
+            sessionStorage.setItem('tokenBackup', accessToken);
+          }
+          
+          console.log('Stored comprehensive user and token backup before payment redirect');
+        }
         
         // Payment status will be handled by the webhook notification endpoint
         // The backend will automatically update order status when payment is completed
@@ -433,7 +456,7 @@ export default function CartPage() {
                       </p>
                       <button
                         onClick={() => removeFromCart(item.id)}
-                        className="text-red-600 hover:text-red-700 p-1 sm:p-2 rounded-md hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 mt-6 p-1 sm:p-2 rounded-md hover:bg-red-50"
                         aria-label="Remove from cart"
                       >
                         <Trash2 className="h-4 sm:h-5 w-4 sm:w-5" />
@@ -448,10 +471,7 @@ export default function CartPage() {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:sticky lg:top-8">
-
               <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                {/* <div className="flex justify-between items-start">
-                </div> */}
                   <div className="flex justify-between items-start">
                     <span className="text-base sm:text-lg font-bold">{t('cartPage.total')}</span>
                     <span className="text-base sm:text-lg font-bold text-blue-600 break-words text-right">

@@ -83,7 +83,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = (
     product: Slipper,
-    quantity = 60,
+    quantity = 6,
     size?: string,
     color?: string
   ) => {

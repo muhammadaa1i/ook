@@ -47,11 +47,11 @@ export class PaymentService {
 
   constructor(private apiClient = modernApiClient) {}
 
-  async createPayment(paymentData: PaymentRequest): Promise<PaymentResponse> {
+  async createPayment(paymentData: PaymentRequest, timeout = 4000): Promise<PaymentResponse> {
     try {
-      console.log('Sending payment request:', paymentData);
-      const rawData = await this.apiClient.post(this.ENDPOINTS.create, paymentData) as Record<string, unknown>;
-      console.log('Raw payment response:', rawData);
+      const rawData = await this.apiClient.post(this.ENDPOINTS.create, paymentData, {
+        timeout
+      }) as Record<string, unknown>;
       
       // Helper function to safely extract string values
       const getString = (key: string): string | undefined => {
@@ -147,8 +147,8 @@ export class PaymentService {
   }
 
   // Static methods for backward compatibility - delegate to singleton
-  static async createPayment(paymentData: PaymentRequest): Promise<PaymentResponse> {
-    return this.getInstance().createPayment(paymentData);
+  static async createPayment(paymentData: PaymentRequest, timeout = 4000): Promise<PaymentResponse> {
+    return this.getInstance().createPayment(paymentData, timeout);
   }
 
   static async refundPayment(refundData: PaymentRefundRequest): Promise<PaymentStatus> {

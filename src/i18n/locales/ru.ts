@@ -108,6 +108,7 @@ export default {
   product: {
     size: 'Размер',
     price: 'Цена',
+    quantity: 'Количество',
     available: 'В наличии',
     notAvailable: 'Нет в наличии',
     category: 'Категория',
@@ -117,7 +118,8 @@ export default {
     availableQuantity: 'В наличии: {count}',
     insufficientStock: 'Недостаточно товара',
     insufficientForOrder: 'недостаточно для заказа',
-    insufficientStockTooltip: 'Недостаточно товара (минимум {min})'
+    insufficientStockTooltip: 'Недостаточно товара (минимум {min})',
+    minimumOrderWarning: 'Минимальный заказ {min}. Доступно только {available}.'
   },
   productDetail: {
     notFound: 'Товар не найден',
@@ -143,7 +145,7 @@ export default {
     processingBatch: 'Обработка пакета {current} из {total}...',
     batchProcessingStart: 'Обработка крупного заказа ({total} частей)...',
     batchProcessingFallback: 'Повторная обработка заказа ({total} частей)...',
-    batchProcessingSuccess: 'Заказ успешно разделен на {count} частей!',
+    batchProcessingSuccess: 'Успешный заказ',
     largeOrderNotice: {
       title: 'Крупный заказ',
       message: 'В вашем заказе {total} товаров. Он будет обработан по частям для оптимальной обработки.',
@@ -160,12 +162,13 @@ export default {
   },
   cart: {
     inCart: 'В корзине',
+    addToCart: 'В корзину',
+    addMore: 'Добавить ещё',
     alreadyInCartAddMore: 'Товар уже в корзине. Нажмите чтобы добавить ещё',
     addToCartHint: 'В корзину (минимум 60, шаг 6)',
     added: '{name}: +{qty} единиц добавлено',
     removed: '{name}: удалён',
     cleared: 'Корзина очищена',
-    addMore: 'Добавить еще',
     outOfStock: '{name} - нет в наличии',
     insufficientStock: '{name} - недостаточное количество (доступно: {available})',
     limitedStock: '{name} - добавлено только {qty} (доступно: {available})',
@@ -173,6 +176,10 @@ export default {
   },
   payment: {
     processing: 'Обработка платежа...',
+    creatingOrder: 'Создание заказа...',
+    processingLargeOrder: 'Обработка крупного заказа...',
+    creatingPayment: 'Создание платежа...',
+    redirecting: 'Переход к оплате...',
     checking: 'Проверка статуса платежа',
     pleaseWait: 'Пожалуйста, подождите',
     orderId: 'Номер заказа',

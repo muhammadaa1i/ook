@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import Image from "next/image";
 import { Slipper } from "@/types";
 import { formatPrice, getFullImageUrl } from "@/lib/utils";
-import { ShoppingCart, Check } from "lucide-react";
+import { ShoppingCart, Check, Plus, Minus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useI18n } from "@/i18n";
@@ -21,8 +21,11 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
   const [imageError, setImageError] = useState(false);
   const { t } = useI18n();
   const { user } = useAuth();
-  const { isInCart, getCartItem, addToCart } = useCart();
+  const { isInCart, getCartItem, addToCart, updateQuantity } = useCart();
   const isAdmin = !!user?.is_admin;
+
+    const inCart = useMemo(() => isInCart(slipper.id), [isInCart, slipper.id]);
+    const cartItem = useMemo(() => (inCart ? getCartItem(slipper.id) : undefined), [inCart, getCartItem, slipper.id]);
 
     // Build list of image URLs for carousel (primary first)
     const imageUrls = useMemo(() => {
@@ -113,19 +116,30 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
         // Use the callback provided by parent component
         onAddToCart(slipper);
       } else {
-        // Fallback to direct cart context usage
-        addToCart(slipper, 50);
+        // Fallback to direct cart context usage with default quantity (will be normalized to 60)
+        addToCart(slipper);
       }
     }, [addToCart, onAddToCart, slipper]);
+
+    const increaseQuantity = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (cartItem) {
+        updateQuantity(slipper.id, cartItem.quantity + 6);
+      }
+    }, [updateQuantity, slipper.id, cartItem]);
+
+    const decreaseQuantity = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (cartItem && cartItem.quantity > 60) {
+        updateQuantity(slipper.id, cartItem.quantity - 6);
+      }
+    }, [updateQuantity, slipper.id, cartItem]);
 
     const handleViewDetails = useCallback(() => {
       if (onViewDetails) {
         onViewDetails(slipper);
       }
     }, [onViewDetails, slipper]);
-
-    const inCart = useMemo(() => isInCart(slipper.id), [isInCart, slipper.id]);
-    const cartItem = useMemo(() => (inCart ? getCartItem(slipper.id) : undefined), [inCart, getCartItem, slipper.id]);
 
     return (
       <div
@@ -234,33 +248,60 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
             <span className="text-base sm:text-lg lg:text-xl font-bold text-blue-600 truncate">
               {formattedPrice}
             </span>
+          </div>
+
+          {/* Quantity Controls - only show if product is in cart and not admin */}
+          {inCart && !isAdmin && onAddToCart && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">{t('product.quantity')}:</span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={decreaseQuantity}
+                    className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
+                    disabled={cartItem && cartItem.quantity <= 60}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="w-12 text-center text-sm font-semibold text-gray-900">
+                    {cartItem?.quantity || 60}
+                  </span>
+                  <button
+                    onClick={increaseQuantity}
+                    className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end mt-3">
             <div className="flex space-x-1 sm:space-x-2">
-              {onAddToCart && !isAdmin && (
+              {onAddToCart && !isAdmin && !inCart && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleAddToCart();
                   }}
                   disabled={!availabilityInfo.canAddToCart}
-                  className={`p-1.5 sm:p-2 rounded-md sm:rounded-lg transition-colors flex items-center justify-center ${
-                    inCart && !isAdmin
-                      ? "bg-green-600 text-white hover:bg-green-700"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  } disabled:bg-gray-300 disabled:cursor-not-allowed`}
+                  className="px-3 py-2 rounded-md sm:rounded-lg transition-colors flex items-center justify-center text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                   title={
                     !availabilityInfo.canAddToCart
-                      ? t('product.insufficientStockTooltip', { min: '50' })
-                      : inCart && !isAdmin
-                      ? t('cart.alreadyInCartAddMore')
+                      ? t('product.insufficientStockTooltip', { min: '60' })
                       : t('cart.addToCartHint')
                   }
                 >
-                  {inCart && !isAdmin ? (
-                    <Check className="h-4 sm:h-5 w-4 sm:w-5" />
-                  ) : (
-                    <ShoppingCart className="h-4 sm:h-5 w-4 sm:w-5" />
-                  )}
+                  <ShoppingCart className="h-4 w-4 mr-1" />
+                  {t('cart.addToCart')}
                 </button>
+              )}
+              {inCart && !isAdmin && (
+                <div className="flex items-center text-sm text-green-600 font-medium">
+                  <Check className="h-4 w-4 mr-1" />
+                  {t('cart.inCart')}
+                </div>
               )}
             </div>
           </div>
