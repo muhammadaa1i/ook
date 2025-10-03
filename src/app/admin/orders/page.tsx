@@ -224,7 +224,7 @@ export default function AdminOrdersPage() {
     }
     setSelectedOrderForRefund(order);
     setShowRefundDialog(true);
-  }, []);
+  }, [t]);
 
   const handleRefundConfirm = useCallback(async (orderId: number) => {
     if (!selectedOrderForRefund) return;

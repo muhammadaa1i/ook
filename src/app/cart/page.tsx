@@ -151,14 +151,14 @@ export default function CartPage() {
           const batchResult = await OrderBatchManager.processOrder(
             createOrderRequest,
             batchConfig,
-            (current: number, total: number, batch: CreateOrderRequest) => {
-              // Only log to console, don't show toast for each batch
+            () => {
+              // intentionally no-op progress callback
             }
           );
           
           if (!batchResult.success || batchResult.orders.length === 0) {
             const errorMsg = batchResult.errors.length > 0 
-              ? batchResult.errors.map((e: any) => `Batch ${e.batch}: ${e.error}`).join('; ')
+              ? batchResult.errors.map((e: { batch: number; error: string }) => `Batch ${e.batch}: ${e.error}`).join('; ')
               : 'Unknown error during batch processing';
             throw new Error(`Failed to create orders: ${errorMsg}`);
           }
@@ -167,7 +167,7 @@ export default function CartPage() {
           
           // Show success notification
           toast.success(t('cartPage.batchProcessingSuccess', { count: String(createdOrders.length) }));
-        } catch (batchError) {
+        } catch {
           // Fallback: try with micro-batches (20 items per batch)
           const fallbackConfig = {
             maxTotalQuantityPerBatch: 20,
@@ -180,8 +180,8 @@ export default function CartPage() {
             const fallbackResult = await OrderBatchManager.processOrder(
               createOrderRequest,
               fallbackConfig,
-              (current: number, total: number, batch: CreateOrderRequest) => {
-                // Only log to console, don't show toast for each batch
+              () => {
+                // intentionally no-op progress callback
               }
             );
             
