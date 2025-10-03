@@ -46,6 +46,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     Cookies.remove("access_token");
     Cookies.remove("refresh_token");
     Cookies.remove("user");
+    // Also clear localStorage backups
+    try {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    } catch {}
     tokenVerificationRef.current = false;
   }, []);
 
@@ -106,23 +111,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Listen for logout events from interceptors
   useEffect(() => {
     const handleAutoLogout = () => {
-      // Comprehensive payment flow detection - never logout during payment operations
-      const isPaymentFlow = window.location.pathname.includes('/payment/') ||
-        window.location.pathname.includes('/cart') ||
+      // Don't logout if user is on payment pages or just returned from payment
+      const isPaymentPage = window.location.pathname.includes('/payment/') ||
         window.location.search.includes('transfer_id') ||
         window.location.search.includes('payment_uuid') ||
-        window.location.search.includes('octo_payment_UUID') ||
-        window.location.search.includes('octo_status') || // NEW: OCTO status param on root redirect
-        window.location.search.includes('success') ||
-        window.location.search.includes('failure') ||
-        sessionStorage.getItem('paymentRedirectTime') !== null ||
-        sessionStorage.getItem('userBackup') !== null;
+        window.location.search.includes('octo_payment_UUID');
 
-      if (!isPaymentFlow) {
+      if (!isPaymentPage) {
         setUser(null);
         tokenVerificationRef.current = false;
       } else {
-        console.warn("Prevented logout during payment flow - comprehensive protection active");
+        console.warn("Prevented logout during payment flow");
       }
     };
 
@@ -135,80 +134,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Detect payment returns and restore session
   useEffect(() => {
     const handlePaymentReturn = async () => {
-      const isPaymentReturn = (
-        // Return to dedicated payment route with known params
-        (window.location.pathname.includes('/payment/') && (
-          window.location.search.includes('transfer_id') ||
+      const isPaymentReturn = window.location.pathname.includes('/payment/') &&
+        (window.location.search.includes('transfer_id') ||
           window.location.search.includes('payment_uuid') ||
-          window.location.search.includes('octo_payment_UUID') ||
-          window.location.search.includes('octo_status')
-        )) ||
-        // Return directly to root (e.g., /?octo_status=succeeded)
-        window.location.search.includes('octo_status') ||
-        // Session artifacts from pre-redirect
-        sessionStorage.getItem('paymentRedirectTime') !== null ||
-        sessionStorage.getItem('userBackup') !== null
-      );
+          window.location.search.includes('octo_payment_UUID'));
 
       if (isPaymentReturn) {
         console.log("Payment return detected, preserving authentication...");
         
-        // If user is already set, ensure cookies are still fresh
+        // If user is already set, don't do anything
         if (user) {
-          console.log("User already authenticated, refreshing session persistence");
-          // Refresh cookies to ensure they don't expire
-          const cookieOptions = {
-            sameSite: "lax" as const,
-            secure: process.env.NODE_ENV === "production",
-            path: "/",
-          };
-          Cookies.set("user", JSON.stringify(user), {
-            ...cookieOptions,
-            expires: 7,
-          });
+          console.log("User already authenticated, keeping session");
           return;
         }
 
         // Try to restore user session from stored data
-  const storedUser = Cookies.get("user");
-        let accessToken = Cookies.get("access_token");
-
-        // If we lost the access token but still have refresh token, try a silent refresh BEFORE backup restore
-        if (!accessToken) {
-          const refreshToken = Cookies.get('refresh_token');
-          if (refreshToken) {
-            try {
-              console.log('Attempting silent token refresh on payment return...');
-              const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
-              let refreshResp = await fetch(base + '/auth/refresh', { method: 'POST' });
-              if (!refreshResp.ok) {
-                // Try with trailing slash fallback
-                refreshResp = await fetch(base + '/auth/refresh/', { method: 'POST' });
-              }
-              if (refreshResp.ok) {
-                const refreshData = await refreshResp.json();
-                const { access_token: newAccess, refresh_token: newRefresh } = refreshData || {};
-                const cookieOptions = {
-                  sameSite: 'lax' as const,
-                  secure: process.env.NODE_ENV === 'production',
-                  path: '/',
-                };
-                if (newAccess) {
-                  Cookies.set('access_token', newAccess, { ...cookieOptions, expires: 1 });
-                  accessToken = newAccess;
-                }
-                if (newRefresh) {
-                  Cookies.set('refresh_token', newRefresh, { ...cookieOptions, expires: 30 });
-                }
-                console.log('Silent token refresh succeeded on payment return');
-              } else {
-                console.warn('Silent token refresh failed on payment return:', refreshResp.status);
-              }
-            } catch (e) {
-              console.warn('Silent refresh exception during payment return:', e);
-            }
-          }
-        }
+        let storedUser = Cookies.get("user");
+        const accessToken = Cookies.get("access_token");
 
         // If cookies are missing, try to restore from session backup
         if (!storedUser || !accessToken) {
@@ -217,34 +159,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           
           if (userBackup && redirectTime) {
             const timeSinceRedirect = Date.now() - parseInt(redirectTime);
-            // Extended restore window (within 2 hours) for payment flows
-            if (timeSinceRedirect < 2 * 60 * 60 * 1000) {
+            // Only restore if redirect was recent (within 30 minutes)
+            if (timeSinceRedirect < 30 * 60 * 1000) {
               try {
                 const backupUserData = JSON.parse(userBackup);
                 setUser(backupUserData);
                 console.log("Restored user from backup after payment return");
                 
-                // Re-store in cookies with "lax" sameSite and longer expiration
+                // Re-store in cookies with longer expiration
                 const cookieOptions = {
-                  sameSite: "lax" as const, // Changed from "strict" for better payment compatibility
+                  sameSite: "strict" as const,
                   secure: process.env.NODE_ENV === "production",
-                  path: "/",
                 };
                 
                 Cookies.set("user", userBackup, {
                   ...cookieOptions,
                   expires: 7,
                 });
-                
-                // Also restore access token if available in backup
-                const tokenBackup = sessionStorage.getItem('tokenBackup');
-                if (tokenBackup) {
-                  Cookies.set("access_token", tokenBackup, {
-                    ...cookieOptions,
-                    expires: 1,
-                  });
-                  console.log("Restored access token from backup");
-                }
                 
                 // Mark token as verified to avoid unnecessary verification
                 tokenVerificationRef.current = true;
@@ -330,6 +261,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         ...cookieOptions,
         expires: 7,
       });
+      // LocalStorage backup to survive cross-domain payment redirects / cookie drops
+      try {
+        localStorage.setItem('access_token', access_token);
+        localStorage.setItem('refresh_token', refresh_token);
+      } catch {}
       setUser(userData);
       tokenVerificationRef.current = true;
       setTimeout(() => {
@@ -374,6 +310,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         ...cookieOptions,
         expires: 7,
       });
+      try {
+        localStorage.setItem('access_token', access_token);
+        localStorage.setItem('refresh_token', refresh_token);
+      } catch {}
 
       setUser(newUser);
       tokenVerificationRef.current = true; // Mark as verified since we just registered

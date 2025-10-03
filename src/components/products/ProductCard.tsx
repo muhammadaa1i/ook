@@ -144,8 +144,8 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
     return (
       <div
         className={
-          `relative bg-white rounded-md sm:rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer border ${
-            inCart && !isAdmin ? "border-blue-500 ring-1 ring-blue-400/50" : "border-transparent"
+          `relative flex flex-col bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer border ${
+            inCart && !isAdmin ? "border-blue-500 ring-1 ring-blue-400/40" : "border-gray-100"
           }`
         }
         onClick={onViewDetails ? handleViewDetails : undefined}
@@ -159,7 +159,8 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
             : undefined
         }
       >
-        <div className="relative h-36 sm:h-40 lg:h-48 bg-gray-200">
+        {/* Media */}
+        <div className="relative aspect-[4/3] w-full bg-gray-100">
           {inCart && !isAdmin && (
             <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 z-10 bg-blue-600 text-white text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-sm sm:rounded-md shadow-sm flex items-center space-x-1">
               <Check className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
@@ -233,78 +234,59 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
           )}
         </div>
 
-        <div className="p-3 sm:p-4">
-          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
+        {/* Details */}
+        <div className="flex flex-col flex-1 p-3 gap-1">
+          <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 leading-snug min-h-[2.25rem]">
             {slipper.name}
           </h3>
-
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs sm:text-sm text-gray-600 truncate">
-              {t('product.size')}: {slipper.size}
-            </span>
+          <div className="flex items-center text-xs sm:text-sm text-gray-600">
+            <span className="truncate">{t('product.size')}: {slipper.size}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between">
+            <span className="text-base sm:text-lg font-bold text-blue-600">{formattedPrice}</span>
+            {inCart && !isAdmin && (
+              <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                {t('cart.inCart')}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-base sm:text-lg lg:text-xl font-bold text-blue-600 truncate">
-              {formattedPrice}
-            </span>
-          </div>
-
-          {/* Quantity Controls - only show if product is in cart and not admin */}
+          {/* Quantity Controls (compact) */}
           {inCart && !isAdmin && onAddToCart && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{t('product.quantity')}:</span>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={decreaseQuantity}
-                    className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
-                    disabled={cartItem && cartItem.quantity <= 60}
-                  >
-                    <Minus className="h-3 w-3" />
-                  </button>
-                  <span className="w-12 text-center text-sm font-semibold text-gray-900">
-                    {cartItem?.quantity || 60}
-                  </span>
-                  <button
-                    onClick={increaseQuantity}
-                    className="p-1 rounded-md border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
-                </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-xs text-gray-500">{t('product.quantity')}:</span>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={decreaseQuantity}
+                  className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+                  disabled={cartItem && cartItem.quantity <= 60}
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className="w-10 text-center text-xs font-semibold text-gray-900">
+                  {cartItem?.quantity || 60}
+                </span>
+                <button
+                  onClick={increaseQuantity}
+                  className="p-1 rounded border border-gray-300 hover:bg-gray-50"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
               </div>
             </div>
           )}
 
-          <div className="flex items-center justify-end mt-3">
-            <div className="flex space-x-1 sm:space-x-2">
-              {onAddToCart && !isAdmin && !inCart && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddToCart();
-                  }}
-                  disabled={!availabilityInfo.canAddToCart}
-                  className="px-3 py-2 rounded-md sm:rounded-lg transition-colors flex items-center justify-center text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  title={
-                    !availabilityInfo.canAddToCart
-                      ? t('product.insufficientStockTooltip', { min: '60' })
-                      : t('cart.addToCartHint')
-                  }
-                >
-                  <ShoppingCart className="h-4 w-4 mr-1" />
-                  {t('cart.addToCart')}
-                </button>
-              )}
-              {inCart && !isAdmin && (
-                <div className="flex items-center text-sm text-green-600 font-medium">
-                  <Check className="h-4 w-4 mr-1" />
-                  {t('cart.inCart')}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Add to Cart Button */}
+          {onAddToCart && !isAdmin && !inCart && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
+              disabled={!availabilityInfo.canAddToCart}
+              className="mt-2 w-full inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 text-white text-xs sm:text-sm font-medium py-1.5 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              title={!availabilityInfo.canAddToCart ? t('product.insufficientStockTooltip', { min: '60' }) : t('cart.addToCartHint')}
+            >
+              <ShoppingCart className="h-4 w-4" /> {t('cart.addToCart')}
+            </button>
+          )}
         </div>
       </div>
     );

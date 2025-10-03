@@ -242,60 +242,82 @@ class ModernApiClient {
 
     this.refreshPromise = (async () => {
       try {
-        const attempt = async (endpointVariant: string) => {
-          const url = new URL(
-            endpointVariant.replace(/^\/+/, "/"),
-            this.baseURL + "/"
-          );
-          return fetch(url.toString(), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({ refresh_token: refreshToken }),
-          });
+        // Helper: parse tokens from body + headers
+        const parseTokens = async (resp: Response) => {
+          let body: Record<string, unknown> = {};
+          try { body = await resp.clone().json(); } catch {}
+          const headers = resp.headers;
+          let access = (body["access_token"] || body["accessToken"] || body["access"]) as string | undefined;
+          if (!access) {
+            const authH = headers.get("Authorization") || headers.get("authorization");
+            if (authH && /bearer/i.test(authH)) {
+              const parts = authH.split(/\s+/);
+              if (parts.length === 2) access = parts[1];
+            }
+          }
+            let refresh = (body["refresh_token"] || body["refreshToken"] || body["refresh"]) as string | undefined;
+            if (!refresh) refresh = headers.get("Refresh-Token") || headers.get("refresh-token") || undefined;
+          return { access, refresh };
         };
 
-        // Try without trailing slash first, then with
-        let response = await attempt("/auth/refresh");
-        if (!response.ok) {
-          response = await attempt("/auth/refresh/");
+        const build = (suffix: string) => new URL(suffix.replace(/^\/+/, "/"), this.baseURL + "/").toString();
+        const strategies: Array<{ label: string; run: () => Promise<Response> }> = [
+          {
+            label: "json-double-field",
+            run: () => fetch(build("/auth/refresh"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Accept: "application/json" },
+              body: JSON.stringify({ refresh_token: refreshToken, refreshToken }),
+            }),
+          },
+          {
+            label: "header-refresh-token",
+            run: () => fetch(build("/auth/refresh"), {
+              method: "POST",
+              headers: { "Refresh-Token": refreshToken, Accept: "application/json" },
+            }),
+          },
+          {
+            label: "form-urlencoded",
+            run: () => fetch(build("/auth/refresh"), {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+              body: new URLSearchParams({ refresh_token: refreshToken }).toString(),
+            }),
+          },
+        ];
+
+        let lastErr: unknown = null;
+        for (const strat of strategies) {
+          let resp = await strat.run();
+          if (!resp.ok && (resp.status === 404 || resp.status === 422)) {
+            // attempt with trailing slash variant
+            resp = await fetch(build("/auth/refresh/"), { method: resp.url ? "POST" : "POST", headers: resp.headers as any });
+          }
+          if (resp.ok) {
+            const { access, refresh } = await parseTokens(resp);
+            const cookieOptions = { sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+            if (access) Cookies.set("access_token", access, { ...cookieOptions, expires: 1 });
+            if (refresh) Cookies.set("refresh_token", refresh, { ...cookieOptions, expires: 30 });
+            if (access || refresh) return !!access;
+            lastErr = new Error(`Refresh strategy '${strat.label}' returned no tokens`);
+            continue;
+          } else {
+            if (resp.status === 422) {
+              try { const dbg = await resp.clone().json(); if (process.env.NODE_ENV !== 'production') console.warn('[refreshAccessToken] 422', strat.label, dbg); } catch {}
+            }
+            lastErr = new Error(`Refresh strategy '${strat.label}' failed status ${resp.status}`);
+            continue;
+          }
         }
-        if (!response.ok) {
-          console.warn(
-            "Token refresh failed",
-            response.status,
-            response.statusText
-          );
-          throw new Error("Failed to refresh token");
-        }
-        let data: Record<string, unknown> = {};
-        try {
-          data = await response.json();
-        } catch {}
-        const access = data["access_token"];
-        if (typeof access === "string" && access) {
-          Cookies.set("access_token", access, { expires: 1 });
-        }
-        const refresh = data["refresh_token"];
-        if (typeof refresh === "string" && refresh) {
-          Cookies.set("refresh_token", refresh, { expires: 30 });
-        }
-        return typeof access === "string" && !!access;
-      } catch {
+        throw lastErr || new Error("All refresh strategies failed");
+      } catch (e) {
         // Don't immediately logout during payment flows - could be temporary network issues
         const isPaymentFlow = typeof window !== "undefined" && 
-          (window.location.pathname.includes('/payment/') ||
-           window.location.pathname.includes('/cart') ||
+          (window.location.pathname.includes('/payment/') || 
            window.location.search.includes('transfer_id') ||
            window.location.search.includes('payment_uuid') ||
-           window.location.search.includes('octo_payment_UUID') ||
-           window.location.search.includes('octo_status') || // NEW: OCTO gateway status param on root
-           window.location.search.includes('success') ||
-           window.location.search.includes('failure') ||
-           sessionStorage.getItem('paymentRedirectTime') !== null ||
-           sessionStorage.getItem('userBackup') !== null);
+           window.location.search.includes('octo_payment_UUID'));
            
         if (!isPaymentFlow) {
           // Clear auth data & notify app to logout only if not in payment flow
@@ -307,33 +329,23 @@ class ModernApiClient {
           }
         } else {
           // During payment flow, just log the error but don't logout
-          console.warn("Token refresh failed during payment flow - preserving session");
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn("Token refresh failed during payment flow - preserving session", e);
+          }
           
-          // Try to restore from comprehensive backup if available
+          // Try to restore from backup if available
           const userBackup = sessionStorage.getItem('userBackup');
-          const tokenBackup = sessionStorage.getItem('tokenBackup');
           if (userBackup) {
             try {
               const cookieOptions = {
-                sameSite: "lax" as const, // Changed to "lax" for better payment compatibility
+                sameSite: "strict" as const,
                 secure: process.env.NODE_ENV === "production",
-                path: "/",
               };
               Cookies.set("user", userBackup, {
                 ...cookieOptions,
                 expires: 7,
               });
-              
-              // Also restore access token if available
-              if (tokenBackup) {
-                Cookies.set("access_token", tokenBackup, {
-                  ...cookieOptions,
-                  expires: 1,
-                });
-                console.log("Restored both user and token from backup during payment flow");
-              } else {
-                console.log("Restored user cookies from backup during payment flow");
-              }
+              console.log("Restored user cookies from backup during payment flow");
             } catch (error) {
               console.error("Failed to restore user from backup:", error);
             }

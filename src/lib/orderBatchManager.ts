@@ -142,7 +142,7 @@ export class OrderBatchManager {
 
       // Process first batches in parallel for maximum speed
       if (parallelBatches.length > 0) {
-        const parallelPromises: Promise<Order | null>[] = parallelBatches.map(async (batch, index): Promise<Order | null> => {
+        const parallelPromises = parallelBatches.map(async (batch, index) => {
           if (onProgress) {
             onProgress(index + 1, batches.length, batch);
           }
@@ -160,7 +160,8 @@ export class OrderBatchManager {
         });
 
         const parallelResults = await Promise.allSettled(parallelPromises);
-        parallelResults.forEach((promiseResult: PromiseSettledResult<Order | null>) => {
+        
+        parallelResults.forEach((promiseResult, index) => {
           if (promiseResult.status === 'fulfilled' && promiseResult.value) {
             result.orders.push(promiseResult.value);
           }

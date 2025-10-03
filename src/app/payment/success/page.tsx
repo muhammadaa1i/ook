@@ -75,9 +75,6 @@ function PaymentSuccessContent() {
             // Clean up backup after successful payment
             sessionStorage.removeItem('userBackup');
             sessionStorage.removeItem('paymentRedirectTime');
-            sessionStorage.removeItem('tokenBackup');
-            
-            console.log('Cleaned up authentication backup data after successful payment');
           } catch (error) {
             console.warn('Could not parse user backup:', error);
           }

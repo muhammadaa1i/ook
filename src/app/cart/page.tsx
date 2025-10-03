@@ -5,7 +5,6 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFullImageUrl, formatPrice } from "@/lib/utils";
 import { PaymentService } from "@/services/paymentService";
-import Cookies from "js-cookie";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -154,14 +153,14 @@ export default function CartPage() {
           const batchResult = await OrderBatchManager.processOrder(
             createOrderRequest,
             batchConfig,
-            (_current: number, _total: number, _batch: CreateOrderRequest) => {
+            (current: number, total: number, batch: CreateOrderRequest) => {
               // Only log to console, don't show toast for each batch
             }
           );
           
           if (!batchResult.success || batchResult.orders.length === 0) {
             const errorMsg = batchResult.errors.length > 0 
-        ? batchResult.errors.map((e: { batch: number; error: string }) => `Batch ${e.batch}: ${e.error}`).join('; ')
+              ? batchResult.errors.map((e: any) => `Batch ${e.batch}: ${e.error}`).join('; ')
               : 'Unknown error during batch processing';
             throw new Error(`Failed to create orders: ${errorMsg}`);
           }
@@ -170,7 +169,7 @@ export default function CartPage() {
           
           // Show success notification
           toast.success(t('cartPage.batchProcessingSuccess', { count: String(createdOrders.length) }));
-  } catch (_batchError) {
+        } catch (batchError) {
           // Fallback: try with micro-batches (20 items per batch)
           const fallbackConfig = {
             maxTotalQuantityPerBatch: 20,
@@ -183,7 +182,7 @@ export default function CartPage() {
             const fallbackResult = await OrderBatchManager.processOrder(
               createOrderRequest,
               fallbackConfig,
-              (_current: number, _total: number, _batch: CreateOrderRequest) => {
+              (current: number, total: number, batch: CreateOrderRequest) => {
                 // Only log to console, don't show toast for each batch
               }
             );
@@ -307,18 +306,11 @@ export default function CartPage() {
         
         sessionStorage.setItem('paymentOrder', JSON.stringify(paymentData));
         
-        // Store comprehensive user authentication data as backup before payment redirect
+        // Store user authentication data as backup before payment redirect
         if (user) {
           sessionStorage.setItem('userBackup', JSON.stringify(user));
           sessionStorage.setItem('paymentRedirectTime', Date.now().toString());
-          
-          // Also backup access token for full session restoration
-          const accessToken = Cookies.get('access_token');
-          if (accessToken) {
-            sessionStorage.setItem('tokenBackup', accessToken);
-          }
-          
-          console.log('Stored comprehensive user and token backup before payment redirect');
+          console.log('Stored user backup before payment redirect');
         }
         
         // Payment status will be handled by the webhook notification endpoint

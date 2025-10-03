@@ -39,15 +39,15 @@ api.interceptors.response.use(
 
     // Don't attempt token refresh for login/register endpoints
     const requestUrl = originalRequest.url || '';
-    const isAuthEndpoint = requestUrl.includes('endpoint=%2Fauth%2Flogin') || 
-                          requestUrl.includes('endpoint=%2Fauth%2Fregister') ||
-                          requestUrl.includes('endpoint=/auth/login') || 
-                          requestUrl.includes('endpoint=/auth/register') ||
-                          requestUrl.includes('/auth/login') ||
-                          requestUrl.includes('/auth/register');
-    
-  // Removed verbose development logging for performance
-    
+    const isAuthEndpoint = requestUrl.includes('endpoint=%2Fauth%2Flogin') ||
+      requestUrl.includes('endpoint=%2Fauth%2Fregister') ||
+      requestUrl.includes('endpoint=/auth/login') ||
+      requestUrl.includes('endpoint=/auth/register') ||
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/register');
+
+    // Removed verbose development logging for performance
+
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
@@ -57,24 +57,32 @@ api.interceptors.response.use(
           throw new Error("No refresh token");
         }
 
-  const response = await axios.post(buildUrl("/auth/refresh"), { refresh_token: refreshToken });
+        const response = await axios.post(buildUrl("/auth/refresh"), {
+          refresh_token: refreshToken,
+          refreshToken: refreshToken, // backend compatibility
+        });
 
         const { access_token, refresh_token: newRefreshToken } = response.data;
 
-        Cookies.set("access_token", access_token, { expires: 1 });
+        const cookieOptions = {
+          sameSite: 'lax' as const,
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+        };
+        Cookies.set("access_token", access_token, { ...cookieOptions, expires: 1 });
         if (newRefreshToken) {
-          Cookies.set("refresh_token", newRefreshToken, { expires: 30 });
+          Cookies.set("refresh_token", newRefreshToken, { ...cookieOptions, expires: 30 });
         }
 
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
-  return api(originalRequest);
+        return api(originalRequest);
       } catch (refreshError) {
         // Don't immediately logout during payment flows
-        const isPaymentFlow = typeof window !== "undefined" && 
-          (window.location.pathname.includes('/payment/') || 
-           window.location.search.includes('transfer_id') ||
-           window.location.search.includes('payment_uuid'));
-           
+        const isPaymentFlow = typeof window !== "undefined" &&
+          (window.location.pathname.includes('/payment/') ||
+            window.location.search.includes('transfer_id') ||
+            window.location.search.includes('payment_uuid'));
+
         if (!isPaymentFlow) {
           Cookies.remove("access_token");
           Cookies.remove("refresh_token");
@@ -88,7 +96,9 @@ api.interceptors.response.use(
             setTimeout(() => (window.location.href = "/auth/login"), 100);
           }
         } else {
-          console.warn("Token refresh failed during payment flow - preserving session");
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn("Token refresh failed during payment flow - preserving session", refreshError);
+          }
         }
         return Promise.reject(refreshError);
       }
@@ -99,7 +109,7 @@ api.interceptors.response.use(
 );
 
 // (Removed duplicate second interceptor set – single instance handles refresh above)
-api.interceptors.response.use((r)=>r,(e)=>Promise.reject(e));
+api.interceptors.response.use((r) => r, (e) => Promise.reject(e));
 
 // API methods that automatically handle proxy formatting
 export const apiClient = {
