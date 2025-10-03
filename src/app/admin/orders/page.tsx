@@ -170,15 +170,20 @@ export default function AdminOrdersPage() {
             total_amount: computedTotal,
           } as Order;
         });
-      // Directly use normalized list without per-order hydration (avoid CORS/500)
-      setOrders(normalizedOrders);
+      // Apply client-side slicing if backend returns entire dataset (length > limit)
+      const limit = Number(filters.limit || PAGINATION.DEFAULT_LIMIT);
+      const skip = Number(filters.skip || 0);
+      const sliced = normalizedOrders.length > limit
+        ? normalizedOrders.slice(skip, skip + limit)
+        : normalizedOrders;
+      setOrders(sliced);
       const paginationData = data as {
         total?: number;
         pages?: number;
         total_pages?: number;
       };
       // If API doesn't provide total, use the actual orders count
-      const actualTotal = paginationData?.total ?? normalizedOrders.length;
+  const actualTotal = paginationData?.total ?? normalizedOrders.length;
       setPagination({
         total: actualTotal,
         page:
@@ -314,25 +319,49 @@ export default function AdminOrdersPage() {
             </button>
 
             <div className="flex space-x-1">
-              {Array.from({ length: Math.min(5, pagination.totalPages) }).map(
-                (_, i) => {
-                  const pageNumber = i + 1;
+              {(() => {
+                const total = pagination.totalPages;
+                const current = pagination.page;
+                const items: (number | 'ellipsis')[] = [];
+                if (total <= 7) {
+                  for (let p = 1; p <= total; p++) items.push(p);
+                } else {
+                  items.push(1);
+                  const start = Math.max(2, current - 1);
+                  const end = Math.min(total - 1, current + 1);
+                  if (start > 2) items.push('ellipsis');
+                  for (let p = start; p <= end; p++) items.push(p);
+                  if (end < total - 1) items.push('ellipsis');
+                  items.push(total);
+                }
+                return items.map((val, idx) => {
+                  if (val === 'ellipsis') {
+                    return (
+                      <span
+                        key={`e-${idx}`}
+                        className="px-3 py-2 text-sm text-gray-500 select-none"
+                      >
+                        …
+                      </span>
+                    );
+                  }
+                  const isActive = val === current;
                   return (
                     <button
-                      key={pageNumber}
-                      onClick={() => handlePageChange(pageNumber)}
+                      key={val}
+                      onClick={() => handlePageChange(val)}
                       className={`px-4 py-2 rounded-lg border font-medium text-sm shadow-sm transition-all duration-200 transform hover:scale-[1.05] active:scale-[0.95] focus:ring-2 focus:ring-offset-1 ${
-                        pagination.page === pageNumber
-                          ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-500 shadow-md focus:ring-blue-300"
-                          : "bg-white border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50 hover:shadow-md focus:ring-gray-300"
+                        isActive
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-500 shadow-md focus:ring-blue-300'
+                          : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50 hover:shadow-md focus:ring-gray-300'
                       }`}
-                      disabled={isLoading}
+                      disabled={isLoading || isActive}
                     >
-                      {pageNumber}
+                      {val}
                     </button>
                   );
-                }
-              )}
+                });
+              })()}
             </div>
 
             <button

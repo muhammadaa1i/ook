@@ -57,6 +57,7 @@ export const ORDER_STATUS = {
 } as const;
 
 export const PAGINATION = {
-  DEFAULT_LIMIT: 20,
+  // Show 10 items per page across admin lists (orders, products, users)
+  DEFAULT_LIMIT: 10,
   MAX_LIMIT: 100,
 } as const;
