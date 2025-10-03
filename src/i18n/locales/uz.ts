@@ -417,7 +417,8 @@
         items: 'Mahsulotlar',
         amount: 'Summa',
         status: 'Holat',
-        date: 'Sana'
+        date: 'Sana',
+        actions: 'Amallar'
       },
       createdAt: 'yaratilish sanasi',
       itemsCount: '{count} ta mahsulot',

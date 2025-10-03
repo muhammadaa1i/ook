@@ -238,17 +238,7 @@ export default function AdminOrdersPage() {
 
       if (result.success) {
         // Enhanced success message with order details
-        toast.success(
-          `${t('admin.orders.toasts.refundSuccess')} - Order #${orderId} (${formatPrice(selectedOrderForRefund.total_amount)})`, 
-          {
-            position: "top-right",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          }
-        );
+        toast.success(t('admin.orders.toasts.refundSuccess'));
         // Refresh orders to update status
         fetchOrders();
         // Close the dialog
@@ -542,7 +532,7 @@ export default function AdminOrdersPage() {
                     {/* Date for mobile only */}
                     <div className="mt-3 pt-3 lg:hidden">
                       <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                        {t('admin.orders.table.date')} ({t('admin.orders.createdAt')})
+                        {t('admin.orders.table.date')}
                       </div>
                       <div className="text-xs text-gray-500">
                         {formatDate(order.created_at, locale)}
