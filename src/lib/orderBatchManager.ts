@@ -161,7 +161,7 @@ export class OrderBatchManager {
 
         const parallelResults = await Promise.allSettled(parallelPromises);
         
-        parallelResults.forEach((promiseResult, index) => {
+        parallelResults.forEach((promiseResult) => {
           if (promiseResult.status === 'fulfilled' && promiseResult.value) {
             result.orders.push(promiseResult.value);
           }

@@ -243,7 +243,7 @@ class ModernApiClient {
     this.refreshPromise = (async () => {
       try {
         // Helper: parse tokens from body + headers
-        const parseTokens = async (resp: Response) => {
+        const parseTokens = async (resp: Response): Promise<{ access?: string; refresh?: string }> => {
           let body: Record<string, unknown> = {};
           try { body = await resp.clone().json(); } catch {}
           const headers = resp.headers;

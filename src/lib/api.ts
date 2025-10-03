@@ -70,11 +70,11 @@ api.interceptors.response.use(
         }
         // Multi-strategy refresh attempts based on backend guidance
         interface StrategyResult { access?: string; refresh?: string }
-        const parseTokens = (resp: any): StrategyResult => {
+        const parseTokens = (resp: { data?: Record<string, unknown>; headers?: Record<string, string> }): StrategyResult => {
           if (!resp) return {};
           const data = resp.data || {};
-          let access = data.access_token || data.accessToken || data.access;
-          let refresh = data.refresh_token || data.refreshToken || data.refresh;
+          let access = (data.access_token || data.accessToken || data.access) as string | undefined;
+          let refresh = (data.refresh_token || data.refreshToken || data.refresh) as string | undefined;
           // Header fallbacks
           const authH = resp.headers?.["authorization"] || resp.headers?.["Authorization"];
           if (!access && authH && /bearer/i.test(authH)) {
@@ -85,7 +85,7 @@ api.interceptors.response.use(
         };
 
         const endpoint = `${API_BASE_URL.replace(/\/$/,'')}/auth/refresh`;
-        const attempts: Array<{ label: string; exec: () => Promise<any> }> = [
+        const attempts: Array<{ label: string; exec: () => Promise<{ data?: Record<string, unknown>; headers?: Record<string, string> }> }> = [
           { // both body + header (safest approach)
             label: 'body-and-header',
             exec: () => axios.post(endpoint, { refresh_token: refreshToken }, { headers: { 'Refresh-Token': refreshToken } })
@@ -111,9 +111,9 @@ api.interceptors.response.use(
             const resp = await a.exec();
             tokens = parseTokens(resp);
             if (tokens.access || tokens.refresh) break; // success
-          } catch (e:any) {
+          } catch (e: unknown) {
             lastErr = e;
-            const status = e?.response?.status;
+            const status = (e as { response?: { status?: number } })?.response?.status;
             // 400/422 mean invalid format or token -> try next strategy
             if (status === 400 || status === 422) continue; else throw e;
           }

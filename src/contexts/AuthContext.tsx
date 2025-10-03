@@ -149,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         // Try to restore user session from stored data
-        let storedUser = Cookies.get("user");
+        const storedUser = Cookies.get("user");
         const accessToken = Cookies.get("access_token");
 
         // If cookies are missing, try to restore from session backup
