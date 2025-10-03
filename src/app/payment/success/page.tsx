@@ -69,7 +69,7 @@ function PaymentSuccessContent() {
         const userBackup = sessionStorage.getItem('userBackup');
         if (userBackup) {
           try {
-            const userData = JSON.parse(userBackup);
+            const userBackup = sessionStorage.getItem('userBackup');
             console.log('Found user backup during payment success, ensuring session preservation');
             
             // Clean up backup after successful payment

@@ -106,7 +106,7 @@ export class OrderBatchManager {
   static async processOrder(
     orderRequest: CreateOrderRequest,
     config?: Partial<BatchConfig>,
-    onProgress?: (current: number, total: number, batch: CreateOrderRequest) => void
+    onProgress?: (_current: number, _total: number, _batch: CreateOrderRequest) => void
   ): Promise<BatchResult> {
     const finalConfig = this.validateBatchConfig(config || {});
     

@@ -292,7 +292,10 @@ class ModernApiClient {
           let resp = await strat.run();
           if (!resp.ok && (resp.status === 404 || resp.status === 422)) {
             // attempt with trailing slash variant
-            resp = await fetch(build("/auth/refresh/"), { method: resp.url ? "POST" : "POST", headers: resp.headers as any });
+            resp = await fetch(build("/auth/refresh/"), { 
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "Accept": "application/json" }
+            });
           }
           if (resp.ok) {
             const { access, refresh } = await parseTokens(resp);
