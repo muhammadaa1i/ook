@@ -16,7 +16,6 @@ import {
   CreditCard,
   ShoppingCart,
   Loader2,
-  Package,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
@@ -80,7 +79,6 @@ export default function CartPage() {
   } = useCart();
   const { isAuthenticated, user } = useAuth();
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [processingStep, setProcessingStep] = useState('');
   const [offerAccepted, setOfferAccepted] = useState(false);
 
   const { t } = useI18n();

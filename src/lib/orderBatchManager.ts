@@ -106,7 +106,7 @@ export class OrderBatchManager {
   static async processOrder(
     orderRequest: CreateOrderRequest,
     config?: Partial<BatchConfig>,
-    onProgress?: (_current: number, _total: number, _batch: CreateOrderRequest) => void
+    onProgress?: (current: number, total: number, batch: CreateOrderRequest) => void
   ): Promise<BatchResult> {
     const finalConfig = this.validateBatchConfig(config || {});
     
@@ -163,7 +163,7 @@ export class OrderBatchManager {
         
         parallelResults.forEach((promiseResult) => {
           if (promiseResult.status === 'fulfilled' && promiseResult.value) {
-            result.orders.push(promiseResult.value);
+            result.orders.push(promiseResult.value as Order);
           }
         });
       }
