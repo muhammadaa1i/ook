@@ -204,7 +204,7 @@ export default function AdminProductsPage() {
       }
     } catch (error) {
       console.error("Failed to load images:", error);
-  toast.error(t('admin.products.images.uploadError'), { autoClose: 2000 });
+      toast.error(t('admin.products.images.uploadError'), { autoClose: 2000 });
     } finally {
       setLoadingImages(false);
     }
@@ -224,7 +224,7 @@ export default function AdminProductsPage() {
       setDeletingImageIds(ids => [...ids, imageId]);
       await modernApiClient.delete(API_ENDPOINTS.SLIPPER_DELETE_IMAGE(editingProduct.id, imageId));
       setEditingImages(imgs => imgs.filter(i => i.id !== imageId));
-  toast.success(t('admin.products.images.deleteSuccess'), { autoClose: 2000 });
+      toast.success(t('admin.products.images.deleteSuccess'), { autoClose: 2000 });
 
       // Immediately update the products list to reflect the change
       modernApiClient.clearCache("/slippers");
@@ -240,7 +240,7 @@ export default function AdminProductsPage() {
         })
       );
     } catch {
-  toast.error(t('admin.products.images.deleteError'), { autoClose: 2000 });
+      toast.error(t('admin.products.images.deleteError'), { autoClose: 2000 });
     } finally {
       setDeletingImageIds(ids => ids.filter(id => id !== imageId));
     }
@@ -257,7 +257,7 @@ export default function AdminProductsPage() {
         ...img,
         is_primary: img.id === imageId
       })));
-  toast.success(t('admin.products.images.uploadSingleSuccess'), { autoClose: 2000 });
+      toast.success(t('admin.products.images.uploadSingleSuccess'), { autoClose: 2000 });
 
       // Immediately update the products list to reflect the change
       modernApiClient.clearCache("/slippers");
@@ -276,7 +276,7 @@ export default function AdminProductsPage() {
         })
       );
     } catch {
-  toast.error(t('admin.products.images.uploadError'), { autoClose: 2000 });
+      toast.error(t('admin.products.images.uploadError'), { autoClose: 2000 });
     }
   };
 
@@ -320,7 +320,7 @@ export default function AdminProductsPage() {
         interface CreatedWrap { data?: Slipper;[k: string]: unknown }
         const cObj = created as CreatedWrap | Slipper;
         const createdData = ((cObj as CreatedWrap).data || (cObj as Slipper)) as Slipper;
-  productId = createdData.id;
+        productId = createdData.id;
         // Show success toast for creation (primary point)
         const createdMsg = t('admin.products.toasts.createSuccess') || 'Product created';
         toast.success(createdMsg, { autoClose: 2000 });
@@ -368,11 +368,11 @@ export default function AdminProductsPage() {
           closeModal(true);
           setIsSaving(false);
           // Fallback: ensure toast shown even if earlier code path skipped (defensive)
-            if (!creationToastShown) {
-              const msg = t('admin.products.toasts.createSuccess') || 'Product created';
-              toast.success(msg, { autoClose: 2000 });
-              creationToastShown = true;
-            }
+          if (!creationToastShown) {
+            const msg = t('admin.products.toasts.createSuccess') || 'Product created';
+            toast.success(msg, { autoClose: 2000 });
+            creationToastShown = true;
+          }
           // Background upload; perform ONE controlled refresh at the end
           handleImageUploads(productId)
             .catch((err) => console.error("Background image upload failed:", err))
@@ -1002,7 +1002,7 @@ export default function AdminProductsPage() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Action buttons at the bottom */}
                 <div className="flex justify-end space-x-3 pt-6 mt-6 border-t">
                   <button

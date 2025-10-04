@@ -281,7 +281,8 @@
         totalProducts: 'Jami mahsulotlar',
         totalOrders: 'Jami buyurtmalar',
         pendingOrders: 'Kutilayotgan buyurtmalar',
-        refundedOrders: 'Qaytarilgan buyurtmalar'
+        refundedOrders: 'Qaytarilgan buyurtmalar',
+        successfulOrders: 'Muvaffaqiyatli buyurtmalar'
       },
       quickActions: {
         title: 'Tezkor amallar',

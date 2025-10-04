@@ -670,7 +670,8 @@ export default {
         totalProducts: 'Всего товаров',
         totalOrders: 'Всего заказов',
         pendingOrders: 'Ожидающие заказы',
-        refundedOrders: 'Возвращенные заказы'
+        refundedOrders: 'Возвращенные заказы',
+        successfulOrders: 'Успешные заказы'
       },
       quickActions: {
         title: 'Быстрые действия',
