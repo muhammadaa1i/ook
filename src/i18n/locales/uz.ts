@@ -280,7 +280,8 @@
         totalUsers: 'Jami foydalanuvchilar',
         totalProducts: 'Jami mahsulotlar',
         totalOrders: 'Jami buyurtmalar',
-        pendingOrders: 'Kutilayotgan buyurtmalar'
+        pendingOrders: 'Kutilayotgan buyurtmalar',
+        refundedOrders: 'Qaytarilgan buyurtmalar'
       },
       quickActions: {
         title: 'Tezkor amallar',

@@ -1,0 +1,235 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import AdminLayout from "@/components/admin/AdminLayout";
+import { Users, Package, ShoppingCart, TrendingUp } from "lucide-react";
+import modernApiClient from "@/lib/modernApiClient";
+import { API_ENDPOINTS } from "@/lib/constants";
+import { useI18n } from "@/i18n";
+
+interface DashboardStats {
+  totalUsers: number;
+  totalProducts: number;
+  totalOrders: number;
+  pendingOrders: number;
+}
+
+interface StatsState {
+  stats: DashboardStats;
+  hasErrors: boolean;
+  lastUpdated: Date | null;
+  changedStats: Set<keyof DashboardStats>;
+}
+
+export default function AdminDashboard() {
+  const { t } = useI18n();
+  const [statsState, setStatsState] = useState<StatsState>({
+    stats: {
+      totalUsers: 0,
+      totalProducts: 0,
+      totalOrders: 0,
+      pendingOrders: 0,
+    },
+    hasErrors: false,
+    lastUpdated: null,
+    changedStats: new Set(),
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const now = Date.now();
+      
+      console.log('🔍 Fetching admin dashboard stats...');
+      
+      // Helper function to safely extract count from various response formats
+      const extractCount = (response: unknown, name: string): number => {
+        console.log(`📊 ${name} Raw Response:`, response);
+        
+        if (!response) return 0;
+        
+        interface ApiResponse {
+          total?: number;
+          count?: number;
+          items?: unknown[];
+          data?: {
+            total?: number;
+            count?: number;
+            items?: unknown[];
+          } | unknown[];
+          [key: string]: unknown;
+        }
+        
+        const data = response as ApiResponse;
+        
+        // Try different possible response structures
+        let count = 0;
+        
+        // Direct total/count properties
+        if (typeof data.total === 'number') count = data.total;
+        else if (typeof data.count === 'number') count = data.count;
+        
+        // Nested in data object
+        else if (data.data && !Array.isArray(data.data)) {
+          const nestedData = data.data as { total?: number; count?: number; items?: unknown[] };
+          if (typeof nestedData.total === 'number') count = nestedData.total;
+          else if (typeof nestedData.count === 'number') count = nestedData.count;
+          else if (Array.isArray(nestedData.items)) count = nestedData.items.length;
+        }
+        else if (Array.isArray(data.data)) count = data.data.length;
+        
+        // Direct items array
+        else if (Array.isArray(data.items)) count = data.items.length;
+        else if (Array.isArray(data)) count = data.length;
+        
+        // Fallback: try to find any array or count-like property
+        else {
+          const keys = Object.keys(data);
+          for (const key of keys) {
+            const value = data[key];
+            if (Array.isArray(value)) {
+              count = value.length;
+              break;
+            }
+            if (typeof value === 'number' && (key.includes('total') || key.includes('count'))) {
+              count = value;
+              break;
+            }
+          }
+        }
+        
+        console.log(`✅ ${name} Count:`, count);
+        return count;
+      };
+      
+      // Fetch stats with individual error handling
+      const fetchStat = async (name: string, endpoint: string, params?: Record<string, unknown>) => {
+        try {
+          const response = await modernApiClient.get(endpoint, { ...params, limit: 1, _nc: now }, { cache: false, force: true });
+          return extractCount(response, name);
+        } catch (error) {
+          console.error(`❌ Error fetching ${name}:`, error);
+          return 0;
+        }
+      };
+
+      const [
+        totalUsers,
+        totalProducts,
+        totalOrders,
+        pendingOrders,
+      ] = await Promise.all([
+        fetchStat('Users', API_ENDPOINTS.USERS),
+        fetchStat('Products', API_ENDPOINTS.SLIPPERS),
+        fetchStat('Orders', API_ENDPOINTS.ORDERS),
+        fetchStat('Pending Orders', API_ENDPOINTS.ORDERS, { status: 'pending' }),
+      ]);
+
+      const newStats = {
+        totalUsers,
+        totalProducts,
+        totalOrders,
+        pendingOrders,
+      };
+
+      console.log('✅ Final Stats:', newStats);
+      
+      // Detect which stats have changed
+      const changedStats = new Set<keyof DashboardStats>();
+      Object.keys(newStats).forEach(key => {
+        const statKey = key as keyof DashboardStats;
+        if (statsState.stats[statKey] !== newStats[statKey]) {
+          changedStats.add(statKey);
+        }
+      });
+
+      setStatsState({
+        stats: newStats,
+        hasErrors: false,
+        lastUpdated: new Date(),
+        changedStats,
+      });
+      
+      // Clear changed indicators after 3 seconds
+      setTimeout(() => {
+        setStatsState(prev => ({
+          ...prev,
+          changedStats: new Set(),
+        }));
+      }, 3000);
+      
+    } catch (error) {
+      console.error("❌ Error fetching stats:", error);
+      setStatsState(prev => ({
+        ...prev,
+        hasErrors: true,
+        lastUpdated: new Date(),
+        changedStats: new Set(),
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [statsState.stats]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const statCards = [
+    { title: t('admin.dashboard.stats.totalUsers'), value: statsState.stats.totalUsers, icon: Users, color: 'bg-blue-500' },
+    { title: t('admin.dashboard.stats.totalProducts'), value: statsState.stats.totalProducts, icon: Package, color: 'bg-green-500' },
+    { title: t('admin.dashboard.stats.totalOrders'), value: statsState.stats.totalOrders, icon: ShoppingCart, color: 'bg-purple-500' },
+    { title: t('admin.dashboard.stats.pendingOrders'), value: statsState.stats.pendingOrders, icon: TrendingUp, color: 'bg-orange-500' },
+  ];
+
+  return (
+    <AdminLayout>
+      <div className="space-y-6">
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{t('admin.dashboard.title')}</h1>
+              <p className="text-gray-600 mt-2">{t('admin.dashboard.welcome')}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {statCards.map((card, index) => {
+            const Icon = card.icon;
+            const statKey = ['totalUsers', 'totalProducts', 'totalOrders', 'pendingOrders'][index] as keyof DashboardStats;
+            const hasChanged = statsState.changedStats.has(statKey);
+            
+            return (
+              <div key={index} className={`bg-white rounded-lg shadow p-6 transition-all duration-300 ${hasChanged ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}>
+                <div className="flex items-center">
+                  <div className={`${card.color} rounded-md p-3`}>
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="text-sm font-medium text-gray-600">
+                      {card.title}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-2xl font-bold text-gray-900">
+                        {isLoading ? "..." : card.value.toLocaleString()}
+                      </p>
+                      {hasChanged && (
+                        <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full animate-pulse">
+                          Updated!
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+      </div>
+    </AdminLayout>
+  );
+}
