@@ -4,15 +4,21 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 
 export default function AdminDebugPage() {
-  const [apiTests, setApiTests] = useState<Record<string, any>>({});
+  const [apiTests, setApiTests] = useState<Record<string, { 
+    status: string; 
+    data?: unknown; 
+    error?: string | unknown; 
+    endpoint?: string; 
+    params?: Record<string, unknown>; 
+  }>>({});
   const [isLoading, setIsLoading] = useState(false);
 
-  const testEndpoint = async (name: string, endpoint: string, params?: Record<string, unknown>) => {
+  const testEndpoint = useCallback(async (name: string, endpoint: string, params?: Record<string, unknown>) => {
     try {
       const response = await modernApiClient.get(endpoint, params, { cache: false, force: true }); 
       setApiTests(prev => ({
@@ -36,9 +42,9 @@ export default function AdminDebugPage() {
         }
       }));
     }
-  };
+  }, []);
 
-  const runAllTests = async () => {
+  const runAllTests = useCallback(async () => {
     setIsLoading(true);
     setApiTests({});
 
@@ -54,11 +60,11 @@ export default function AdminDebugPage() {
     ]);
 
     setIsLoading(false);
-  };
+  }, [testEndpoint]);
 
   useEffect(() => {
     runAllTests();
-  }, []);
+  }, [runAllTests]);
 
   return (
     <div className="max-w-6xl mx-auto p-8">
@@ -106,7 +112,7 @@ export default function AdminDebugPage() {
 
         {Object.keys(apiTests).length === 0 && !isLoading && (
           <div className="text-center text-gray-500 py-8">
-            No test results yet. Click "Re-run Tests" to start.
+            No test results yet. Click &quot;Re-run Tests&quot; to start.
           </div>
         )}
       </div>

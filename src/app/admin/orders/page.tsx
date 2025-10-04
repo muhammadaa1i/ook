@@ -291,7 +291,7 @@ export default function AdminOrdersPage() {
       console.error(`❌ Admin: Refund processing error for order #${orderId}:`, error);
       toast.error(t('admin.orders.toasts.refundError'));
     }
-  }, [selectedOrderForRefund, t, fetchOrders]);
+  }, [selectedOrderForRefund, t, setOrders, setRefreshKey, setShowRefundDialog, setSelectedOrderForRefund]);
 
   const handleRefundCancel = useCallback(() => {
     console.log(`🔄 Admin: Refund dialog cancelled for order #${selectedOrderForRefund?.id || 'unknown'}`);

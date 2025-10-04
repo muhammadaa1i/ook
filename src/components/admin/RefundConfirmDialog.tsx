@@ -34,7 +34,7 @@ export default function RefundConfirmDialog({
       setIsSuccess(false);
       setCurrentOrderId(order.id);
     }
-  }, [isOpen, order?.id, currentOrderId]);
+  }, [isOpen, order?.id, currentOrderId, order]);
 
   const handleConfirm = async () => {
     if (!order || isProcessing || order.id !== currentOrderId) {
@@ -59,7 +59,7 @@ export default function RefundConfirmDialog({
       } else {
         setIsProcessing(false);
       }
-    } catch (error) {
+    } catch {
       setIsProcessing(false);
     }
   };

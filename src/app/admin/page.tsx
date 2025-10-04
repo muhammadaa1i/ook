@@ -51,7 +51,19 @@ export default function AdminDashboard() {
         
         if (!response) return 0;
         
-        const data = (response as any);
+        interface ApiResponse {
+          total?: number;
+          count?: number;
+          items?: unknown[];
+          data?: {
+            total?: number;
+            count?: number;
+            items?: unknown[];
+          } | unknown[];
+          [key: string]: unknown;
+        }
+        
+        const data = response as ApiResponse;
         
         // Try different possible response structures
         let count = 0;
@@ -61,12 +73,13 @@ export default function AdminDashboard() {
         else if (typeof data.count === 'number') count = data.count;
         
         // Nested in data object
-        else if (data.data) {
-          if (typeof data.data.total === 'number') count = data.data.total;
-          else if (typeof data.data.count === 'number') count = data.data.count;
-          else if (Array.isArray(data.data.items)) count = data.data.items.length;
-          else if (Array.isArray(data.data)) count = data.data.length;
+        else if (data.data && !Array.isArray(data.data)) {
+          const nestedData = data.data as { total?: number; count?: number; items?: unknown[] };
+          if (typeof nestedData.total === 'number') count = nestedData.total;
+          else if (typeof nestedData.count === 'number') count = nestedData.count;
+          else if (Array.isArray(nestedData.items)) count = nestedData.items.length;
         }
+        else if (Array.isArray(data.data)) count = data.data.length;
         
         // Direct items array
         else if (Array.isArray(data.items)) count = data.items.length;
@@ -76,12 +89,13 @@ export default function AdminDashboard() {
         else {
           const keys = Object.keys(data);
           for (const key of keys) {
-            if (Array.isArray(data[key])) {
-              count = data[key].length;
+            const value = data[key];
+            if (Array.isArray(value)) {
+              count = value.length;
               break;
             }
-            if (typeof data[key] === 'number' && (key.includes('total') || key.includes('count'))) {
-              count = data[key];
+            if (typeof value === 'number' && (key.includes('total') || key.includes('count'))) {
+              count = value;
               break;
             }
           }
@@ -167,13 +181,13 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  }, [t, statsState.stats]);
 
   useEffect(() => {
     fetchStats();
     
     // Set up automatic refresh every 30 seconds
-    let interval: NodeJS.Timeout;
+    let interval: NodeJS.Timeout | null = null;
     
     const startAutoRefresh = () => {
       if (autoRefresh && !interval) {
@@ -190,7 +204,7 @@ export default function AdminDashboard() {
     const stopAutoRefresh = () => {
       if (interval) {
         clearInterval(interval);
-        interval = undefined as any;
+        interval = null;
       }
     };
 
