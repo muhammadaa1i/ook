@@ -407,25 +407,16 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                <button
-                  onClick={handleAddToCart}
-                  className={`w-full py-3 px-3 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm ${cartItem
-                    ? 'bg-green-500 hover:bg-green-600 text-white'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                    }`}
-                >
-                  {cartItem ? (
-                    <>
-                      <Check className="h-5 w-5" />
-                      <span>{t('product.addToCart')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="h-5 w-5" />
-                      <span>{t('product.addToCart')}</span>
-                    </>
-                  )}
-                </button>
+                {/* Add to Cart Button - only show if not in cart */}
+                {!cartItem && (
+                  <button
+                    onClick={handleAddToCart}
+                    className="w-full py-3 px-3 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span>{t('product.addToCart')}</span>
+                  </button>
+                )}
               </div>
             )}
 

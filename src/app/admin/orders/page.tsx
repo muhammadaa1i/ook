@@ -83,6 +83,7 @@ export default function AdminOrdersPage() {
   // Refund state
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [selectedOrderForRefund, setSelectedOrderForRefund] = useState<Order | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Force re-render key
   // Search and global status filter removed
 
   // Debounced search removed
@@ -223,46 +224,80 @@ export default function AdminOrdersPage() {
 
   // Refund handling functions
   const handleRefundClick = useCallback((order: Order) => {
+    console.log(`🔄 Admin: Refund button clicked for order #${order.id}`);
+    
     if (!AdminRefundService.canOrderBeRefunded(order.status)) {
+      console.warn(`⚠️ Admin: Order #${order.id} cannot be refunded (status: ${order.status})`);
       toast.error(t('admin.orders.toasts.refundNotAllowed'));
       return;
     }
-    setSelectedOrderForRefund(order);
-    setShowRefundDialog(true);
+    
+    // Clear any previous selection first
+    setSelectedOrderForRefund(null);
+    setShowRefundDialog(false);
+    
+    // Small delay to ensure state is cleared
+    setTimeout(() => {
+      console.log(`✅ Admin: Opening refund dialog for order #${order.id}`);
+      setSelectedOrderForRefund(order);
+      setShowRefundDialog(true);
+    }, 50);
   }, [t]);
 
   const handleRefundConfirm = useCallback(async (orderId: number) => {
     if (!selectedOrderForRefund) return;
 
+    // Validate that the order ID matches the selected order
+    if (orderId !== selectedOrderForRefund.id) {
+      console.error(`❌ Order ID mismatch! Expected: ${selectedOrderForRefund.id}, Got: ${orderId}`);
+      toast.error(t('admin.orders.toasts.refundError'));
+      return;
+    }
+
     try {
-      console.log('Processing refund for order ID:', orderId);
+      console.log(`🔄 Admin: Processing refund for order #${orderId}`);
 
       const result = await AdminRefundService.processRefund({
         order_id: orderId
       });
 
       if (result.success) {
-        // Enhanced success message with order details
+        // Enhanced success message with translation
+        console.log(`✅ Admin: Refund successful for order #${orderId}`);
         toast.success(t('admin.orders.toasts.refundSuccess'));
-        // Refresh orders to update status
-        fetchOrders();
+        
+        // Immediately update the order status in local state
+        setOrders(prevOrders => {
+          const updatedOrders = prevOrders.map(order => 
+            order.id === orderId 
+              ? { ...order, status: 'REFUNDED' as const }
+              : order
+          );
+          console.log(`🔄 Admin: Updated orders state for order #${orderId}`, updatedOrders);
+          return updatedOrders;
+        });
+        
+        // Force component re-render
+        setRefreshKey(prev => prev + 1);
+        
         // Close the dialog
         setShowRefundDialog(false);
         setSelectedOrderForRefund(null);
       } else {
-        console.error('Refund failed:', result);
+        console.error(`❌ Admin: Refund failed for order #${orderId}:`, result);
         toast.error(result.message || t('admin.orders.toasts.refundError'));
       }
     } catch (error) {
-      console.error('Refund processing error:', error);
+      console.error(`❌ Admin: Refund processing error for order #${orderId}:`, error);
       toast.error(t('admin.orders.toasts.refundError'));
     }
   }, [selectedOrderForRefund, t, fetchOrders]);
 
   const handleRefundCancel = useCallback(() => {
+    console.log(`🔄 Admin: Refund dialog cancelled for order #${selectedOrderForRefund?.id || 'unknown'}`);
     setShowRefundDialog(false);
     setSelectedOrderForRefund(null);
-  }, []);
+  }, [selectedOrderForRefund?.id]);
 
   // Status change dropdown removed from UI; handler not needed
 
@@ -431,9 +466,9 @@ export default function AdminOrdersPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200" key={refreshKey}>
                     {orders.map((order) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
+                      <tr key={`${order.id}-${refreshKey}`} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             #{order.id}
@@ -494,9 +529,9 @@ export default function AdminOrdersPage() {
               </div>
 
               {/* Tablet/Mobile Cards */}
-              <div className="xl:hidden divide-y divide-gray-900">
+              <div className="xl:hidden divide-y divide-gray-900" key={`mobile-${refreshKey}`}>
                 {orders.map((order) => (
-                  <div key={order.id} className="p-4 lg:p-6 hover:bg-gray-50 transition-colors">
+                  <div key={`mobile-${order.id}-${refreshKey}`} className="p-4 lg:p-6 hover:bg-gray-50 transition-colors">
                     {/* Order Header */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-sm lg:text-base font-medium text-gray-900">
@@ -598,6 +633,7 @@ export default function AdminOrdersPage() {
 
       {/* Refund Confirmation Dialog */}
       <RefundConfirmDialog
+        key={selectedOrderForRefund?.id || 'no-order'} // Force re-render when order changes
         isOpen={showRefundDialog}
         order={selectedOrderForRefund}
         onConfirm={handleRefundConfirm}

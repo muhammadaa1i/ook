@@ -12,7 +12,10 @@ function PaymentFailureContent() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
-  const transferId = searchParams.get('transfer_id') || searchParams.get('octo_payment_UUID');
+  const transferId = searchParams.get('transfer_id') || 
+                     searchParams.get('octo_payment_UUID') || 
+                     searchParams.get('payment_uuid') || 
+                     searchParams.get('octo-status');
 
   useEffect(() => {
     if (!transferId) {

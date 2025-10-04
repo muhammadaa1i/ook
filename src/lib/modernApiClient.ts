@@ -320,7 +320,8 @@ class ModernApiClient {
           (window.location.pathname.includes('/payment/') || 
            window.location.search.includes('transfer_id') ||
            window.location.search.includes('payment_uuid') ||
-           window.location.search.includes('octo_payment_UUID'));
+           window.location.search.includes('octo_payment_UUID') ||
+           window.location.search.includes('octo-status'));
            
         if (!isPaymentFlow) {
           // Clear auth data & notify app to logout only if not in payment flow

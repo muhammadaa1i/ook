@@ -81,7 +81,9 @@ api.interceptors.response.use(
         const isPaymentFlow = typeof window !== "undefined" &&
           (window.location.pathname.includes('/payment/') ||
             window.location.search.includes('transfer_id') ||
-            window.location.search.includes('payment_uuid'));
+            window.location.search.includes('payment_uuid') ||
+            window.location.search.includes('octo_payment_UUID') ||
+            window.location.search.includes('octo-status'));
 
         if (!isPaymentFlow) {
           Cookies.remove("access_token");

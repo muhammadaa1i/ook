@@ -1,18 +1,49 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter, useSearchParams } from "next/navigation";
 
-
-export default function HomePage() {
+function HomePageContent() {
   const { t } = useI18n();
   const { isAuthenticated, user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Check if user is admin
   const isAdmin = user?.is_admin || false;
+  
+  // Handle payment return redirects
+  useEffect(() => {
+    const octoStatus = searchParams.get('octo-status');
+    const transferId = searchParams.get('transfer_id') || 
+                      searchParams.get('octo_payment_UUID') || 
+                      searchParams.get('payment_uuid');
+    
+    // If payment-related parameters are present, redirect to appropriate payment page
+    if (octoStatus || transferId) {
+      console.log('Payment return detected on home page, redirecting...', { octoStatus, transferId });
+      
+      if (octoStatus === 'succeeded' || transferId) {
+        // Redirect to success page with all available parameters
+        const params = new URLSearchParams();
+        if (transferId) params.set('transfer_id', transferId);
+        if (octoStatus) params.set('octo-status', octoStatus);
+        
+        router.replace(`/payment/success?${params.toString()}`);
+      } else if (octoStatus === 'failed' || octoStatus === 'cancelled') {
+        // Redirect to failure page
+        const params = new URLSearchParams();
+        if (transferId) params.set('transfer_id', transferId);
+        if (octoStatus) params.set('octo-status', octoStatus);
+        
+        router.replace(`/payment/failure?${params.toString()}`);
+      }
+    }
+  }, [searchParams, router]);
   
   return (
     <>
@@ -53,5 +84,13 @@ export default function HomePage() {
         </div>
       </section>
     </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomePageContent />
+    </Suspense>
   );
 }

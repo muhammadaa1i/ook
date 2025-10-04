@@ -115,7 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const isPaymentPage = window.location.pathname.includes('/payment/') ||
         window.location.search.includes('transfer_id') ||
         window.location.search.includes('payment_uuid') ||
-        window.location.search.includes('octo_payment_UUID');
+        window.location.search.includes('octo_payment_UUID') ||
+        window.location.search.includes('octo-status');
 
       if (!isPaymentPage) {
         setUser(null);
@@ -137,7 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const isPaymentReturn = window.location.pathname.includes('/payment/') &&
         (window.location.search.includes('transfer_id') ||
           window.location.search.includes('payment_uuid') ||
-          window.location.search.includes('octo_payment_UUID'));
+          window.location.search.includes('octo_payment_UUID') ||
+          window.location.search.includes('octo-status'));
 
       if (isPaymentReturn) {
         console.log("Payment return detected, preserving authentication...");

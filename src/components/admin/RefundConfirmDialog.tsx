@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Order } from '@/types';
 import { formatPrice } from '@/lib/utils';
 import { useI18n } from '@/i18n';
@@ -20,28 +20,60 @@ export default function RefundConfirmDialog({
   const { t } = useI18n();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
+
+  // Reset state when dialog opens/closes or order changes
+  useEffect(() => {
+    if (!isOpen || !order) {
+      setIsProcessing(false);
+      setIsSuccess(false);
+      setCurrentOrderId(null);
+    } else if (order && order.id !== currentOrderId) {
+      // Order changed - reset states and track new order
+      setIsProcessing(false);
+      setIsSuccess(false);
+      setCurrentOrderId(order.id);
+    }
+  }, [isOpen, order?.id, currentOrderId]);
 
   const handleConfirm = async () => {
-    if (!order || isProcessing) return;
+    if (!order || isProcessing || order.id !== currentOrderId) {
+      return;
+    }
     
     try {
-      setIsProcessing(true);
-      console.log('Processing refund for order ID:', order.id);
+      setIsProcessing(true);      
       await onConfirm(order.id);
       
-      // Show success state briefly before closing
-      setIsSuccess(true);
-      setTimeout(() => {
-        onCancel(); // Close dialog after showing success
-      }, 1500);
-    } catch {
-      // Error handling is done in parent component
+      // Only show success if this is still the current order
+      if (order.id === currentOrderId) {
+        setIsSuccess(true);
+        setTimeout(() => {
+          // Double-check order ID before closing
+          if (order.id === currentOrderId) {
+            setIsSuccess(false);
+            setIsProcessing(false);
+            onCancel();
+          }
+        }, 1500);
+      } else {
+        setIsProcessing(false);
+      }
+    } catch (error) {
       setIsProcessing(false);
     }
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isProcessing) {
+      handleCancel();
+    }
+  };
+
+  const handleCancel = () => {
+    if (!isProcessing) {
+      setIsSuccess(false);
+      setIsProcessing(false);
       onCancel();
     }
   };
@@ -72,9 +104,9 @@ export default function RefundConfirmDialog({
             </h3>
           </div>
           <button
-            onClick={onCancel}
+            onClick={handleCancel}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            disabled={isProcessing || isSuccess}
+            disabled={isProcessing}
           >
             <X className="h-5 w-5 text-gray-400" />
           </button>
@@ -126,7 +158,7 @@ export default function RefundConfirmDialog({
         <div className="flex gap-3 p-6 bg-gray-50 rounded-b-lg">
           {!isSuccess && (
             <button
-              onClick={onCancel}
+              onClick={handleCancel}
               className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isProcessing}
             >
@@ -134,7 +166,7 @@ export default function RefundConfirmDialog({
             </button>
           )}
           <button
-            onClick={isSuccess ? onCancel : handleConfirm}
+            onClick={isSuccess ? handleCancel : handleConfirm}
             className={`${isSuccess ? 'w-full' : 'flex-1'} px-4 py-2 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
               isSuccess 
                 ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' 

@@ -17,7 +17,10 @@ function PaymentSuccessContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const transferId = searchParams.get('transfer_id') || searchParams.get('octo_payment_UUID');
+  const transferId = searchParams.get('transfer_id') || 
+                     searchParams.get('octo_payment_UUID') || 
+                     searchParams.get('payment_uuid') || 
+                     searchParams.get('octo-status');
 
   const updateOrderStatus = useCallback(async () => {
     try {
