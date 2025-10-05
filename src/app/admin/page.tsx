@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Users, Package, ShoppingCart, TrendingUp, RefreshCw, CheckCircle } from "lucide-react";
+import { Users, Package, ShoppingCart } from "lucide-react";
 import { useI18n } from "@/i18n";
 import modernApiClient from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
@@ -11,9 +11,6 @@ interface DashboardStats {
   totalUsers: number;
   totalProducts: number;
   totalOrders: number;
-  pendingOrders: number;
-  refundedOrders: number;
-  successfulOrders: number;
 }
 
 export default function AdminDashboard() {
@@ -22,9 +19,6 @@ export default function AdminDashboard() {
     totalUsers: 0,
     totalProducts: 0,
     totalOrders: 0,
-    pendingOrders: 0,
-    refundedOrders: 0,
-    successfulOrders: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -101,71 +95,20 @@ export default function AdminDashboard() {
         }
       };
 
-      // Special function for refunded orders - try both cases
-      const fetchRefundedOrders = async () => {
-        try {
-          // Try uppercase first
-          const upperCaseResponse = await modernApiClient.get(API_ENDPOINTS.ORDERS, { status: 'REFUNDED', limit: 1, _nc: now }, { cache: false, force: true });
-          const upperCaseCount = extractCount(upperCaseResponse);
-          
-          // If uppercase returns results, use it
-          if (upperCaseCount > 0) return upperCaseCount;
-          
-          // Otherwise try lowercase
-          const lowerCaseResponse = await modernApiClient.get(API_ENDPOINTS.ORDERS, { status: 'refunded', limit: 1, _nc: now }, { cache: false, force: true });
-          return extractCount(lowerCaseResponse);
-        } catch (error) {
-          console.error('Error fetching refunded orders:', error);
-          return 0;
-        }
-      };
-
-      // Special function for successful orders - try multiple success statuses
-      const fetchSuccessfulOrders = async () => {
-        try {
-          const successStatuses = ['PAID', 'confirmed', 'delivered', 'shipped'];
-          let totalSuccessful = 0;
-          
-          // Try each success status and sum the results
-          for (const status of successStatuses) {
-            try {
-              const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, { status, limit: 1, _nc: now }, { cache: false, force: true });
-              totalSuccessful += extractCount(response);
-            } catch (error) {
-              console.error(`Error fetching orders with status ${status}:`, error);
-            }
-          }
-          
-          return totalSuccessful;
-        } catch (error) {
-          console.error('Error fetching successful orders:', error);
-          return 0;
-        }
-      };
-
       const [
         totalUsers,
         totalProducts,
         totalOrders,
-        pendingOrders,
-        refundedOrders,
-        successfulOrders,
       ] = await Promise.all([
         fetchStat(API_ENDPOINTS.USERS),
         fetchStat(API_ENDPOINTS.SLIPPERS),
         fetchStat(API_ENDPOINTS.ORDERS),
-        fetchStat(API_ENDPOINTS.ORDERS, { status: 'pending' }),
-        fetchRefundedOrders(),
-        fetchSuccessfulOrders(),
       ]);
 
       setStats({
         totalUsers,
         totalProducts,
         totalOrders,
-        pendingOrders,
-        refundedOrders,
-        successfulOrders,
       });
       
     } catch (error) {
@@ -183,9 +126,6 @@ export default function AdminDashboard() {
     { title: t('admin.dashboard.stats.totalUsers'), value: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
     { title: t('admin.dashboard.stats.totalProducts'), value: stats.totalProducts, icon: Package, color: 'bg-green-500' },
     { title: t('admin.dashboard.stats.totalOrders'), value: stats.totalOrders, icon: ShoppingCart, color: 'bg-purple-500' },
-    { title: t('admin.dashboard.stats.pendingOrders'), value: stats.pendingOrders, icon: TrendingUp, color: 'bg-orange-500' },
-    { title: t('admin.dashboard.stats.refundedOrders'), value: stats.refundedOrders, icon: RefreshCw, color: 'bg-red-500' },
-    { title: t('admin.dashboard.stats.successfulOrders'), value: stats.successfulOrders, icon: CheckCircle, color: 'bg-emerald-500' },
   ];
 
   return (
@@ -200,7 +140,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
           {statCards.map((card, index) => {
             const Icon = card.icon;
             
