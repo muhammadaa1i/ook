@@ -145,20 +145,32 @@ export default function OrdersPage() {
       const enrichedOrders = await Promise.all(
         data.map(async (order) => {
           console.log("Processing order:", order.id, "Items:", order.items);
+          console.log("Items details:", order.items.map(item => ({
+            id: item.id,
+            slipper_id: item.slipper_id,
+            name: item.name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            image: item.image
+          })));
           
           // Remove duplicates and consolidate items by slipper_id
           const itemMap = new Map<number, OrderItem>();
           
           order.items.forEach((item) => {
             const key = item.slipper_id;
+            console.log(`Processing item with slipper_id: ${key}, quantity: ${item.quantity}, price: ${item.unit_price}`);
+            
             if (itemMap.has(key)) {
               // Consolidate quantities if same product
               const existing = itemMap.get(key);
               if (existing) {
+                console.log(`Consolidating: existing quantity ${existing.quantity} + new quantity ${item.quantity}`);
                 existing.quantity += item.quantity;
                 existing.total_price = existing.unit_price * existing.quantity;
               }
             } else {
+              console.log(`Adding new item with slipper_id: ${key}`);
               itemMap.set(key, {
                 ...item,
                 total_price: item.unit_price * item.quantity
@@ -169,8 +181,27 @@ export default function OrdersPage() {
           const uniqueItems = Array.from(itemMap.values());
           console.log("Consolidated items:", uniqueItems);
           
+          // Filter out items that don't have proper product data
+          const validItems = uniqueItems.filter(item => {
+            const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+            const hasValidPrice = item.unit_price && item.unit_price > 0;
+            
+            if (!hasValidProduct || !hasValidPrice) {
+              console.log("Filtering out invalid item:", {
+                slipper_id: item.slipper_id,
+                name: item.name,
+                slipper_name: item.slipper?.name,
+                unit_price: item.unit_price
+              });
+              return false;
+            }
+            return true;
+          });
+          
+          console.log("Valid items after filtering:", validItems);
+          
           const enrichedItems = await Promise.all(
-            uniqueItems.map(async (item) => {
+            validItems.map(async (item) => {
               try {
                 // If item doesn't have complete slipper data, fetch it
                 if (!item.slipper || (!item.slipper.images && !item.slipper.image)) {
@@ -337,16 +368,32 @@ export default function OrdersPage() {
 
         {/* product preview */}
         <div className="flex gap-2 overflow-x-auto mb-4">
-          {order.items.slice(0, 3).map((item, index) => {
+          {order.items
+            .filter(item => {
+              // Only show items with valid product data
+              const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+              const hasValidPrice = item.unit_price && item.unit_price > 0;
+              return hasValidProduct && hasValidPrice;
+            })
+            .slice(0, 3)
+            .map((item, index) => {
             return (
               <div key={index} className="flex-shrink-0">
                 <ProductCarousel item={item} />
               </div>
             );
           })}
-          {order.items.length > 3 && (
+          {order.items.filter(item => {
+            const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+            const hasValidPrice = item.unit_price && item.unit_price > 0;
+            return hasValidProduct && hasValidPrice;
+          }).length > 3 && (
             <div className="flex-shrink-0 h-16 w-16 bg-gray-100 rounded-md flex items-center justify-center text-xs font-medium text-gray-600">
-              +{order.items.length - 3}
+              +{order.items.filter(item => {
+                const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+                const hasValidPrice = item.unit_price && item.unit_price > 0;
+                return hasValidProduct && hasValidPrice;
+              }).length - 3}
             </div>
           )}
         </div>
@@ -355,7 +402,11 @@ export default function OrdersPage() {
           <div className="text-sm text-gray-600 flex items-center gap-4">
             <span>
               <Package className="h-4 w-4 inline mr-1" />
-              {order.items.length}
+              {order.items.filter(item => {
+                const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+                const hasValidPrice = item.unit_price && item.unit_price > 0;
+                return hasValidProduct && hasValidPrice;
+              }).length}
             </span>
             {order.payment_method && (
               <span>
@@ -411,7 +462,14 @@ export default function OrdersPage() {
             </button>
           </div>
           <div className="space-y-4">
-            {selectedOrder.items.map((item, index) => (
+            {selectedOrder.items
+              .filter(item => {
+                // Only show items with valid product data
+                const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+                const hasValidPrice = item.unit_price && item.unit_price > 0;
+                return hasValidProduct && hasValidPrice;
+              })
+              .map((item, index) => (
               <div key={`${item.slipper_id}-${index}`} className="flex gap-4 items-center p-2 border rounded">
                 <ProductCarousel item={item} />
                 <div className="flex-1">
@@ -433,7 +491,13 @@ export default function OrdersPage() {
             <div className="border-t pt-4">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>Количество товаров:</span>
-                <span>{selectedOrder.items.reduce((total, item) => total + item.quantity, 0)}</span>
+                <span>{selectedOrder.items
+                  .filter(item => {
+                    const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+                    const hasValidPrice = item.unit_price && item.unit_price > 0;
+                    return hasValidProduct && hasValidPrice;
+                  })
+                  .reduce((total, item) => total + item.quantity, 0)}</span>
               </div>
               <div className="flex justify-between font-bold text-lg">
                 <span>{t("orders.modal.total")}:</span>
