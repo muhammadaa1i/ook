@@ -386,9 +386,6 @@ export default function AdminCategoriesPage() {
                             <div className="text-sm font-medium text-gray-900">
                               {category.name}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              ID: {category.id}
-                            </div>
                           </div>
                         </div>
                       </td>

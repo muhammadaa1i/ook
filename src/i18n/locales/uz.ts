@@ -120,7 +120,7 @@
     }
   },
   auth: {
-    login: 'Tizimga kirish',
+    login: 'Tizimga kiring',
     register: 'Roʻyxatdan oʻtish',
     name: 'Foydalanuvchi nomi',
     namePlaceholder: 'Foydalanuvchi nomi',
@@ -133,7 +133,7 @@
     phonePlaceholder: '+998901234567',
     forgotPassword: 'Parolni unutdingizmi?',
     orCreate: 'Roʻyxatdan oʻting',
-    orLogin: 'Tizimga kirish',
+    orLogin: 'Tizimga kiring',
     logoutConfirmTitle: 'Tizimdan chiqishni xohlaysizmi?',
     logoutConfirmMessage: 'Sessiyani yakunlamoqchimisiz?',
     logoutConfirmButton: 'Chiqish',
@@ -413,6 +413,7 @@
       table: {
         order: 'Buyurtma',
         client: 'Mijoz',
+        phone: 'Telefon',
         items: 'Mahsulotlar',
         amount: 'Summa',
         status: 'Holat',

@@ -62,7 +62,7 @@ export default function ProductDetailPage() {
 
           if (Array.isArray(imgs) && imgs.length) {
             const embedded = (productData.images as unknown as ImgRec[]) || [];
-            
+
             // Merge by id (avoid duplicates)
             const mergedMap = new Map<number, ImgRec>();
 
@@ -70,21 +70,21 @@ export default function ProductDetailPage() {
             [...embedded, ...imgs].forEach((img) => {
               if (!mergedMap.has(img.id)) mergedMap.set(img.id, img);
             });
-            
+
             const merged = Array.from(mergedMap.values());
             // Ensure exactly one primary (fallback to first if none)
-            
+
             if (!merged.some((m) => m.is_primary)) {
               if (merged.length) merged[0] = { ...merged[0], is_primary: true };
             }
-            
+
             productData = { ...productData, images: merged as unknown as Slipper["images"] };
- 
+
           }
           console.log(productData);
         } catch {
           console.log("Image loading error");
-          
+
           // Gallery images load failed (non-critical)
         }
       }
@@ -138,22 +138,22 @@ export default function ProductDetailPage() {
 
     const list: string[] = [];
 
-    
+
     if (product.images && product.images.length) {
       const primary = product.images.find((i) => i.is_primary);
 
       if (primary) list.push(getFullImageUrl(primary.image_path));
-      
+
       product.images.forEach((img) => {
         const full = getFullImageUrl(img.image_path);
 
         if (!list.includes(full)) list.push(full);
       });
-    
+
     } else if (product?.image) {
       list.push(getFullImageUrl(product.image));
     }
-    
+
     return list.length ? list : ["/placeholder-product.svg"];
   })();
 
@@ -201,7 +201,7 @@ export default function ProductDetailPage() {
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
-  
+
   const onTouchEnd = (e: React.TouchEvent) => {
     touchEndX.current = e.changedTouches[0].clientX;
     if (touchStartX.current == null || touchEndX.current == null) return;
@@ -329,24 +329,15 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Info */}
-          <div className="w-full lg:w-1/2 flex flex-col justify-between">
-            {/* Cart Status Indicator */}
-            {cartItem && (
-              <div className="flex items-center justify-between mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                <div className="flex items-center space-x-2">
-                  <Check className="h-5 w-5 text-green-600" />
-                  <span className="text-green-800 font-medium">
-                    {t('cart.inCart')}: {cartQuantity}
-                  </span>
-                </div>
-              </div>
-            )}
+          <div className="w-full lg:w-1/2 flex flex-col">
 
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            {/* Product Name - Moved to Top */}
+            <h1 className="text-3xl font-bold text-gray-900 mb-6">
               {product.name}
             </h1>
 
-            <div className="space-y-4 mb-6">
+            {/* Price and Stock */}
+            <div className="space-y-3 mb-6">
               <div className="flex items-center justify-between">
                 <span className="text-lg text-gray-600">{t('product.price')}:</span>
                 <span className="text-2xl font-bold text-blue-600">
@@ -365,16 +356,16 @@ export default function ProductDetailPage() {
                     : t('product.notAvailable')}
                 </span>
               </div>
-
-              {product.category_name && (
-                <div className="flex items-center justify-between">
-                  <span className="text-lg text-gray-600">{t('product.category')}:</span>
-                  <span className="text-lg font-medium text-gray-900">
-                    {product.category_name}
-                  </span>
-                </div>
-              )}
             </div>
+
+            {product.category_name && (
+              <div className="flex items-center justify-between mb-6">
+                <span className="text-lg text-gray-600">{t('product.category')}:</span>
+                <span className="text-lg font-medium text-gray-900">
+                  {product.category_name}
+                </span>
+              </div>
+            )}
 
             {/* Quantity selector and Add to Cart (hidden for admins) */}
             {product.quantity >= MIN_ORDER && !user?.is_admin && (
@@ -408,15 +399,28 @@ export default function ProductDetailPage() {
                 )}
 
                 {/* Add to Cart Button - only show if not in cart */}
-                {!cartItem && (
-                  <button
-                    onClick={handleAddToCart}
-                    className="w-full py-3 px-3 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    <span>{t('product.addToCart')}</span>
-                  </button>
-                )}
+              </div>
+            )}
+
+            {!cartItem && (
+              <button
+                onClick={handleAddToCart}
+                className="w-full py-3 px-3 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <span>{t('product.addToCart')}</span>
+              </button>
+            )}
+
+            {/* Cart Status Indicator */}
+            {cartItem && (
+              <div className="flex items-center justify-between my-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                <div className="flex items-center space-x-2">
+                  <Check className="h-5 w-5 text-green-600" />
+                  <span className="text-green-800 font-medium">
+                    {t('cart.inCart')}: {cartQuantity}
+                  </span>
+                </div>
               </div>
             )}
 

@@ -136,7 +136,6 @@ const ProductRow: React.FC<ProductRowProps> = ({
             <div className="text-sm font-medium text-gray-900">
               {product.name}
             </div>
-            <div className="text-sm text-gray-500">ID: {product.id}</div>
           </div>
         </div>
       </td>
@@ -261,7 +260,6 @@ const ProductRow: React.FC<ProductRowProps> = ({
                 </button>
               </div>
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
-                <span>ID: {product.id}</span>
                 <span>{formatPrice(product.price)}</span>
                 {product.size && <span>{product.size}</span>}
               </div>

@@ -528,6 +528,7 @@ export default {
       table: {
         order: 'Заказ',
         client: 'Клиент',
+        phone: 'Телефон',
         items: 'Товары',
         amount: 'Сумма',
         status: 'Статус',

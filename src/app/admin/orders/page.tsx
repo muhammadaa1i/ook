@@ -444,9 +444,6 @@ export default function AdminOrdersPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        {t('admin.orders.table.order')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {t('admin.orders.table.client')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -469,11 +466,6 @@ export default function AdminOrdersPage() {
                   <tbody className="bg-white divide-y divide-gray-200" key={refreshKey}>
                     {orders.map((order) => (
                       <tr key={`${order.id}-${refreshKey}`} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            #{order.id}
-                          </div>
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.orders.unspecifiedUser')}{" "}
@@ -535,7 +527,8 @@ export default function AdminOrdersPage() {
                     {/* Order Header */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-sm lg:text-base font-medium text-gray-900">
-                        #{order.id}
+                        {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.orders.unspecifiedUser')}{" "}
+                        {order.user?.surname || ""}
                       </div>
                       <span
                         className={`inline-flex items-center px-2 py-1 text-xs lg:text-sm font-semibold rounded-full ${
@@ -549,24 +542,18 @@ export default function AdminOrdersPage() {
                       </span>
                     </div>
 
-                    {/* Customer Info */}
-                    <div className="mb-4">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                        {t('admin.orders.table.client')}
-                      </div>
-                      <div className="text-sm lg:text-base text-gray-900">
-                        {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.orders.unspecifiedUser')}{" "}
-                        {order.user?.surname || ""}
-                      </div>
-                      {order.user?.phone_number && (
-                        <div className="text-sm text-gray-500">
-                          {order.user.phone_number}
-                        </div>
-                      )}
-                    </div>
-
                     {/* Order Details Grid - Better for tablet screens */}
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm lg:text-base">
+                      {order.user?.phone_number && (
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                            {t('admin.orders.table.phone')}
+                          </div>
+                          <div className="text-gray-900">
+                            {order.user.phone_number}
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
                           {t('admin.orders.table.items')}
