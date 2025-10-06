@@ -279,10 +279,7 @@
       stats: {
         totalUsers: 'Jami foydalanuvchilar',
         totalProducts: 'Jami mahsulotlar',
-        totalOrders: 'Jami buyurtmalar',
-        pendingOrders: 'Kutilayotgan buyurtmalar',
-        refundedOrders: 'Qaytarilgan buyurtmalar',
-        successfulOrders: 'Muvaffaqiyatli buyurtmalar'
+        totalOrders: 'Jami buyurtmalar'
       },
       quickActions: {
         title: 'Tezkor amallar',

@@ -20,14 +20,14 @@ export default function AdminDashboard() {
     totalProducts: 0,
     totalOrders: 0,
   });
-  const [isLoading, setIsLoading] = useState(true);
+
+  const [isLoading, setIsLoading] = useState(true)
 
   const fetchStats = useCallback(async () => {
     try {
       setIsLoading(true);
       const now = Date.now();
       
-      // Helper function to safely extract count from various response formats
       const extractCount = (response: unknown): number => {
         if (!response) return 0;
         
@@ -135,6 +135,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('admin.dashboard.title')}</h1>
+              <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">{t('admin.dashboard.welcome')}</p>
             </div>
           </div>
         </div>

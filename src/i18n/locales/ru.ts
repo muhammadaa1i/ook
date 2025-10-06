@@ -668,10 +668,7 @@ export default {
       stats: {
         totalUsers: 'Всего пользователей',
         totalProducts: 'Всего товаров',
-        totalOrders: 'Всего заказов',
-        pendingOrders: 'Ожидающие заказы',
-        refundedOrders: 'Возвращенные заказы',
-        successfulOrders: 'Успешные заказы'
+        totalOrders: 'Всего заказов'
       },
       quickActions: {
         title: 'Быстрые действия',
