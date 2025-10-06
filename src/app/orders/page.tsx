@@ -19,13 +19,21 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { Order } from "@/types";
+import { Order, OrderItem, Slipper } from "@/types";
 
 import { RefundContactModal } from "@/components/ui/RefundContactModal";
 
 /* ------------------------- Carousel ------------------------- */
 function ProductCarousel({ item }: {
-  item: any; // OrderItem with slipper data
+  item: {
+    image?: string;
+    slipper?: {
+      name?: string;
+      image?: string;
+      images?: Array<{ image_path: string; is_primary?: boolean }>;
+    };
+    name?: string;
+  };
 }) {
   // Try to get image from multiple sources
   const getImageSource = () => {
@@ -36,7 +44,7 @@ function ProductCarousel({ item }: {
     
     // 2. Check if slipper has images array with primary image
     if (item.slipper?.images && Array.isArray(item.slipper.images) && item.slipper.images.length > 0) {
-      const primaryImage = item.slipper.images.find((img: any) => img.is_primary);
+      const primaryImage = item.slipper.images.find((img) => img.is_primary);
       if (primaryImage?.image_path) {
         return primaryImage.image_path;
       }
@@ -129,7 +137,7 @@ export default function OrdersPage() {
       const response = await modernApiClient.get(API_ENDPOINTS.ORDERS);
 
       // Agar API ro'yxat qaytarsa:
-      let data: Order[] = Array.isArray(response) ? response : [];
+      const data: Order[] = Array.isArray(response) ? response : [];
 
       console.log("Raw orders data:", data);
 
@@ -139,16 +147,17 @@ export default function OrdersPage() {
           console.log("Processing order:", order.id, "Items:", order.items);
           
           // Remove duplicates and consolidate items by slipper_id
-          const consolidatedItems: any[] = [];
-          const itemMap = new Map();
+          const itemMap = new Map<number, OrderItem>();
           
-          order.items.forEach((item: any) => {
+          order.items.forEach((item) => {
             const key = item.slipper_id;
             if (itemMap.has(key)) {
               // Consolidate quantities if same product
               const existing = itemMap.get(key);
-              existing.quantity += item.quantity;
-              existing.total_price = existing.unit_price * existing.quantity;
+              if (existing) {
+                existing.quantity += item.quantity;
+                existing.total_price = existing.unit_price * existing.quantity;
+              }
             } else {
               itemMap.set(key, {
                 ...item,
@@ -170,28 +179,31 @@ export default function OrdersPage() {
                     { include_images: true },
                     { cache: false }
                   );
-                  const slipperData = (slipperResponse as { data?: any })?.data || slipperResponse;
+                  const slipperData = (slipperResponse as { data?: unknown })?.data || slipperResponse;
                   
                   // Fetch images separately if not included
-                  if (slipperData && (!slipperData.images || slipperData.images.length === 0)) {
-                    try {
-                      const imagesResponse = await modernApiClient.get(
-                        API_ENDPOINTS.SLIPPER_IMAGES(item.slipper_id),
-                        undefined,
-                        { cache: false }
-                      );
-                      const images = (imagesResponse as { data?: any[] })?.data || imagesResponse;
-                      if (Array.isArray(images) && images.length > 0) {
-                        slipperData.images = images;
+                  if (slipperData && typeof slipperData === 'object' && slipperData !== null) {
+                    const slipper = slipperData as Record<string, unknown>;
+                    if (!slipper.images || (Array.isArray(slipper.images) && slipper.images.length === 0)) {
+                      try {
+                        const imagesResponse = await modernApiClient.get(
+                          API_ENDPOINTS.SLIPPER_IMAGES(item.slipper_id),
+                          undefined,
+                          { cache: false }
+                        );
+                        const images = (imagesResponse as { data?: unknown[] })?.data || imagesResponse;
+                        if (Array.isArray(images) && images.length > 0) {
+                          slipper.images = images;
+                        }
+                      } catch (imageError) {
+                        console.log(`Failed to fetch images for slipper ${item.slipper_id}:`, imageError);
                       }
-                    } catch (imageError) {
-                      console.log(`Failed to fetch images for slipper ${item.slipper_id}:`, imageError);
                     }
                   }
                   
                   return {
                     ...item,
-                    slipper: slipperData
+                    slipper: slipperData as Slipper
                   };
                 }
                 return item;
