@@ -5,13 +5,14 @@ import { useI18n } from "@/i18n";
 import { Instagram, Phone, Send } from "lucide-react";
 import i1 from '../../../public/payments/i1.png'
 import i2 from '../../../public/payments/i2.png'
+import i3 from '../../../public/payments/i3.png'
 
 const Footer = () => {
   const { t } = useI18n();
   return (
     <footer className="bg-gray-50 border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand Section */}
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <div className="flex items-center space-x-3 mb-4">
@@ -35,8 +36,8 @@ const Footer = () => {
             <h4 className="text-lg font-semibold text-gray-900 mb-4">{t('footer.contactUs')}</h4>
             <div className="space-y-3">
               {/* Phone */}
-              <a 
-                href="tel:+998950210207" 
+              <a
+                href="tel:+998950210207"
                 className="flex items-center space-x-3 text-gray-600 hover:text-blue-600 transition-colors group"
               >
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 group-hover:bg-blue-100 transition-colors">
@@ -46,9 +47,9 @@ const Footer = () => {
               </a>
 
               {/* Telegram */}
-              <a 
-                href="https://t.me/elbek_s101" 
-                target="_blank" 
+              <a
+                href="https://t.me/elbek_s101"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-3 text-gray-600 hover:text-blue-500 transition-colors group"
               >
@@ -66,9 +67,9 @@ const Footer = () => {
             <div className="flex flex-col items-center md:items-start space-y-4">
               {/* Instagram */}
               <div className="flex items-center space-x-3">
-                <a 
-                  href="https://www.instagram.com/velora_shoes.uz?igsh=MW5tZ2RqajNwYTdiYg==" 
-                  target="_blank" 
+                <a
+                  href="https://www.instagram.com/velora_shoes.uz?igsh=MW5tZ2RqajNwYTdiYg=="
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
                   title="Instagram"
@@ -79,12 +80,12 @@ const Footer = () => {
                   @velora_shoes.uz
                 </p>
               </div>
-              
+
               {/* Telegram Channel */}
               <div className="flex items-center space-x-3">
-                <a 
-                  href="https://t.me/ElbekoptomEshonguzar" 
-                  target="_blank" 
+                <a
+                  href="https://t.me/ElbekoptomEshonguzar"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
                   title="Telegram Channel"
@@ -110,13 +111,19 @@ const Footer = () => {
               <div className="flex items-center justify-center hover:shadow-md transition-shadow">
                 <Image src="/payments/mastercard.svg" alt="Mastercard" width={90} height={45} className="object-contain" />
               </div>
-              {/* HUMO (your provided PNG) */}
+              {/* UnionPay */}
+              <div className="flex items-center justify-center bg-white rounded border border-gray-200 hover:shadow-md transition-shadow">
+                <Image src={i3} alt="UnionPay" width={56} height={30} className="object-contain" />
+              </div>
+              {/* HUMO */}
               <div className="flex items-center justify-center bg-white rounded border border-gray-200 hover:shadow-md transition-shadow">
                 <Image src={i1} alt="Humo" width={56} height={30} className="object-contain" />
               </div>
-              {/* UZCARD (your provided PNG) */}
-              <div className="flex items-center justify-center p-1 bg-white rounded border border-gray-200 hover:shadow-md transition-shadow">
-                <Image src={i2} alt="Uzcard" width={56} height={30} className="object-contain" />
+              {/* UZCARD - Centered */}
+              <div className="col-span-2 flex items-center justify-center">
+                <div className="flex items-center justify-center px-3 bg-white rounded border border-gray-200 hover:shadow-md transition-shadow w-fit">
+                  <Image src={i2} alt="Uzcard" width={56} height={30} className="object-contain" />
+                </div>
               </div>
             </div>
           </div>

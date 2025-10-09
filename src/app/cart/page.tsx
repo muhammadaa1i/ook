@@ -86,7 +86,6 @@ export default function CartPage() {
   const handleCheckout = async () => {
     // Prevent duplicate requests
     if (isProcessingPayment) {
-      console.warn('Payment already in progress, ignoring duplicate request');
       return;
     }
     
@@ -113,11 +112,30 @@ export default function CartPage() {
         const timeSinceCreation = Date.now() - new Date(paymentData.created_at).getTime();
         // If a payment was created less than 5 minutes ago, prevent duplicate
         if (timeSinceCreation < 5 * 60 * 1000) {
-          toast.warning(t('payment.alreadyProcessing') || 'Payment already in progress. Please complete or wait for it to expire.');
-          return;
+          // Verify if the order still exists and is in CREATED status
+          try {
+            const orderStatus = await modernApiClient.get(`${API_ENDPOINTS.ORDERS}/${paymentData.order_id}`);
+            const status = (orderStatus as { status?: string })?.status || 
+                          (orderStatus as { data?: { status?: string } })?.data?.status;
+            
+            // If order is already PAID or CANCELLED, clear the old payment data and continue
+            if (status === 'PAID' || status === 'CANCELLED' || status === 'FAILED') {
+              sessionStorage.removeItem('paymentOrder');
+            } else {
+              // Order still pending, block duplicate
+              toast.warning(t('payment.alreadyProcessing') || 'Payment already in progress. Please complete or wait for it to expire.');
+              return;
+            }
+          } catch (err) {
+            // If can't fetch order status, assume it's safe to continue
+            sessionStorage.removeItem('paymentOrder');
+          }
+        } else {
+          // Payment is older than 5 minutes, clear it
+          sessionStorage.removeItem('paymentOrder');
         }
       } catch (e) {
-        console.warn('Could not parse existing payment order:', e);
+        sessionStorage.removeItem('paymentOrder');
       }
     }
 
@@ -136,10 +154,29 @@ export default function CartPage() {
         notes: `${item.size ? `Size: ${item.size}` : ''}${item.color ? `, Color: ${item.color}` : ''}`.trim()
       }));
       
+      // CRITICAL VALIDATION: Verify no duplicate products
+      const productIds = orderItems.map(item => item.slipper_id);
+      const uniqueProductIds = new Set(productIds);
+      if (productIds.length !== uniqueProductIds.size) {
+        const duplicates = productIds.filter((id, index) => productIds.indexOf(id) !== index);
+        toast.error('Duplicate products detected in cart! Please clear cart and try again.');
+        throw new Error(`Duplicate products in cart: ${duplicates.join(', ')}`);
+      }
+      
+      // CRITICAL VALIDATION: Verify totals match
+      const orderItemsTotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+      if (Math.abs(orderItemsTotal - totalAmount) > 1) {
+        toast.error(`Cart total mismatch! Expected: ${totalAmount}, Got: ${orderItemsTotal}`);
+        throw new Error(`Cart total mismatch: ${totalAmount} vs ${orderItemsTotal}`);
+      }
+      
+      // Generate unique session ID to ensure backend creates separate orders
+      const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       const createOrderRequest: CreateOrderRequest = {
         user_id: user?.id,
         items: orderItems,
-        notes: `Order created for payment`,
+        notes: `Order session: ${sessionId}`,
         payment_method: 'OCTO',
         status: 'CREATED'
       };
@@ -157,11 +194,13 @@ export default function CartPage() {
       
       let createdOrders: Order[];
       
-      // Use batching if total quantity > 120 to avoid 422 errors
-      if (totalQuantity > 120) {
+      // IMPORTANT: Only use batching for extremely large orders (>200 items)
+      // Normal orders up to 200 items should be created as a single order
+      // The backend should handle this properly
+      if (totalQuantity > 200) {
         // Ultra-aggressive config for maximum speed with tiny batches
         const batchConfig = {
-          maxTotalQuantityPerBatch: 40, // Very tiny batches for maximum speed
+          maxTotalQuantityPerBatch: 100, // Batch size for very large orders
         };
         
         try {
@@ -218,9 +257,14 @@ export default function CartPage() {
         // Single order for smaller quantities
         
         try {
-          // Use ultra-fast timeout for payment-related order creation
+          // CRITICAL: Clear any cached order data to ensure fresh order creation
+          sessionStorage.removeItem('lastOrderId');
+          sessionStorage.removeItem('currentOrder');
+          
+          // Use ultra-fast timeout for payment-related order creation  
           const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest, {
-            timeout: 6000 // 6 seconds for ultra-fast payment orders
+            timeout: 6000, // 6 seconds for ultra-fast payment orders
+            cache: false // Never cache order creation requests
           });
           
           // Handle both envelope and direct response formats
@@ -243,6 +287,18 @@ export default function CartPage() {
           }
           
           const apiOrder = rawOrder as ApiOrderResponse;
+          
+          // CRITICAL VALIDATION: Ensure backend returned a valid new order
+          if (!apiOrder.id && !apiOrder.order_id) {
+            throw new Error('Backend did not return a valid order ID');
+          }
+          
+          // CRITICAL VALIDATION: Verify order items count matches what we sent
+          const returnedItemsCount = Array.isArray(apiOrder.items) ? apiOrder.items.length : 0;
+          if (returnedItemsCount !== orderItems.length) {
+            throw new Error(`Backend returned ${returnedItemsCount} items but we sent ${orderItems.length} items. Order may be corrupted.`);
+          }
+          
           const createdOrder = {
             ...apiOrder,
             id: apiOrder.id || parseInt(apiOrder.order_id || '0', 10),
@@ -325,7 +381,6 @@ export default function CartPage() {
         if (user) {
           sessionStorage.setItem('userBackup', JSON.stringify(user));
           sessionStorage.setItem('paymentRedirectTime', Date.now().toString());
-          console.log('Stored user backup before payment redirect');
         }
         
         // Payment status will be handled by the webhook notification endpoint
