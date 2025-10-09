@@ -221,6 +221,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearCart = () => {
+    // Force clear both state and localStorage immediately
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("cart");
+      localStorage.setItem("cart", JSON.stringify([])); // Explicitly set empty array
+    }
+    
+    // Clear state
     setItems([]);
     toast.success(t('cart.cleared'));
   };

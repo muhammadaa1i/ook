@@ -171,20 +171,77 @@ export default function AdminOrdersPage() {
             total_amount: computedTotal,
           } as Order;
         });
+
+      // Apply consolidation and filtering like in user orders page
+      const consolidatedOrders = normalizedOrders.map(order => {
+        // Remove duplicates and consolidate items by slipper_id
+        const itemMap = new Map<number, import("@/types").OrderItem>();
+        
+        order.items.forEach((item) => {
+          const key = item.slipper_id;
+          
+          // Only process items with valid data
+          const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+          const hasValidPrice = item.unit_price && item.unit_price > 0;
+          
+          if (!hasValidProduct || !hasValidPrice) {
+            console.log("Admin: Filtering out invalid item:", {
+              slipper_id: item.slipper_id,
+              name: item.name,
+              slipper_name: item.slipper?.name,
+              unit_price: item.unit_price
+            });
+            return;
+          }
+          
+          if (itemMap.has(key)) {
+            // Consolidate quantities if same product
+            const existing = itemMap.get(key);
+            if (existing) {
+              existing.quantity += item.quantity;
+              existing.total_price = existing.unit_price * existing.quantity;
+            }
+          } else {
+            itemMap.set(key, {
+              ...item,
+              total_price: item.unit_price * item.quantity
+            });
+          }
+        });
+        
+        const validItems = Array.from(itemMap.values());
+        
+        // Recalculate total amount based on valid items
+        const recalculatedTotal = validItems.reduce((sum, item) => {
+          return sum + (item.unit_price * item.quantity);
+        }, 0);
+        
+        return {
+          ...order,
+          items: validItems,
+          total_amount: recalculatedTotal || order.total_amount
+        };
+      }).filter(order => {
+        // Only keep orders that have at least one valid item
+        return order.items.length > 0;
+      });
+
+      console.log("Admin: Original orders count:", normalizedOrders.length);
+      console.log("Admin: Consolidated orders count:", consolidatedOrders.length);
       // Apply client-side slicing if backend returns entire dataset (length > limit)
       const limit = Number(filters.limit || PAGINATION.DEFAULT_LIMIT);
       const skip = Number(filters.skip || 0);
-      const sliced = normalizedOrders.length > limit
-        ? normalizedOrders.slice(skip, skip + limit)
-        : normalizedOrders;
+      const sliced = consolidatedOrders.length > limit
+        ? consolidatedOrders.slice(skip, skip + limit)
+        : consolidatedOrders;
       setOrders(sliced);
       const paginationData = data as {
         total?: number;
         pages?: number;
         total_pages?: number;
       };
-      // If API doesn't provide total, use the actual orders count
-  const actualTotal = paginationData?.total ?? normalizedOrders.length;
+      // If API doesn't provide total, use the actual consolidated orders count
+      const actualTotal = paginationData?.total ?? consolidatedOrders.length;
       setPagination({
         total: actualTotal,
         page:

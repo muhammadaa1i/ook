@@ -8,10 +8,12 @@ import { useI18n } from '@/i18n';
 import { toast } from 'react-toastify';
 import { modernApiClient } from '@/lib/modernApiClient';
 import { API_ENDPOINTS } from '@/lib/constants';
+import { useCart } from '@/contexts/CartContext';
 
 
 function PaymentSuccessContent() {
   const { t } = useI18n();
+  const { clearCart } = useCart();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,81 @@ function PaymentSuccessContent() {
       
       if (response) {
         console.log('Order status updated successfully:', response);
+        
+        // If this was a batch order, cancel any duplicate pending orders
+        if (orderData.batch_info?.all_order_ids && orderData.batch_info.all_order_ids.length > 0) {
+          console.log('Batch order detected, checking for duplicates to cancel');
+          
+          // Cancel all other orders in the batch that aren't the main one
+          const otherOrderIds = orderData.batch_info.all_order_ids.filter(
+            (id: string | number) => String(id) !== String(orderData.order_id)
+          );
+          
+          for (const orderId of otherOrderIds) {
+            try {
+              await modernApiClient.put(`${API_ENDPOINTS.ORDERS}/${orderId}`, {
+                status: 'CANCELLED',
+                notes: 'Cancelled - duplicate of paid order'
+              });
+              console.log(`Cancelled duplicate order: ${orderId}`);
+            } catch (err) {
+              console.warn(`Failed to cancel duplicate order ${orderId}:`, err);
+            }
+          }
+        }
+        
+        // Also check for and cancel any orphaned CREATED orders from the same user
+        // that were created around the same time (within 5 minutes)
+        try {
+          const userOrders = await modernApiClient.get(`${API_ENDPOINTS.ORDERS}`, {
+            user_id: orderData.user_id,
+            status: 'CREATED',
+            limit: 20
+          });
+          
+          const ordersData = Array.isArray(userOrders) ? userOrders : 
+                            (userOrders as { data?: unknown; items?: unknown[] }).items || 
+                            (userOrders as { data?: unknown; items?: unknown[] }).data || 
+                            [];
+          
+          if (Array.isArray(ordersData) && ordersData.length > 0) {
+            const orderCreatedTime = new Date(orderData.created_at || Date.now()).getTime();
+            
+            for (const orphanOrder of ordersData) {
+              const orphanId = (orphanOrder as { id?: number; order_id?: string }).id || 
+                              (orphanOrder as { id?: number; order_id?: string }).order_id;
+              const orphanCreatedAt = (orphanOrder as { created_at?: string }).created_at;
+              
+              // Skip the main order
+              if (String(orphanId) === String(orderData.order_id)) continue;
+              
+              // Cancel if created within 5 minutes of the paid order
+              if (orphanCreatedAt) {
+                const orphanTime = new Date(orphanCreatedAt).getTime();
+                const timeDiff = Math.abs(orderCreatedTime - orphanTime);
+                
+                if (timeDiff < 5 * 60 * 1000) { // 5 minutes
+                  try {
+                    await modernApiClient.put(`${API_ENDPOINTS.ORDERS}/${orphanId}`, {
+                      status: 'CANCELLED',
+                      notes: 'Auto-cancelled - likely duplicate order attempt'
+                    });
+                    console.log(`Auto-cancelled orphaned order: ${orphanId}`);
+                  } catch (err) {
+                    console.warn(`Failed to cancel orphaned order ${orphanId}:`, err);
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to check for orphaned orders:', err);
+        }
+        
         toast.success(t('payment.orderCreated') || 'Payment confirmed successfully!');
+        
+        // Clear the cart after successful payment
+        clearCart();
         
         // Clear the payment order data
         sessionStorage.removeItem('paymentOrder');
@@ -55,7 +131,7 @@ function PaymentSuccessContent() {
       console.error('Failed to create order:', error);
       toast.error(t('payment.orderCreateError') || 'Failed to create order');
     }
-  }, [t]);
+  }, [t, clearCart]);
 
   useEffect(() => {
     if (!transferId) {
@@ -89,14 +165,7 @@ function PaymentSuccessContent() {
         // Update order status to PAID after successful payment
         await updateOrderStatus();
         
-        // Clear cart after successful payment - but preserve user session
-        if (typeof window !== 'undefined') {
-          // Dispatch cart clear event without affecting auth
-          window.dispatchEvent(new CustomEvent('cart:clear'));
-          
-          // Ensure auth state is preserved by not triggering any auth-related events
-          console.log('Cart cleared while preserving authentication');
-        }
+        console.log('Payment processing completed successfully');
       } catch (err) {
         console.error('Payment processing error:', err);
         setError(err instanceof Error ? err.message : t('payment.error.statusCheck'));

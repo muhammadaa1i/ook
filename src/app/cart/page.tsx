@@ -86,6 +86,7 @@ export default function CartPage() {
   const handleCheckout = async () => {
     // Prevent duplicate requests
     if (isProcessingPayment) {
+      console.warn('Payment already in progress, ignoring duplicate request');
       return;
     }
     
@@ -102,6 +103,22 @@ export default function CartPage() {
     if (!offerAccepted) {
       toast.error(t('offer.mustAccept'));
       return;
+    }
+
+    // Check if there's already a pending payment order
+    const existingPaymentOrder = sessionStorage.getItem('paymentOrder');
+    if (existingPaymentOrder) {
+      try {
+        const paymentData = JSON.parse(existingPaymentOrder);
+        const timeSinceCreation = Date.now() - new Date(paymentData.created_at).getTime();
+        // If a payment was created less than 5 minutes ago, prevent duplicate
+        if (timeSinceCreation < 5 * 60 * 1000) {
+          toast.warning(t('payment.alreadyProcessing') || 'Payment already in progress. Please complete or wait for it to expire.');
+          return;
+        }
+      } catch (e) {
+        console.warn('Could not parse existing payment order:', e);
+      }
     }
 
     setIsProcessingPayment(true);
