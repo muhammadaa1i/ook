@@ -41,11 +41,11 @@ export default function AdminDashboard() {
       setIsLoading(true);
       const now = Date.now();
       
-      console.log('🔍 Fetching admin dashboard stats...');
+
       
       // Helper function to safely extract count from various response formats
       const extractCount = (response: unknown, name: string): number => {
-        console.log(`📊 ${name} Raw Response:`, response);
+
         
         if (!response) return 0;
         
@@ -99,7 +99,7 @@ export default function AdminDashboard() {
           }
         }
         
-        console.log(`✅ ${name} Count:`, count);
+
         return count;
       };
       
@@ -133,7 +133,7 @@ export default function AdminDashboard() {
         pendingOrders,
       };
 
-      console.log('✅ Final Stats:', newStats);
+
       
       // Detect which stats have changed
       const changedStats = new Set<keyof DashboardStats>();

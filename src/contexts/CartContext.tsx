@@ -77,7 +77,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     if (typeof window !== "undefined") {
       window.addEventListener("cart:clear", handleCartClear);
-      return () => window.removeEventListener("cart:clear", handleCartClear);
+      
+      // Listen for payment success event to clear cart
+      const handlePaymentSuccess = () => {
+        setItems([]);
+        localStorage.removeItem("cart");
+        localStorage.setItem("cart", "[]");
+      };
+      
+      window.addEventListener("payment:success", handlePaymentSuccess);
+      
+      return () => {
+        window.removeEventListener("cart:clear", handleCartClear);
+        window.removeEventListener("payment:success", handlePaymentSuccess);
+      };
     }
   }, []);
 
@@ -223,13 +236,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCart = () => {
     // Force clear both state and localStorage immediately
     if (typeof window !== "undefined") {
-      localStorage.removeItem("cart");
-      localStorage.setItem("cart", JSON.stringify([])); // Explicitly set empty array
+      try {
+        // Multiple clearing attempts to ensure it works
+        localStorage.removeItem("cart");
+        localStorage.setItem("cart", "[]");
+        localStorage.removeItem("cart"); // Remove again to be absolutely sure
+        
+        // Verify it's cleared
+        const verify = localStorage.getItem("cart");
+        if (verify && verify !== "[]") {
+          // Force clear again if still present
+          localStorage.clear();
+          localStorage.setItem("cart", "[]");
+        }
+      } catch (error) {
+        console.error("Error clearing cart from localStorage:", error);
+      }
     }
     
-    // Clear state
+    // Clear state immediately
     setItems([]);
-    toast.success(t('cart.cleared'));
+    
+    // Don't show toast if called programmatically after payment
+    const isPaymentSuccess = typeof window !== "undefined" && 
+      (window.location.pathname.includes('/payment/success') || 
+       sessionStorage.getItem('payment_success_flag'));
+    
+    if (!isPaymentSuccess) {
+      toast.success(t('cart.cleared'));
+    }
   };
 
   const isInCart = (productId: number) => {

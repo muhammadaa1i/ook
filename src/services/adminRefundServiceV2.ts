@@ -62,7 +62,7 @@ export class AdminRefundServiceV2 {
     method: string
   ): Promise<AdminRefundResponse> {
     try {
-      console.log(`${method} payload:`, payload);
+
       const response = await modernApiClient.post(endpoint, payload);
       return {
         success: true,
@@ -95,8 +95,7 @@ export class AdminRefundServiceV2 {
         if (result.success) {
           return result;
         }
-      } catch (error) {
-        console.log('Approach failed, trying next:', error);
+      } catch {
         continue;
       }
     }

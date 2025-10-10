@@ -84,7 +84,7 @@ export class PaymentService {
         pay_url: getString('octo_pay_url') || getString('pay_url') || getString('url'),
       };
 
-      console.log('Normalized payment response:', data);
+
 
       if (data.success && (data.octo_pay_url || data.payment_url)) {
         return data;

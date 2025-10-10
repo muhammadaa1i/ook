@@ -25,7 +25,6 @@ function HomePageContent() {
     
     // If payment-related parameters are present, redirect to appropriate payment page
     if (octoStatus || transferId) {
-      console.log('Payment return detected on home page, redirecting...', { octoStatus, transferId });
       
       if (octoStatus === 'succeeded' || transferId) {
         // Redirect to success page with all available parameters

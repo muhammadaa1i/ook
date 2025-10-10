@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
@@ -81,9 +81,6 @@ function ProductCarousel({ item }: {
         width={64}
         height={64}
         className="object-cover"
-        onError={() => {
-          console.log(`Failed to load image: ${imageSource}`);
-        }}
       />
     </div>
   );
@@ -139,38 +136,25 @@ export default function OrdersPage() {
       // Agar API ro'yxat qaytarsa:
       const data: Order[] = Array.isArray(response) ? response : [];
 
-      console.log("Raw orders data:", data);
-
       // Enrich orders with complete slipper data including images
       const enrichedOrders = await Promise.all(
         data.map(async (order) => {
-          console.log("Processing order:", order.id, "Items:", order.items);
-          console.log("Items details:", order.items.map(item => ({
-            id: item.id,
-            slipper_id: item.slipper_id,
-            name: item.name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            image: item.image
-          })));
           
-          // Remove duplicates and consolidate items by slipper_id
+          // Consolidate duplicate items by slipper_id for display
+          // This handles backend responses that may have duplicate entries
           const itemMap = new Map<number, OrderItem>();
           
           order.items.forEach((item) => {
             const key = item.slipper_id;
-            console.log(`Processing item with slipper_id: ${key}, quantity: ${item.quantity}, price: ${item.unit_price}`);
             
             if (itemMap.has(key)) {
               // Consolidate quantities if same product
               const existing = itemMap.get(key);
               if (existing) {
-                console.log(`Consolidating: existing quantity ${existing.quantity} + new quantity ${item.quantity}`);
                 existing.quantity += item.quantity;
                 existing.total_price = existing.unit_price * existing.quantity;
               }
             } else {
-              console.log(`Adding new item with slipper_id: ${key}`);
               itemMap.set(key, {
                 ...item,
                 total_price: item.unit_price * item.quantity
@@ -178,27 +162,18 @@ export default function OrdersPage() {
             }
           });
           
-          const uniqueItems = Array.from(itemMap.values());
-          console.log("Consolidated items:", uniqueItems);
+          const consolidatedItems = Array.from(itemMap.values());
           
           // Filter out items that don't have proper product data
-          const validItems = uniqueItems.filter(item => {
+          const validItems = consolidatedItems.filter(item => {
             const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
             const hasValidPrice = item.unit_price && item.unit_price > 0;
             
             if (!hasValidProduct || !hasValidPrice) {
-              console.log("Filtering out invalid item:", {
-                slipper_id: item.slipper_id,
-                name: item.name,
-                slipper_name: item.slipper?.name,
-                unit_price: item.unit_price
-              });
               return false;
             }
             return true;
           });
-          
-          console.log("Valid items after filtering:", validItems);
           
           const enrichedItems = await Promise.all(
             validItems.map(async (item) => {
@@ -226,8 +201,8 @@ export default function OrdersPage() {
                         if (Array.isArray(images) && images.length > 0) {
                           slipper.images = images;
                         }
-                      } catch (imageError) {
-                        console.log(`Failed to fetch images for slipper ${item.slipper_id}:`, imageError);
+                      } catch {
+                        // Failed to fetch images
                       }
                     }
                   }
@@ -238,25 +213,15 @@ export default function OrdersPage() {
                   };
                 }
                 return item;
-              } catch (error) {
-                console.log(`Failed to enrich item ${item.slipper_id}:`, error);
+              } catch {
                 return item; // Return original item if enrichment fails
               }
             })
           );
           
-          // Recalculate total amount based on consolidated items
-          const calculatedTotal = enrichedItems.reduce((sum, item) => {
-            return sum + (item.unit_price * item.quantity);
-          }, 0);
-          
-          console.log("Final enriched items:", enrichedItems);
-          console.log("Calculated total:", calculatedTotal, "Original total:", order.total_amount);
-          
           return {
             ...order,
-            items: enrichedItems,
-            total_amount: calculatedTotal || order.total_amount
+            items: enrichedItems
           };
         })
       );
@@ -475,11 +440,11 @@ export default function OrdersPage() {
                 <div className="flex-1">
                   <div className="font-medium">{item.slipper?.name || item.name}</div>
                   <div className="text-sm text-gray-600">
-                    {t("orders.modal.quantity")}: {item.quantity} × {formatPrice(item.unit_price)}
+                    {t("orders.modal.quantity")}: {item.quantity} � {formatPrice(item.unit_price)}
                   </div>
                   {item.slipper?.size && (
                     <div className="text-xs text-gray-500">
-                      Размер: {item.slipper.size}
+                      ??????: {item.slipper.size}
                     </div>
                   )}
                 </div>
@@ -490,7 +455,7 @@ export default function OrdersPage() {
             ))}
             <div className="border-t pt-4">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Количество товаров:</span>
+                <span>?????????? ???????:</span>
                 <span>{selectedOrder.items
                   .filter(item => {
                     const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);

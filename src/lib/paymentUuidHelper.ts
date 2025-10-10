@@ -29,7 +29,7 @@ export class PaymentUuidHelper {
     for (const field of possibleFields) {
       const value = order[field];
       if (value && typeof value === 'string' && value.length > 0) {
-        console.log(`PaymentUuidHelper: Found UUID in field '${field}':`, value);
+
         return value;
       }
     }
@@ -39,7 +39,7 @@ export class PaymentUuidHelper {
       const paymentObj = order.payment as Record<string, unknown>;
       const nestedUuid = this.extractFromOrder(paymentObj);
       if (nestedUuid) {
-        console.log('PaymentUuidHelper: Found UUID in nested payment object:', nestedUuid);
+
         return nestedUuid;
       }
     }

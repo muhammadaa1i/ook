@@ -106,6 +106,7 @@ export default function CartPage() {
 
     // Check if there's already a pending payment order
     const existingPaymentOrder = sessionStorage.getItem('paymentOrder');
+    
     if (existingPaymentOrder) {
       try {
         const paymentData = JSON.parse(existingPaymentOrder);
@@ -120,22 +121,22 @@ export default function CartPage() {
             
             // If order is already PAID or CANCELLED, clear the old payment data and continue
             if (status === 'PAID' || status === 'CANCELLED' || status === 'FAILED') {
-              sessionStorage.removeItem('paymentOrder');
+              localStorage.removeItem('cart');
             } else {
               // Order still pending, block duplicate
               toast.warning(t('payment.alreadyProcessing') || 'Payment already in progress. Please complete or wait for it to expire.');
               return;
             }
-          } catch (err) {
+          } catch {
             // If can't fetch order status, assume it's safe to continue
-            sessionStorage.removeItem('paymentOrder');
+            localStorage.removeItem('cart');
           }
         } else {
           // Payment is older than 5 minutes, clear it
-          sessionStorage.removeItem('paymentOrder');
+          localStorage.removeItem('cart');
         }
-      } catch (e) {
-        sessionStorage.removeItem('paymentOrder');
+      } catch {
+        localStorage.removeItem('cart');
       }
     }
 
@@ -157,6 +158,7 @@ export default function CartPage() {
       const createOrderRequest: CreateOrderRequest = {
         user_id: user?.id,
         items: orderItems,
+        total_amount: totalAmount,
         notes: `Order created for payment`,
         payment_method: 'OCTO',
         status: 'CREATED'

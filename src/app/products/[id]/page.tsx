@@ -58,7 +58,6 @@ export default function ProductDetailPage() {
           );
           interface ImgRec { id: number; image_url: string; is_primary?: boolean; alt_text?: string; created_at?: string }
           const imgs = ((imgsResp as { data?: ImgRec[] })?.data || (imgsResp as ImgRec[])) as ImgRec[];
-          console.log("Image loading error 1");
 
           if (Array.isArray(imgs) && imgs.length) {
             const embedded = (productData.images as unknown as ImgRec[]) || [];
@@ -81,10 +80,7 @@ export default function ProductDetailPage() {
             productData = { ...productData, images: merged as unknown as Slipper["images"] };
 
           }
-          console.log(productData);
         } catch {
-          console.log("Image loading error");
-
           // Gallery images load failed (non-critical)
         }
       }

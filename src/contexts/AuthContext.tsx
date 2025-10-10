@@ -142,11 +142,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           window.location.search.includes('octo-status'));
 
       if (isPaymentReturn) {
-        console.log("Payment return detected, preserving authentication...");
+
         
         // If user is already set, don't do anything
         if (user) {
-          console.log("User already authenticated, keeping session");
+
           return;
         }
 
@@ -166,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               try {
                 const backupUserData = JSON.parse(userBackup);
                 setUser(backupUserData);
-                console.log("Restored user from backup after payment return");
+
                 
                 // Re-store in cookies with longer expiration
                 const cookieOptions = {
@@ -197,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           try {
             const userData = JSON.parse(storedUser);
             setUser(userData);
-            console.log("Restored user session after payment return");
+
             
             // Mark token as verified to avoid unnecessary verification
             tokenVerificationRef.current = true;

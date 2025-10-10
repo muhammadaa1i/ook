@@ -117,6 +117,7 @@ export interface CreateOrderRequest {
     unit_price: number;
     notes?: string;
   }[];
+  total_amount?: number;
   notes?: string;
   payment_method?: string;
   status?: Order["status"];

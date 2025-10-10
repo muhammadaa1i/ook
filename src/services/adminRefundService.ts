@@ -13,14 +13,14 @@ export interface AdminRefundResponse {
 export class AdminRefundService {
   static async processRefund(data: AdminRefundRequest): Promise<AdminRefundResponse> {
     try {
-      console.log('Processing refund for order ID:', data.order_id);
+
       
       const response = await modernApiClient.post(
         'https://oyoqkiyim.duckdns.org/payments/octo/refund',
         { order_id: data.order_id }
       );
 
-      console.log('Refund API response:', response);
+
       
       return {
         success: true,

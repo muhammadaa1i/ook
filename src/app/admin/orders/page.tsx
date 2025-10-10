@@ -226,8 +226,8 @@ export default function AdminOrdersPage() {
         return order.items.length > 0;
       });
 
-      console.log("Admin: Original orders count:", normalizedOrders.length);
-      console.log("Admin: Consolidated orders count:", consolidatedOrders.length);
+
+
       // Apply client-side slicing if backend returns entire dataset (length > limit)
       const limit = Number(filters.limit || PAGINATION.DEFAULT_LIMIT);
       const skip = Number(filters.skip || 0);
@@ -281,7 +281,7 @@ export default function AdminOrdersPage() {
 
   // Refund handling functions
   const handleRefundClick = useCallback((order: Order) => {
-    console.log(`🔄 Admin: Refund button clicked for order #${order.id}`);
+
     
     if (!AdminRefundService.canOrderBeRefunded(order.status)) {
       console.warn(`⚠️ Admin: Order #${order.id} cannot be refunded (status: ${order.status})`);
@@ -295,7 +295,7 @@ export default function AdminOrdersPage() {
     
     // Small delay to ensure state is cleared
     setTimeout(() => {
-      console.log(`✅ Admin: Opening refund dialog for order #${order.id}`);
+
       setSelectedOrderForRefund(order);
       setShowRefundDialog(true);
     }, 50);
@@ -312,7 +312,7 @@ export default function AdminOrdersPage() {
     }
 
     try {
-      console.log(`🔄 Admin: Processing refund for order #${orderId}`);
+
 
       const result = await AdminRefundService.processRefund({
         order_id: orderId
@@ -320,7 +320,7 @@ export default function AdminOrdersPage() {
 
       if (result.success) {
         // Enhanced success message with translation
-        console.log(`✅ Admin: Refund successful for order #${orderId}`);
+
         toast.success(t('admin.orders.toasts.refundSuccess'));
         
         // Immediately update the order status in local state
@@ -330,7 +330,7 @@ export default function AdminOrdersPage() {
               ? { ...order, status: 'REFUNDED' as const }
               : order
           );
-          console.log(`🔄 Admin: Updated orders state for order #${orderId}`, updatedOrders);
+
           return updatedOrders;
         });
         
@@ -351,7 +351,7 @@ export default function AdminOrdersPage() {
   }, [selectedOrderForRefund, t, setOrders, setRefreshKey, setShowRefundDialog, setSelectedOrderForRefund]);
 
   const handleRefundCancel = useCallback(() => {
-    console.log(`🔄 Admin: Refund dialog cancelled for order #${selectedOrderForRefund?.id || 'unknown'}`);
+
     setShowRefundDialog(false);
     setSelectedOrderForRefund(null);
   }, [selectedOrderForRefund?.id]);

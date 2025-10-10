@@ -26,7 +26,7 @@ export function PaymentProvider({ children }: { children: React.ReactNode }) {
     setIsProcessing(true);
     try {
       // Payment status checking not implemented yet
-      console.log('Payment status check requested for:', transferId);
+
       toast.info(t('payment.statusCheckNotAvailable') || 'Payment status checking not available');
       return null;
     } catch (error) {
@@ -40,7 +40,7 @@ export function PaymentProvider({ children }: { children: React.ReactNode }) {
 
   const cancelPayment = useCallback(async (transferId: string): Promise<boolean> => {
     if (isProcessing) return false;
-    
+  
     setIsProcessing(true);
     try {
       const result = await PaymentService.refundPayment({ octo_payment_UUID: transferId, reason: 'Payment cancelled' });

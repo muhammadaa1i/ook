@@ -71,10 +71,14 @@ export class OrderBatchManager {
     for (const item of processedItems) {
       // If adding this item would exceed the batch limit
       if (currentBatchQuantity + item.quantity > finalConfig.maxTotalQuantityPerBatch && currentBatch.length > 0) {
+        // Calculate total amount for this batch
+        const batchTotal = currentBatch.reduce((sum, batchItem) => sum + (batchItem.quantity * batchItem.unit_price), 0);
+        
         // Create a batch from current items
         batches.push({
           ...orderRequest,
           items: [...currentBatch],
+          total_amount: batchTotal,
           notes: `${orderRequest.notes || ''} (Batch ${batches.length + 1})`.trim(),
         });
         
@@ -90,9 +94,12 @@ export class OrderBatchManager {
 
     // Add final batch if there are remaining items
     if (currentBatch.length > 0) {
+      const batchTotal = currentBatch.reduce((sum, batchItem) => sum + (batchItem.quantity * batchItem.unit_price), 0);
+      
       batches.push({
         ...orderRequest,
         items: currentBatch,
+        total_amount: batchTotal,
         notes: `${orderRequest.notes || ''} (Batch ${batches.length + 1})`.trim(),
       });
     }

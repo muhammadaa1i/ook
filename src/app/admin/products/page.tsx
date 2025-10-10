@@ -178,7 +178,7 @@ export default function AdminProductsPage() {
     setEditingImages([]);
     try {
       setLoadingImages(true);
-      console.log("Fetching images for slipper:", slipperId);
+
 
       // Clear cache first for fresh data
       modernApiClient.clearCache(API_ENDPOINTS.SLIPPER_IMAGES(slipperId));
@@ -189,10 +189,10 @@ export default function AdminProductsPage() {
         undefined,
         { cache: false, force: true }
       );
-      console.log("Images response:", resp);
+
       const data = ((resp as { data?: ImageRecord[] })?.data || resp) as ImageRecord[];
       if (Array.isArray(data)) {
-        console.log("Setting editing images:", data);
+
         setEditingImages(data.map(d => ({
           id: d.id,
           image_url: d.image_url,
@@ -200,7 +200,7 @@ export default function AdminProductsPage() {
           alt_text: d.alt_text
         })));
       } else {
-        console.log("Data is not an array:", data);
+
       }
     } catch (error) {
       console.error("Failed to load images:", error);
@@ -325,7 +325,7 @@ export default function AdminProductsPage() {
         const createdMsg = t('admin.products.toasts.createSuccess') || 'Product created';
         toast.success(createdMsg, { autoClose: 2000 });
         creationToastShown = true;
-        console.log('[ADMIN] Product created:', productId, createdData);
+
         // Prepend new product locally (basic shape) so user immediately sees it
         if (productId) {
           const newItem: Slipper = {
@@ -516,7 +516,7 @@ export default function AdminProductsPage() {
 
       // Enhanced refresh logic - only if upload was successful
       if (uploadSuccess && editingProduct) { // Only run heavy refresh path while editing to avoid loops on creation
-        console.log("Starting immediate image refresh process...");
+
 
         // Immediately clear all relevant cache to ensure fresh data
         modernApiClient.clearCache("/slippers");
@@ -525,12 +525,12 @@ export default function AdminProductsPage() {
 
         // For edit modal - refresh images immediately
         if (editingProduct) {
-          console.log("Refreshing images in edit modal...");
+
           await fetchEditingImages(editingProduct.id);
         }
 
         // Immediately refresh the products list with fresh data
-        console.log("Forcing immediate product list refresh...");
+
         try {
           const params = {
             ...filters,
@@ -593,7 +593,7 @@ export default function AdminProductsPage() {
             }
           }
 
-          console.log("Products updated immediately after image upload", list.length);
+
 
           // Additional immediate UI refresh
           setTimeout(() => {
@@ -964,7 +964,7 @@ export default function AdminProductsPage() {
                                       target.src = "/placeholder-product.svg";
                                     }}
                                     onLoad={() => {
-                                      console.log("Image loaded successfully:", full);
+
                                     }}
                                   />
                                 </div>

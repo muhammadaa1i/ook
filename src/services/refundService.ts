@@ -26,8 +26,6 @@ export class RefundService {
     // Save to localStorage for admin to see
     await this.saveRefundRequest(refundRequest);
     
-    console.log('Refund request created for admin review:', refundRequest);
-    
     return refundRequest;
   }
 
@@ -77,12 +75,10 @@ export class RefundService {
       const request = requests.find(r => r.id === id);
       
       if (request) {
-        console.log('Processing OCTO refund for approved request:', request);
         await this.processOctoRefund({
           amount: request.amount,
           payment_uuid: request.payment_uuid
         });
-        console.log('OCTO refund processed successfully');
       }
     } catch (error) {
       console.error('OCTO refund failed during approval:', error);
@@ -90,9 +86,8 @@ export class RefundService {
     }
   }
 
-  static async rejectRefund(id: number, reason?: string): Promise<void> {
+  static async rejectRefund(id: number): Promise<void> {
     await this.updateRefundStatus(id, 'rejected');
-    console.log('Refund request rejected:', { id, reason });
   }
 
   static async processOctoRefund(data: { amount: number; payment_uuid: string }): Promise<RefundProcessResponse | unknown> {

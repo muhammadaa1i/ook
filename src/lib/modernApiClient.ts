@@ -125,15 +125,6 @@ class ModernApiClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       try {
-        // Log request details for debugging refund issues
-        if (url.toString().includes('/payments/octo/refund')) {
-          console.log('🔍 OCTO Refund Request Debug:', {
-            url: url.toString(),
-            method: options.method || "GET",
-            headers: headers,
-            body: options.body
-          });
-        }
         
         const response = await fetch(url.toString(), {
           method: options.method || "GET",
@@ -349,7 +340,7 @@ class ModernApiClient {
                 ...cookieOptions,
                 expires: 7,
               });
-              console.log("Restored user cookies from backup during payment flow");
+
             } catch (error) {
               console.error("Failed to restore user from backup:", error);
             }
