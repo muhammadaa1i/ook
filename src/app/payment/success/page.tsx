@@ -28,23 +28,31 @@ function PaymentSuccessContent() {
     try {
       const paymentOrderData = sessionStorage.getItem('paymentOrder');
       if (!paymentOrderData) {
+        console.warn('No payment order data found');
         return;
       }
 
       const orderData = JSON.parse(paymentOrderData);
+      console.log('Updating order status with data:', orderData);
       
       // Update the existing order status to PAID since payment is successful
       const updateRequest = {
         status: 'PAID',
         notes: `Payment completed via ${orderData.payment_method}. Payment ID: ${orderData.payment_id}`
       };
+
+      console.log('Updating order status to PAID for order ID:', orderData.order_id);
       
       // Update the order status
       const response = await modernApiClient.put(`${API_ENDPOINTS.ORDERS}/${orderData.order_id}`, updateRequest);
       
       if (response) {
+        console.log('Order status updated successfully:', response);
+        
         // If this was a batch order, cancel any duplicate pending orders
         if (orderData.batch_info?.all_order_ids && orderData.batch_info.all_order_ids.length > 0) {
+          console.log('Batch order detected, checking for duplicates to cancel');
+          
           // Cancel all other orders in the batch that aren't the main one
           const otherOrderIds = orderData.batch_info.all_order_ids.filter(
             (id: string | number) => String(id) !== String(orderData.order_id)
@@ -56,8 +64,9 @@ function PaymentSuccessContent() {
                 status: 'CANCELLED',
                 notes: 'Cancelled - duplicate of paid order'
               });
+              console.log(`Cancelled duplicate order: ${orderId}`);
             } catch (err) {
-              // Failed to cancel, continue
+              console.warn(`Failed to cancel duplicate order ${orderId}:`, err);
             }
           }
         }
@@ -98,15 +107,16 @@ function PaymentSuccessContent() {
                       status: 'CANCELLED',
                       notes: 'Auto-cancelled - likely duplicate order attempt'
                     });
+                    console.log(`Auto-cancelled orphaned order: ${orphanId}`);
                   } catch (err) {
-                    // Failed to cancel, continue
+                    console.warn(`Failed to cancel orphaned order ${orphanId}:`, err);
                   }
                 }
               }
             }
           }
         } catch (err) {
-          // Failed to check for orphaned orders, continue
+          console.warn('Failed to check for orphaned orders:', err);
         }
         
         toast.success(t('payment.orderCreated') || 'Payment confirmed successfully!');
@@ -118,6 +128,7 @@ function PaymentSuccessContent() {
         sessionStorage.removeItem('paymentOrder');
       }
     } catch (error) {
+      console.error('Failed to create order:', error);
       toast.error(t('payment.orderCreateError') || 'Failed to create order');
     }
   }, [t, clearCart]);
@@ -131,19 +142,30 @@ function PaymentSuccessContent() {
 
     const checkPaymentStatus = async () => {
       try {
+        console.log('Processing successful payment for transferId:', transferId);
+        
         // Ensure user session is preserved during payment processing
         const userBackup = sessionStorage.getItem('userBackup');
         if (userBackup) {
           try {
+            console.log('Found user backup during payment success, ensuring session preservation');
+            
             // Clean up backup after successful payment
             sessionStorage.removeItem('userBackup');
             sessionStorage.removeItem('paymentRedirectTime');
           } catch (error) {
-            // Failed to parse user backup, continue
+            console.warn('Could not parse user backup:', error);
           }
         }
         
         // Since user reached success page, assume payment was successful
+        console.log('Payment assumed successful, updating order status...');
+        toast.success(t('payment.success.message'));
+        
+        // Update order status to PAID after successful payment
+        await updateOrderStatus();
+        
+        console.log('Payment processing completed successfully');
       } catch (err) {
         console.error('Payment processing error:', err);
         setError(err instanceof Error ? err.message : t('payment.error.statusCheck'));

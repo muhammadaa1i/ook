@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  // Request forwarded (log removed for performance)
+    // Request forwarded (log removed for performance)
 
     // Forward Authorization header from client request
     const headers: Record<string, string> = {
@@ -102,16 +102,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-  // Check if we should use test data or proxy to real server.
-  // Previously always true due to constant API_BASE_URL comparison causing unintended 401s.
-  const useTestData = process.env.USE_TEST_AUTH === "true"; // enable explicitly via env var only
-    
+    // Check if we should use test data or proxy to real server.
+    // Previously always true due to constant API_BASE_URL comparison causing unintended 401s.
+    const useTestData = process.env.USE_TEST_AUTH === "true"; // enable explicitly via env var only
+
     // For testing purposes or when backend is unavailable, return test response for login
-  if (endpoint === "/auth/login" && useTestData) {
+    if (endpoint === "/auth/login" && useTestData) {
       try {
         const body = await request.json();
-  // Removed login attempt log for performance
-        
+        // Removed login attempt log for performance
+
         // Test credentials - in a real app, this would be validated against a database
         if (body.name === "admin" && body.password === "password") {
           return NextResponse.json({
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-  // Forwarding POST request (log removed)
+    // Forwarding POST request (log removed)
 
     // Forward Authorization header from client request
     const incomingContentType = request.headers.get("content-type") || "";
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       console.error("API Error:", response.status, response.statusText);
       // Try to capture text body for diagnostics
-  let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
+      let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
         if (ct.includes("application/json")) {
@@ -196,12 +196,12 @@ export async function POST(request: NextRequest) {
           const txt = await response.text();
           if (txt) errPayload = { error: txt };
         }
-      } catch {}
+      } catch { }
       return NextResponse.json(errPayload, { status: response.status });
     }
 
     const contentType = response.headers.get("content-type") || "";
-  let data: JsonPayload = {};
+    let data: JsonPayload = {};
     if (response.status === 204) {
       data = {};
     } else if (contentType.includes("application/json")) {
@@ -239,9 +239,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-  const url = new URL(endpoint, API_BASE_URL);
+    const url = new URL(endpoint, API_BASE_URL);
 
-  // Forwarding PUT request (log removed)
+    // Forwarding PUT request (log removed)
 
     // Forward Authorization header from client request
     const incomingContentType = request.headers.get("content-type") || "";
@@ -275,7 +275,7 @@ export async function PUT(request: NextRequest) {
     });
     if (!response.ok) {
       console.error("API Error:", response.status, response.statusText);
-  let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
+      let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
         if (ct.includes("application/json")) {
@@ -284,12 +284,12 @@ export async function PUT(request: NextRequest) {
           const txt = await response.text();
           if (txt) errPayload = { error: txt };
         }
-      } catch {}
+      } catch { }
       return NextResponse.json(errPayload, { status: response.status });
     }
 
     const contentType = response.headers.get("content-type") || "";
-  let data: JsonPayload = {};
+    let data: JsonPayload = {};
     if (response.status === 204) {
       data = {};
     } else if (contentType.includes("application/json")) {
@@ -329,7 +329,7 @@ export async function DELETE(request: NextRequest) {
 
     const url = new URL(endpoint, API_BASE_URL);
 
-  // Forwarding DELETE request (log removed)
+    // Forwarding DELETE request (log removed)
 
     // Forward Authorization header from client request
     const headers: Record<string, string> = {
@@ -349,7 +349,7 @@ export async function DELETE(request: NextRequest) {
     });
     if (!response.ok) {
       console.error("API Error:", response.status, response.statusText);
-  let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
+      let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
         if (ct.includes("application/json")) {
@@ -358,12 +358,12 @@ export async function DELETE(request: NextRequest) {
           const txt = await response.text();
           if (txt) errPayload = { error: txt };
         }
-      } catch {}
+      } catch { }
       return NextResponse.json(errPayload, { status: response.status });
     }
 
     const contentType = response.headers.get("content-type") || "";
-  let data: JsonPayload = {};
+    let data: JsonPayload = {};
     if (response.status === 204) {
       data = {};
     } else if (contentType.includes("application/json")) {

@@ -154,29 +154,10 @@ export default function CartPage() {
         notes: `${item.size ? `Size: ${item.size}` : ''}${item.color ? `, Color: ${item.color}` : ''}`.trim()
       }));
       
-      // CRITICAL VALIDATION: Verify no duplicate products
-      const productIds = orderItems.map(item => item.slipper_id);
-      const uniqueProductIds = new Set(productIds);
-      if (productIds.length !== uniqueProductIds.size) {
-        const duplicates = productIds.filter((id, index) => productIds.indexOf(id) !== index);
-        toast.error('Duplicate products detected in cart! Please clear cart and try again.');
-        throw new Error(`Duplicate products in cart: ${duplicates.join(', ')}`);
-      }
-      
-      // CRITICAL VALIDATION: Verify totals match
-      const orderItemsTotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-      if (Math.abs(orderItemsTotal - totalAmount) > 1) {
-        toast.error(`Cart total mismatch! Expected: ${totalAmount}, Got: ${orderItemsTotal}`);
-        throw new Error(`Cart total mismatch: ${totalAmount} vs ${orderItemsTotal}`);
-      }
-      
-      // Generate unique session ID to ensure backend creates separate orders
-      const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
       const createOrderRequest: CreateOrderRequest = {
         user_id: user?.id,
         items: orderItems,
-        notes: `Order session: ${sessionId}`,
+        notes: `Order created for payment`,
         payment_method: 'OCTO',
         status: 'CREATED'
       };
@@ -257,14 +238,9 @@ export default function CartPage() {
         // Single order for smaller quantities
         
         try {
-          // CRITICAL: Clear any cached order data to ensure fresh order creation
-          sessionStorage.removeItem('lastOrderId');
-          sessionStorage.removeItem('currentOrder');
-          
-          // Use ultra-fast timeout for payment-related order creation  
+          // Use ultra-fast timeout for payment-related order creation
           const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest, {
-            timeout: 6000, // 6 seconds for ultra-fast payment orders
-            cache: false // Never cache order creation requests
+            timeout: 6000 // 6 seconds for ultra-fast payment orders
           });
           
           // Handle both envelope and direct response formats
@@ -287,18 +263,6 @@ export default function CartPage() {
           }
           
           const apiOrder = rawOrder as ApiOrderResponse;
-          
-          // CRITICAL VALIDATION: Ensure backend returned a valid new order
-          if (!apiOrder.id && !apiOrder.order_id) {
-            throw new Error('Backend did not return a valid order ID');
-          }
-          
-          // CRITICAL VALIDATION: Verify order items count matches what we sent
-          const returnedItemsCount = Array.isArray(apiOrder.items) ? apiOrder.items.length : 0;
-          if (returnedItemsCount !== orderItems.length) {
-            throw new Error(`Backend returned ${returnedItemsCount} items but we sent ${orderItems.length} items. Order may be corrupted.`);
-          }
-          
           const createdOrder = {
             ...apiOrder,
             id: apiOrder.id || parseInt(apiOrder.order_id || '0', 10),

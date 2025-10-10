@@ -82,7 +82,7 @@ function ProductCarousel({ item }: {
         height={64}
         className="object-cover"
         onError={() => {
-          // Image failed to load
+          console.log(`Failed to load image: ${imageSource}`);
         }}
       />
     </div>
@@ -139,21 +139,66 @@ export default function OrdersPage() {
       // Agar API ro'yxat qaytarsa:
       const data: Order[] = Array.isArray(response) ? response : [];
 
+      console.log("Raw orders data:", data);
+
       // Enrich orders with complete slipper data including images
       const enrichedOrders = await Promise.all(
         data.map(async (order) => {
-          // Don't process cancelled orders - they should not be shown
-          if (order.status === 'CANCELLED' || order.status === 'cancelled') {
-            return null;
-          }
+          console.log("Processing order:", order.id, "Items:", order.items);
+          console.log("Items details:", order.items.map(item => ({
+            id: item.id,
+            slipper_id: item.slipper_id,
+            name: item.name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            image: item.image
+          })));
           
-          // Don't consolidate items - display exactly as created
-          // Each order item represents what was actually purchased
-          const validItems = order.items.filter(item => {
+          // Remove duplicates and consolidate items by slipper_id
+          const itemMap = new Map<number, OrderItem>();
+          
+          order.items.forEach((item) => {
+            const key = item.slipper_id;
+            console.log(`Processing item with slipper_id: ${key}, quantity: ${item.quantity}, price: ${item.unit_price}`);
+            
+            if (itemMap.has(key)) {
+              // Consolidate quantities if same product
+              const existing = itemMap.get(key);
+              if (existing) {
+                console.log(`Consolidating: existing quantity ${existing.quantity} + new quantity ${item.quantity}`);
+                existing.quantity += item.quantity;
+                existing.total_price = existing.unit_price * existing.quantity;
+              }
+            } else {
+              console.log(`Adding new item with slipper_id: ${key}`);
+              itemMap.set(key, {
+                ...item,
+                total_price: item.unit_price * item.quantity
+              });
+            }
+          });
+          
+          const uniqueItems = Array.from(itemMap.values());
+          console.log("Consolidated items:", uniqueItems);
+          
+          // Filter out items that don't have proper product data
+          const validItems = uniqueItems.filter(item => {
             const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
             const hasValidPrice = item.unit_price && item.unit_price > 0;
-            return hasValidProduct && hasValidPrice;
+            
+            if (!hasValidProduct || !hasValidPrice) {
+              console.log("Filtering out invalid item:", {
+                slipper_id: item.slipper_id,
+                name: item.name,
+                slipper_name: item.slipper?.name,
+                unit_price: item.unit_price
+              });
+              return false;
+            }
+            return true;
           });
+          
+          console.log("Valid items after filtering:", validItems);
           
           const enrichedItems = await Promise.all(
             validItems.map(async (item) => {
@@ -182,7 +227,7 @@ export default function OrdersPage() {
                           slipper.images = images;
                         }
                       } catch (imageError) {
-                        // Failed to fetch images, continue without them
+                        console.log(`Failed to fetch images for slipper ${item.slipper_id}:`, imageError);
                       }
                     }
                   }
@@ -194,46 +239,31 @@ export default function OrdersPage() {
                 }
                 return item;
               } catch (error) {
+                console.log(`Failed to enrich item ${item.slipper_id}:`, error);
                 return item; // Return original item if enrichment fails
               }
             })
           );
           
-          // Use backend's total_amount - don't recalculate
-          // The backend calculates this correctly based on order items
-          
-          // SAFEGUARD: Verify backend's total_amount matches items
+          // Recalculate total amount based on consolidated items
           const calculatedTotal = enrichedItems.reduce((sum, item) => {
             return sum + (item.unit_price * item.quantity);
           }, 0);
           
-          // If there's a significant discrepancy (>1%), the order may be corrupted
-          const discrepancy = Math.abs(calculatedTotal - (order.total_amount || 0));
-          const discrepancyPercent = order.total_amount ? (discrepancy / order.total_amount) * 100 : 0;
-          
-          if (discrepancyPercent > 1) {
-            // Order has data integrity issue - likely from old batch processing
-            // Mark it but still display it
-            return {
-              ...order,
-              items: enrichedItems,
-              // Add a flag to indicate data issue
-              _hasDataIssue: true,
-              _calculatedTotal: calculatedTotal
-            };
-          }
+          console.log("Final enriched items:", enrichedItems);
+          console.log("Calculated total:", calculatedTotal, "Original total:", order.total_amount);
           
           return {
             ...order,
-            items: enrichedItems
+            items: enrichedItems,
+            total_amount: calculatedTotal || order.total_amount
           };
         })
       );
 
-      // Filter out null entries (cancelled orders)
-      const validOrders = enrichedOrders.filter((order): order is Order => order !== null);
-      setOrders(validOrders);
+      setOrders(enrichedOrders);
     } catch (error) {
+      console.error("Error fetching orders:", error);
       toast.error(t("errors.productsLoad"));
     } finally {
       setIsLoading(false);
@@ -312,18 +342,9 @@ export default function OrdersPage() {
   /* ------------------------- Components ------------------------- */
   const OrderCard = ({ order }: { order: Order }) => {
     const StatusIcon = statusConfig[order.status]?.icon ?? Clock;
-    const hasDataIssue = (order as Order & { _hasDataIssue?: boolean })._hasDataIssue;
-    const calculatedTotal = (order as Order & { _calculatedTotal?: number })._calculatedTotal;
 
     return (
       <div className="card p-6 hover:shadow-lg transition">
-        {hasDataIssue && (
-          <div className="mb-3 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-xs text-yellow-800">
-              ⚠️ {t('orders.dataIssueWarning') || 'This order may contain data from multiple transactions. Calculated total:'} {calculatedTotal ? formatPrice(calculatedTotal) : 'N/A'}
-            </p>
-          </div>
-        )}
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-lg font-semibold">
