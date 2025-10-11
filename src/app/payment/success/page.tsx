@@ -30,6 +30,19 @@ function PaymentSuccessContent() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("cart");
       localStorage.setItem("cart", "[]");
+
+      // Set a short-lived cross-subdomain cookie to signal success
+      try {
+        const host = window.location.hostname;
+        const parts = host.split(".");
+        const baseDomain = parts.length >= 2 ? parts.slice(-2).join(".") : host;
+        // Cookie for current host
+        document.cookie = `payment_success=1; path=/; max-age=600`;
+        // Cookie for parent domain (works for both www and apex)
+        if (baseDomain.includes(".")) {
+          document.cookie = `payment_success=1; path=/; domain=.${baseDomain}; max-age=600`;
+        }
+      } catch {}
     }
     clearCart();
 
@@ -204,6 +217,17 @@ function PaymentSuccessContent() {
           localStorage.removeItem("cart");
           localStorage.setItem("cart", "[]");
           sessionStorage.removeItem('payment_success_flag');
+
+          // Refresh the cookie again near the end to increase reliability
+          try {
+            const host = window.location.hostname;
+            const parts = host.split(".");
+            const baseDomain = parts.length >= 2 ? parts.slice(-2).join(".") : host;
+            document.cookie = `payment_success=1; path=/; max-age=600`;
+            if (baseDomain.includes(".")) {
+              document.cookie = `payment_success=1; path=/; domain=.${baseDomain}; max-age=600`;
+            }
+          } catch {}
         }
       }
     };

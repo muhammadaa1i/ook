@@ -43,6 +43,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Load cart from localStorage on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // If payment_success cookie exists, force clear cart immediately
+      try {
+        const cookieStr = document.cookie || '';
+        if (cookieStr.includes('payment_success=1')) {
+          localStorage.removeItem('cart');
+          localStorage.setItem('cart', '[]');
+        }
+      } catch {}
+
       const savedCart = localStorage.getItem("cart");
       if (savedCart) {
         try {
@@ -241,6 +250,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem("cart");
         localStorage.setItem("cart", "[]");
         localStorage.removeItem("cart"); // Remove again to be absolutely sure
+        // Remove success cookie if set
+        document.cookie = "payment_success=; Max-Age=0; path=/";
+        try {
+          const host = window.location.hostname;
+          const parts = host.split('.')
+          const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : host;
+          if (baseDomain.includes('.')) {
+            document.cookie = `payment_success=; Max-Age=0; path=/; domain=.${baseDomain}`;
+          }
+        } catch {}
         
         // Verify it's cleared
         const verify = localStorage.getItem("cart");
