@@ -440,11 +440,11 @@ export default function OrdersPage() {
                 <div className="flex-1">
                   <div className="font-medium">{item.slipper?.name || item.name}</div>
                   <div className="text-sm text-gray-600">
-                    {t("orders.modal.quantity")}: {item.quantity} � {formatPrice(item.unit_price)}
+                    {t("orders.modal.quantity")}: {item.quantity} × {formatPrice(item.unit_price)}
                   </div>
                   {item.slipper?.size && (
                     <div className="text-xs text-gray-500">
-                      ??????: {item.slipper.size}
+                      {t("orders.modal.size")}: {item.slipper.size}
                     </div>
                   )}
                 </div>
@@ -455,7 +455,7 @@ export default function OrdersPage() {
             ))}
             <div className="border-t pt-4">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>?????????? ???????:</span>
+                <span>{t("orders.modal.itemsTotal")}:</span>
                 <span>{selectedOrder.items
                   .filter(item => {
                     const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);

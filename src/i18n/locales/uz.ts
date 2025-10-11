@@ -291,6 +291,7 @@ export default {
       quantity: 'Miqdori',
       price: 'Narx',
       size: 'O\'lcham',
+      itemsTotal: 'Jami miqdor',
       notes: 'Izoh',
       total: 'Jami'
     }
@@ -319,7 +320,7 @@ export default {
     }
   },
   catalog: {
-    title: 'Mahsulotlar kataloqi',
+    title: 'Mahsulotlar katalogi',
     subtitle: 'Sifatli uy ichki oyoq kiyimlar to\'plamimizdan ideal shippakni toping',
     pageStatus: 'Sahifa {page} / {totalPages}',
     notFoundTitle: 'Mahsulotlar topilmadi',
@@ -337,6 +338,25 @@ export default {
     tooManyRequests: 'Juda ko\'p so\'rovlar',
     tooManyRequestsLong: 'Juda ko\'p so\'rovlar. Biroz kuting va qayta urinib ko\'ring.',
     productsLoad: 'Mahsulotlarni yuklashda xato'
+  },
+  errorPage: {
+    default: {
+      title: 'Nimadir noto\'g\'ri ketdi',
+      description: 'Noma\'lum xatolik yuz berdi. Keyinroq urinib ko\'ring yoki qo\'llab-quvvatlashga murojaat qiling.'
+    },
+    suggestions: {
+      title: 'Nimani sinab ko\'rish mumkin:',
+      refresh: 'Sahifani yangilashga harakat qiling',
+      checkConnection: 'Internetga ulanishni tekshiring',
+      contactSupport: 'Qo\'llab-quvvatlash xizmatiga murojaat qiling',
+      tryLater: 'Keyinroq urinib ko\'ring',
+      waitFewMinutes: '2-3 daqiqa kutib, qayta urinib ko\'ring',
+      slower: 'Saytdan sekinroq foydalanib ko\'ring',
+      refreshInMinute: 'Bir daqiqadan so\'ng sahifani yangilang'
+    },
+    retry: 'Qayta urinib ko\'rish',
+    goHome: 'Bosh sahifaga qaytish',
+    statusCode: 'Xato kodi'
   },
   footer: {
     quickLinks: 'Tezkor havolalar',
