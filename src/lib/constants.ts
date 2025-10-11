@@ -46,6 +46,13 @@ export const API_ENDPOINTS = {
   REFUND_REQUEST_BY_ID: (id: number) => `/refunds/${id}`,
   REFUND_APPROVE: (id: number) => `/refunds/${id}/approve`,
   REFUND_REJECT: (id: number) => `/refunds/${id}/reject`,
+
+  // Cart
+  CART: "/cart",
+  CART_TOTAL: "/cart/total",
+  CART_ITEMS: "/cart/items",
+  CART_ITEM_BY_ID: (cartItemId: number) => `/cart/items/${cartItemId}`,
+  CART_CLEAR: "/cart/clear",
 } as const;
 
 export const ORDER_STATUS = {

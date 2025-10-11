@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import Image from "next/image";
 import { Slipper } from "@/types";
 import { formatPrice, getFullImageUrl } from "@/lib/utils";
-import { ShoppingCart, Check, Plus, Minus } from "lucide-react";
+import { ShoppingCart, Check, Plus, Minus, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useI18n } from "@/i18n";
@@ -24,8 +24,13 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
   const { isInCart, getCartItem, addToCart, updateQuantity } = useCart();
   const isAdmin = !!user?.is_admin;
 
-    const inCart = useMemo(() => isInCart(slipper.id), [isInCart, slipper.id]);
-    const cartItem = useMemo(() => (inCart ? getCartItem(slipper.id) : undefined), [inCart, getCartItem, slipper.id]);
+  // Compute on each render so context changes are reflected immediately
+  const inCart = isInCart(slipper.id);
+  const cartItem = inCart ? getCartItem(slipper.id) : undefined;
+  const [addPending, setAddPending] = useState(false);
+  useEffect(() => {
+    if (inCart && addPending) setAddPending(false);
+  }, [inCart, addPending]);
 
     // Build list of image URLs for carousel (primary first)
     const imageUrls = useMemo(() => {
@@ -121,19 +126,22 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
       }
     }, [addToCart, onAddToCart, slipper]);
 
+    const canDecrease = !!cartItem && cartItem.quantity > 60;
+    const canIncrease = !!cartItem && (cartItem.quantity + 6) <= (availabilityInfo.quantity || 0);
+
     const increaseQuantity = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
-      if (cartItem) {
+      if (cartItem && canIncrease) {
         updateQuantity(slipper.id, cartItem.quantity + 6);
       }
-    }, [updateQuantity, slipper.id, cartItem]);
+    }, [updateQuantity, slipper.id, cartItem, canIncrease]);
 
     const decreaseQuantity = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
-      if (cartItem && cartItem.quantity > 60) {
+      if (cartItem && canDecrease) {
         updateQuantity(slipper.id, cartItem.quantity - 6);
       }
-    }, [updateQuantity, slipper.id, cartItem]);
+    }, [updateQuantity, slipper.id, cartItem, canDecrease]);
 
     const handleViewDetails = useCallback(() => {
       if (onViewDetails) {
@@ -258,17 +266,19 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
               <div className="flex items-center space-x-1">
                 <button
                   onClick={decreaseQuantity}
-                  className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
-                  disabled={cartItem && cartItem.quantity <= 60}
+                  className={`p-1 rounded border text-xs transition-colors ${canDecrease ? 'border-gray-300 text-gray-700 hover:bg-gray-50' : 'border-gray-200 text-gray-400 cursor-not-allowed opacity-50'}`}
+                  disabled={!canDecrease}
                 >
                   <Minus className="h-3 w-3" />
                 </button>
-                <span className="w-10 text-center text-xs font-semibold text-gray-900">
+                <span className="w-12 text-center text-xs font-semibold text-gray-900">
                   {cartItem?.quantity || 60}
                 </span>
                 <button
                   onClick={increaseQuantity}
-                  className="p-1 rounded border border-gray-300 hover:bg-gray-50"
+                  className={`p-1 rounded border text-xs transition-colors ${canIncrease ? 'border-blue-300 text-blue-700 hover:bg-blue-50' : 'border-gray-200 text-gray-400 cursor-not-allowed opacity-50'}`}
+                  disabled={!canIncrease}
+                  title={!canIncrease ? t('product.insufficientStock') : undefined}
                 >
                   <Plus className="h-3 w-3" />
                 </button>
@@ -279,12 +289,12 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
           {/* Add to Cart Button */}
           {onAddToCart && !isAdmin && !inCart && (
             <button
-              onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
-              disabled={!availabilityInfo.canAddToCart}
-              className="mt-2 w-full inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 text-white text-xs sm:text-sm font-medium py-1.5 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              onClick={(e) => { e.stopPropagation(); if (!availabilityInfo.canAddToCart || addPending) return; setAddPending(true); handleAddToCart(); }}
+              disabled={!availabilityInfo.canAddToCart || addPending}
+              className={`mt-2 w-full inline-flex items-center justify-center gap-1 rounded-md text-white text-xs sm:text-sm font-medium py-1.5 transition-colors ${(!availabilityInfo.canAddToCart || addPending) ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               title={!availabilityInfo.canAddToCart ? t('product.insufficientStockTooltip', { min: '60' }) : t('cart.addToCartHint')}
             >
-              <ShoppingCart className="h-4 w-4" /> {t('cart.addToCart')}
+              {addPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />} {t('cart.addToCart')}
             </button>
           )}
         </div>

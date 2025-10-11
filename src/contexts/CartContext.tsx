@@ -1,9 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, startTransition } from "react";
 import { toast } from "react-toastify";
 import { Slipper, SlipperImage } from "@/types";
 import { useI18n } from "@/i18n";
+import cartService, { CartDTO, CartItemDTO } from "@/services/cartService";
+import { fetchProduct } from "@/services/productService";
 
 interface CartItem {
   id: number;
@@ -11,22 +13,18 @@ interface CartItem {
   price: number;
   quantity: number;
   images: Array<{ id: number; image_url: string }>;
-  image?: string; // Single image URL (alternative format)
+  image?: string;
   size?: string;
   color?: string;
+  _cartItemId?: number; // backend cart_item id
 }
 
 interface CartContextType {
   items: CartItem[];
   itemCount: number;
-  distinctCount: number; // number of different products/lines
+  distinctCount: number;
   totalAmount: number;
-  addToCart: (
-    product: Slipper,
-    quantity?: number,
-    size?: string,
-    color?: string
-  ) => void;
+  addToCart: (product: Slipper, quantity?: number, size?: string, color?: string) => void;
   removeFromCart: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
@@ -36,70 +34,257 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+// Map server DTO to client items, preserving images from previous state
+function mapServerToClient(cart: CartDTO, prevItems: CartItem[]): CartItem[] {
+  const prev = prevItems || [];
+  return (cart.items || []).map((it: CartItemDTO) => {
+    const prevMatch = prev.find((p) => p.id === it.slipper_id);
+    const mapped: CartItem = {
+      id: it.slipper_id,
+      name: it.name,
+      price: it.price,
+      quantity: Number(it.quantity || 0),
+      images: prevMatch?.images || [],
+      image: prevMatch?.image,
+      _cartItemId: it.id,
+    };
+    return mapped;
+  });
+}
+
+// Merge server-mapped items with local when server returns a partial payload
+function reconcilePartial(
+  mapped: CartItem[],
+  prev: CartItem[],
+  changedId: number,
+  op: "add" | "update" | "delete" | "clear"
+): CartItem[] {
+  if (op === "clear") return [];
+  if (op === "delete") {
+    // Start from local minus the removed item
+    const base = prev.filter((i) => i.id !== changedId);
+    if (mapped.length === 0) return base;
+    // If mapped looks like a full cart, trust it
+    if (mapped.length >= base.length) return mapped;
+    // Otherwise, merge mapped changes into base
+    const byId = new Map(mapped.map((i) => [i.id, i] as const));
+    const merged = base.map((i) => byId.get(i.id) || i);
+    // Include any mapped items not present in base
+    mapped.forEach((i) => { if (!merged.some((m) => m.id === i.id)) merged.push(i); });
+    return merged;
+  }
+  // add/update: keep previous, replace changed, include any new mapped items
+  if (mapped.length === 0) return prev;
+  // If mapped seems full (equal or more items than prev), prefer mapped
+  if (mapped.length >= prev.length) return mapped;
+  const byId = new Map(mapped.map((i) => [i.id, i] as const));
+  const merged = prev.map((i) => byId.get(i.id) || i);
+  mapped.forEach((i) => { if (!merged.some((m) => m.id === i.id)) merged.push(i); });
+  return merged;
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const itemsRef = useRef<CartItem[]>([]);
-  useEffect(() => { itemsRef.current = items; }, [items]);
+  const itemsMapRef = useRef<Map<number, CartItem>>(new Map());
+  const itemsIdSetRef = useRef<Set<number>>(new Set());
+  // Suppress server-driven hydration while clearing to avoid flicker/slow clear
+  const suppressHydrationRef = useRef<number>(0);
   const { t } = useI18n();
 
-  // Load cart from localStorage on mount
+  // Keep ref in sync
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      // If payment_success cookie exists, force clear cart immediately
-      try {
-        const cookieStr = document.cookie || '';
-        if (cookieStr.includes('payment_success=1')) {
-          localStorage.removeItem('cart');
-          localStorage.setItem('cart', '[]');
-        }
-      } catch {}
+    itemsRef.current = items;
+  }, [items]);
 
-      const savedCart = localStorage.getItem("cart");
-      if (savedCart) {
+  // Derive lookup structures so consumers can see them in the same render
+  const itemsMap = React.useMemo(() => {
+    const m = new Map<number, CartItem>();
+    for (const it of items) m.set(it.id, it);
+    return m;
+  }, [items]);
+  const itemsIdSet = React.useMemo(() => new Set<number>(items.map(i => i.id)), [items]);
+  useEffect(() => {
+    itemsMapRef.current = itemsMap;
+    itemsIdSetRef.current = itemsIdSet;
+  }, [itemsMap, itemsIdSet]);
+
+  const mirrorToStorage = (list: CartItem[]) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("cart", JSON.stringify(list));
+      } catch { }
+    }
+  };
+
+  const lastServerSyncRef = useRef<number>(0);
+  const SERVER_SYNC_COOLDOWN_MS = 10000; // 10s throttle to avoid 429
+  // Track enrichment work so we don't repeat it unnecessarily
+  const enrichingRef = useRef<boolean>(false);
+  const enrichedIdsRef = useRef<Set<number>>(new Set());
+
+  const syncFromServer = useCallback(async () => {
+    try {
+      // If we're in a clear window, skip hydrating from server
+      if (suppressHydrationRef.current > Date.now()) return;
+      const cart = await cartService.getCart();
+      let prevForImages: CartItem[] = itemsRef.current;
+      if (typeof window !== "undefined") {
         try {
-          const parsed: CartItem[] = JSON.parse(savedCart);
-          const normalized = parsed.map((it) => ({
-            ...it,
-            quantity: Math.max(60, Math.round((it.quantity || 0) / 6) * 6),
-          }));
-          setItems(normalized);
-        } catch (error) {
-          console.error("Error loading cart from localStorage:", error);
+          const saved = localStorage.getItem("cart");
+          if (saved) prevForImages = JSON.parse(saved) as CartItem[];
+        } catch { }
+      }
+      const mapped = mapServerToClient(cart, prevForImages);
+      startTransition(() => setItems(mapped));
+      mirrorToStorage(mapped);
+      lastServerSyncRef.current = Date.now();
+    } catch {
+      // silent fallback
+    }
+  }, []);
+
+  // Initial load: prefer server, fallback to localStorage
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const cart = await cartService.getCart();
+        if (!mounted) return;
+        let prevForImages: CartItem[] = itemsRef.current;
+        if (typeof window !== "undefined") {
+          try {
+            const saved = localStorage.getItem("cart");
+            if (saved) prevForImages = JSON.parse(saved) as CartItem[];
+          } catch { }
+        }
+        const mapped = mapServerToClient(cart, prevForImages);
+        startTransition(() => setItems(mapped));
+        mirrorToStorage(mapped);
+      } catch {
+        if (typeof window !== "undefined") {
+          const savedCart = localStorage.getItem("cart");
+          if (savedCart) {
+            try {
+              const parsed: CartItem[] = JSON.parse(savedCart);
+              const normalized = parsed.map((it) => ({
+                ...it,
+                quantity: Math.max(60, Math.round((it.quantity || 0) / 6) * 6),
+              }));
+              if (mounted) setItems(normalized);
+            } catch { }
+          }
         }
       }
-    }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Save cart to localStorage whenever items change
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cart", JSON.stringify(items));
-      // Notify listeners in same tab to re-sync if needed
-      try { window.dispatchEvent(new Event('cart:sync')); } catch {}
-    }
+    mirrorToStorage(items);
   }, [items]);
 
-  // Listen for logout event to clear cart
+  // Enrich items that are missing images by fetching product details
   useEffect(() => {
-  const handleCartClear = () => {
-    setItems([]);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("cart");
-    }
-  };
+    // Run only on client
+    if (typeof window === "undefined") return;
+    if (enrichingRef.current) return;
+    const current = itemsRef.current;
+    if (!current || current.length === 0) return;
+
+    // Identify items that need enrichment (no image and no images array)
+    const needs = current
+      .filter((it) => (!it.image && (!it.images || it.images.length === 0)))
+      .map((it) => it.id)
+      .filter((id) => !enrichedIdsRef.current.has(id));
+
+    if (needs.length === 0) return;
+
+    enrichingRef.current = true;
+    (async () => {
+      // Concurrency limit to avoid spikes
+      const limit = 3;
+      let idx = 0;
+      const results: Record<number, Slipper | null> = {};
+
+      const worker = async () => {
+        while (idx < needs.length) {
+          const i = idx++;
+          const id = needs[i];
+          enrichedIdsRef.current.add(id);
+          try {
+            const product = await fetchProduct(id);
+            results[id] = product;
+          } catch {
+            results[id] = null;
+          }
+        }
+      };
+
+      const workers = Array.from({ length: Math.min(limit, needs.length) }, () => worker());
+      await Promise.allSettled(workers);
+
+      // Build updated items with images filled where available
+      const updated = itemsRef.current.map((it) => {
+        const product = results[it.id];
+        if (!product) return it;
+        type ImageLike = { id: number; image_url?: string; image_path?: string };
+        const mappedImages = (product.images || []).map((img: SlipperImage | ImageLike) => ({
+          id: (img as SlipperImage | ImageLike).id,
+          image_url: (img as SlipperImage).image_path || (img as ImageLike).image_url || "",
+        }));
+        const firstImage = product.image || (mappedImages[0]?.image_url ?? "");
+        if ((it.image && it.image.length > 0) || (it.images && it.images.length > 0)) return it;
+        return {
+          ...it,
+          image: it.image || firstImage,
+          images: (it.images && it.images.length > 0) ? it.images : mappedImages,
+        };
+      });
+
+      // Only update state if there are changes (some items gained images)
+      const changed = updated.some((u, ix) => {
+        const prev = itemsRef.current[ix];
+        const prevHas = !!(prev?.image) || (prev?.images && prev.images.length > 0);
+        const nowHas = !!(u?.image) || (u?.images && u.images.length > 0);
+        return nowHas && !prevHas;
+      });
+
+      if (changed) {
+        startTransition(() => setItems(updated));
+        try { mirrorToStorage(updated); } catch { /* ignore */ }
+      }
+
+      enrichingRef.current = false;
+    })();
+  }, [items]);
+
+  // Listen for cart clear and payment success
+  useEffect(() => {
+    const handleCartClear = () => {
+      // Synchronous clear for instant UI
+      suppressHydrationRef.current = Date.now() + 8000;
+      setItems([]);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("cart");
+      }
+    };
 
     if (typeof window !== "undefined") {
       window.addEventListener("cart:clear", handleCartClear);
-      
-      // Listen for payment success event to clear cart
+
       const handlePaymentSuccess = () => {
+        suppressHydrationRef.current = Date.now() + 8000;
         setItems([]);
         localStorage.removeItem("cart");
         localStorage.setItem("cart", "[]");
       };
-      
+
       window.addEventListener("payment:success", handlePaymentSuccess);
-      
+
       return () => {
         window.removeEventListener("cart:clear", handleCartClear);
         window.removeEventListener("payment:success", handlePaymentSuccess);
@@ -107,251 +292,230 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Keep UI in sync with storage on focus/visibility/storage/custom events
+  // Keep UI in sync with storage and also refresh from server in background
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
+    const lastStorageRawRef = { current: "" } as { current: string };
     const syncFromStorage = () => {
       try {
-        // If payment success cookie exists, force-clear storage
-        const cookieStr = document.cookie || '';
-        if (cookieStr.includes('payment_success=1')) {
-          localStorage.removeItem('cart');
-          localStorage.setItem('cart', '[]');
-        }
-
-        const stored = localStorage.getItem('cart');
+        const stored = localStorage.getItem("cart");
+        if (stored === lastStorageRawRef.current) return;
+        lastStorageRawRef.current = stored || "";
         const parsed: CartItem[] = stored ? JSON.parse(stored) : [];
         const normalized = parsed.map((it) => ({
           ...it,
           quantity: Math.max(60, Math.round((it.quantity || 0) / 6) * 6),
         }));
-
-        const current = itemsRef.current;
-        if (JSON.stringify(current) !== JSON.stringify(normalized)) {
-          setItems(normalized);
-        }
+        setItems(normalized);
       } catch {
         // ignore
       }
+      const now = Date.now();
+      if (now - lastServerSyncRef.current >= SERVER_SYNC_COOLDOWN_MS) {
+        setTimeout(() => {
+          try {
+            void syncFromServer();
+          } catch { }
+        }, 0);
+      }
     };
 
-    const onVisibility = () => { if (!document.hidden) syncFromStorage(); };
-    window.addEventListener('focus', syncFromStorage);
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('storage', syncFromStorage);
-    window.addEventListener('cart:sync', syncFromStorage as EventListener);
+    const onVisibility = () => {
+      if (!document.hidden) syncFromStorage();
+    };
+    window.addEventListener("focus", syncFromStorage);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("storage", syncFromStorage);
     return () => {
-      window.removeEventListener('focus', syncFromStorage);
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('storage', syncFromStorage);
-      window.removeEventListener('cart:sync', syncFromStorage as EventListener);
+      window.removeEventListener("focus", syncFromStorage);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("storage", syncFromStorage);
     };
-  }, []);
+  }, [syncFromServer]);
 
-  const addToCart = (
-    product: Slipper,
-    quantity = 6,
-    size?: string,
-    color?: string
-  ) => {
-    // Check available stock
+  const addToCart = (product: Slipper, quantity = 6, _size?: string, _color?: string) => {
+    void _size;
+    void _color;
     const availableStock = product.quantity || 0;
     if (availableStock <= 0) {
-      toast.error(t('cart.outOfStock', { name: product.name }));
+      toast.error(t("cart.outOfStock", { name: product.name }));
       return;
     }
 
-    // Always add in multiples of 6, minimum 60
     let addQty = Math.max(6, Math.round(quantity / 6) * 6);
     if (addQty < 60) addQty = 60;
 
-    const existingItemIndex = items.findIndex(
-      (item) =>
-        item.id === product.id && item.size === size && item.color === color
-    );
+    type ImageLike = { id: number; image_url?: string; image_path?: string };
+    const fallbackImages = (product.images || []).map((img: SlipperImage | ImageLike) => ({
+      id: (img as SlipperImage | ImageLike).id,
+      image_url: (img as SlipperImage).image_path || (img as ImageLike).image_url || "",
+    }));
 
-    if (existingItemIndex > -1) {
-      let toastType: 'success' | 'warning' | 'error' = 'success';
-      let toastMessage = '';
-      
-      setItems((prevItems) => {
-        const newItems = [...prevItems];
-        let newQty = newItems[existingItemIndex].quantity + addQty;
-        if (newQty < 60) newQty = 60;
-        // Always round to nearest 6
-        newQty = Math.round(newQty / 6) * 6;
-        
-        // Check if new quantity exceeds available stock
-        if (newQty > availableStock) {
-          const maxPossible = Math.floor(availableStock / 6) * 6;
-          if (maxPossible >= 60) {
-            newQty = maxPossible;
-            toastType = 'warning';
-            toastMessage = t('cart.limitedStock', { name: product.name, qty: newQty, available: availableStock });
-          } else {
-            toastType = 'error';
-            toastMessage = t('cart.insufficientStock', { name: product.name, available: availableStock });
-            return prevItems; // Don't update if can't meet minimum
-          }
-        } else {
-          toastType = 'success';
-          toastMessage = t('cart.added', { name: product.name, qty: addQty });
-        }
-        
-        newItems[existingItemIndex].quantity = newQty;
-        return newItems;
-      });
-      
-      // Show toast after state update
-      if (toastType === 'success') {
-        toast.success(toastMessage);
-      } else if (toastType === 'warning') {
-        toast.warning(toastMessage);
-      } else if (toastType === 'error') {
-        toast.error(toastMessage);
-      }
-    } else {
-      // Check if minimum quantity (60) can be satisfied
-      if (availableStock < 60) {
-        toast.error(t('cart.insufficientStock', { name: product.name, available: availableStock }));
-        return;
-      }
-      
-      // Check if requested quantity exceeds available stock
-      let toastType: 'success' | 'warning' | null = 'success';
-      let toastMessage = '';
-      
-      if (addQty > availableStock) {
-        const maxPossible = Math.floor(availableStock / 6) * 6;
-        addQty = Math.max(60, maxPossible);
-        toastType = 'warning';
-        toastMessage = t('cart.limitedStock', { name: product.name, qty: addQty, available: availableStock });
+    let optimisticNext: CartItem[] = [];
+    // Functional update prevents races across rapid clicks
+    setItems((prev) => {
+      const existing = prev.find((i) => i.id === product.id);
+      if (existing) {
+        const nextQty = Math.max(60, Math.round((existing.quantity + addQty) / 6) * 6);
+        optimisticNext = prev.map((i) =>
+          i.id === product.id
+            ? {
+              ...i,
+              quantity: nextQty,
+              images: i.images && i.images.length > 0 ? i.images : fallbackImages,
+              image: i.image || product.image,
+            }
+            : i
+        );
       } else {
-        toastMessage = t('cart.added', { name: product.name, qty: addQty });
+        optimisticNext = [
+          ...prev,
+          {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: addQty,
+            images: fallbackImages,
+            image: product.image,
+            _cartItemId: undefined,
+          },
+        ];
       }
+      return optimisticNext;
+    });
+    // Defer I/O and toast very slightly to keep main thread free
+    setTimeout(() => {
+      try { mirrorToStorage(optimisticNext); } catch { }
+      try { toast.success(t("cart.added", { name: product.name, qty: addQty })); } catch { }
+    }, 0);
 
-      type ImageLike = { id: number; image_url?: string; image_path?: string };
-      const cartItem: CartItem = {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: addQty,
-        images: (product.images || []).map((img: SlipperImage | ImageLike) => ({
-          id: img.id,
-          image_url: (img as SlipperImage).image_path || (img as ImageLike).image_url || ""
-        })),
-        image: product.image,
-        size,
-        color,
-      };
-      
-      setItems((prevItems) => [...prevItems, cartItem]);
-      
-      // Show toast after state update
-      if (toastType === 'success') {
-        toast.success(toastMessage);
-      } else if (toastType === 'warning') {
-        toast.warning(toastMessage);
+    (async () => {
+      try {
+        const payload = { slipper_id: product.id, quantity: addQty };
+        const cart = await cartService.addItem(payload);
+        let prevForImages: CartItem[] = optimisticNext;
+        if (typeof window !== "undefined") {
+          try {
+            const saved = localStorage.getItem("cart");
+            if (saved) prevForImages = JSON.parse(saved) as CartItem[];
+          } catch { }
+        }
+        let mapped = mapServerToClient(cart, prevForImages);
+        // If backend returns partial cart, merge with local optimistic state
+        mapped = reconcilePartial(mapped, itemsRef.current, product.id, "add");
+        mapped = mapped.map((it: CartItem) =>
+          it.id === product.id
+            ? {
+              ...it,
+              images: it.images && it.images.length > 0 ? it.images : fallbackImages,
+              image: it.image || product.image,
+            }
+            : it
+        );
+        startTransition(() => setItems(mapped));
+        setTimeout(() => { try { mirrorToStorage(mapped); } catch { } }, 0);
+      } catch {
+        // Keep optimistic state on failure
       }
-    }
+    })();
   };
 
   const removeFromCart = (productId: number) => {
     const removedItem = items.find((item) => item.id === productId);
-    setItems((prevItems) => {
-      return prevItems.filter((item) => item.id !== productId);
-    });
-    if (removedItem) {
-      toast.success(t('cart.removed', { name: removedItem.name }));
+    const cartItemId = removedItem?._cartItemId;
+    if (!cartItemId) {
+      startTransition(() => setItems((prevItems) => prevItems.filter((i) => i.id !== productId)));
+      if (removedItem) toast.success(t("cart.removed", { name: removedItem.name }));
+      return;
     }
+    (async () => {
+      try {
+        const cart = await cartService.deleteItem(cartItemId);
+        let mapped = mapServerToClient(cart, itemsRef.current);
+        mapped = reconcilePartial(mapped, itemsRef.current, productId, "delete");
+        startTransition(() => setItems(mapped));
+        mirrorToStorage(mapped);
+        if (removedItem) toast.success(t("cart.removed", { name: removedItem.name }));
+      } catch {
+        startTransition(() => setItems((prevItems) => prevItems.filter((i) => i.id !== productId)));
+        mirrorToStorage(itemsRef.current);
+        if (removedItem) toast.success(t("cart.removed", { name: removedItem.name }));
+      }
+    })();
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
-    // Find current cart item
-    const cartItem = items.find(item => item.id === productId);
+    const cartItem = items.find((item) => item.id === productId);
     if (!cartItem) return;
 
-    // Determine direction to snap correctly to 6-step grid
     const isIncrease = quantity > cartItem.quantity;
-    let snapped = isIncrease
-      ? Math.ceil(quantity / 6) * 6
-      : Math.floor(quantity / 6) * 6;
-
-    // Enforce minimum 60
+    let snapped = isIncrease ? Math.ceil(quantity / 6) * 6 : Math.floor(quantity / 6) * 6;
     if (snapped < 60) snapped = 60;
 
-    setItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === productId ? { ...item, quantity: snapped } : item
-      )
-    );
+    if (!cartItem._cartItemId) {
+      startTransition(() => setItems((prev) => prev.map((i) => (i.id === productId ? { ...i, quantity: snapped } : i))));
+      mirrorToStorage(itemsRef.current);
+      return;
+    }
+
+    (async () => {
+      try {
+        const cart = await cartService.updateItem(cartItem._cartItemId!, { quantity: snapped });
+        let mapped = mapServerToClient(cart, itemsRef.current);
+        mapped = reconcilePartial(mapped, itemsRef.current, cartItem.id, "update");
+        startTransition(() => setItems(mapped));
+        mirrorToStorage(mapped);
+      } catch {
+        toast.error(t("errors.serverErrorLong"));
+      }
+    })();
   };
 
   const clearCart = () => {
-    // Force clear both state and localStorage immediately
-    if (typeof window !== "undefined") {
-      try {
-        // Multiple clearing attempts to ensure it works
-        localStorage.removeItem("cart");
-        localStorage.setItem("cart", "[]");
-        localStorage.removeItem("cart"); // Remove again to be absolutely sure
-        // Remove success cookie if set
-        document.cookie = "payment_success=; Max-Age=0; path=/";
-        try {
-          const host = window.location.hostname;
-          const parts = host.split('.')
-          const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : host;
-          if (baseDomain.includes('.')) {
-            document.cookie = `payment_success=; Max-Age=0; path=/; domain=.${baseDomain}`;
-          }
-        } catch {}
-        
-        // Verify it's cleared
-        const verify = localStorage.getItem("cart");
-        if (verify && verify !== "[]") {
-          // Force clear again if still present
-          localStorage.clear();
-          localStorage.setItem("cart", "[]");
-        }
-      } catch (error) {
-        console.error("Error clearing cart from localStorage:", error);
-      }
-    }
-    
-    // Clear state immediately
+    // Synchronous clear for instant UI response
+    suppressHydrationRef.current = Date.now() + 8000;
     setItems([]);
-    
-    // Don't show toast if called programmatically after payment
-    const isPaymentSuccess = typeof window !== "undefined" && 
-      (window.location.pathname.includes('/payment/success') || 
-       sessionStorage.getItem('payment_success_flag'));
-    
+    mirrorToStorage([]);
+
+    const isPaymentSuccess =
+      typeof window !== "undefined" &&
+      (window.location.pathname.includes("/payment/success") ||
+        sessionStorage.getItem("payment_success_flag"));
     if (!isPaymentSuccess) {
-      toast.success(t('cart.cleared'));
+      setTimeout(() => {
+        try { toast.success(t("cart.cleared")); } catch { }
+      }, 0);
     }
+
+    (async () => {
+      try {
+        await cartService.clear();
+      } catch {
+        // keep optimistic cleared state
+      } finally {
+        // Allow server hydration again after short delay window
+        setTimeout(() => { suppressHydrationRef.current = 0; }, 500);
+      }
+    })();
   };
 
-  const isInCart = (productId: number) => {
-    return items.some((item) => item.id === productId);
-  };
+  const isInCart = useCallback((productId: number | string) => {
+    const idNum = Number(productId);
+    return itemsIdSet.has(idNum);
+  }, [itemsIdSet]);
+  const getCartItem = useCallback((productId: number | string) => {
+    const idNum = Number(productId);
+    return itemsMap.get(idNum);
+  }, [itemsMap]);
 
-  const getCartItem = (productId: number) => {
-    return items.find((item) => item.id === productId);
-  };
-
-  // Total quantity (sum of all unit quantities)
   const itemCount = items.reduce((total, item) => total + item.quantity, 0);
-  // Number of distinct cart lines
   const distinctCount = items.length;
-  const totalAmount = items.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
+  const totalAmount = items.reduce((total, item) => total + item.price * item.quantity, 0);
 
   const value: CartContextType = {
     items,
-  itemCount,
-  distinctCount,
+    itemCount,
+    distinctCount,
     totalAmount,
     addToCart,
     removeFromCart,

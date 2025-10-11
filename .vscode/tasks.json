@@ -17,6 +17,12 @@
 			"command": "npx next dev",
 			"isBackground": true,
 			"group": "build"
+		},
+		{
+			"label": "Typecheck",
+			"type": "shell",
+			"command": "npm run -s typecheck",
+			"group": "build"
 		}
 	]
 }

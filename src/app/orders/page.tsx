@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import modernApiClient from "@/lib/modernApiClient";
@@ -92,11 +92,13 @@ export default function OrdersPage() {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [searchTerm] = useState("");
-  const [statusFilter] = useState<string>("all");
-  const [sortBy] = useState<"date" | "amount">("date");
-  const [sortOrder] = useState<"asc" | "desc">("desc");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"date" | "amount">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showRefundModal, setShowRefundModal] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const lastFetchRef = useRef<number>(0);
   const { t, locale } = useI18n();
 
   /* ------------------------- Status config ------------------------- */
@@ -126,6 +128,49 @@ export default function OrdersPage() {
   } as const;
 
   /* ------------------------- Fetch Orders ------------------------- */
+  const slipperCacheRef = useRef<Map<number, Slipper>>(new Map());
+  const pendingRef = useRef<Map<number, Promise<Slipper | null>>>(new Map());
+
+  // Fetch slipper with simple in-memory cache and no over-parallelism
+  const fetchSlipperCached = useCallback(async (id: number): Promise<Slipper | null> => {
+    const cached = slipperCacheRef.current.get(id);
+    if (cached) return cached;
+    const pending = pendingRef.current.get(id);
+    if (pending) return pending;
+    const p = (async () => {
+      try {
+        const resp = await modernApiClient.get(API_ENDPOINTS.SLIPPER_BY_ID(id), { include_images: true }, { cache: false, timeout: 6000 });
+        const data = (resp as { data?: unknown })?.data || resp;
+        if (data && typeof data === 'object') {
+          slipperCacheRef.current.set(id, data as Slipper);
+          return data as Slipper;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        pendingRef.current.delete(id);
+      }
+    })();
+    pendingRef.current.set(id, p);
+    return p;
+  }, []);
+
+  // Run tasks with limited concurrency to avoid 429s
+  const runWithLimit = async <T,>(limit: number, tasks: Array<() => Promise<T>>): Promise<T[]> => {
+    const results: T[] = new Array(tasks.length) as T[];
+    let i = 0;
+    const workers = new Array(Math.min(limit, tasks.length)).fill(0).map(async () => {
+      while (true) {
+        const idx = i++;
+        if (idx >= tasks.length) break;
+        results[idx] = await tasks[idx]();
+      }
+    });
+    await Promise.all(workers);
+    return results;
+  };
+
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -136,97 +181,79 @@ export default function OrdersPage() {
       // Agar API ro'yxat qaytarsa:
       const data: Order[] = Array.isArray(response) ? response : [];
 
-      // Enrich orders with complete slipper data including images
-      const enrichedOrders = await Promise.all(
-        data.map(async (order) => {
-          
-          // Consolidate duplicate items by slipper_id for display
-          // This handles backend responses that may have duplicate entries
-          const itemMap = new Map<number, OrderItem>();
-          
-          order.items.forEach((item) => {
-            const key = item.slipper_id;
-            
-            if (itemMap.has(key)) {
-              // Consolidate quantities if same product
-              const existing = itemMap.get(key);
-              if (existing) {
-                existing.quantity += item.quantity;
-                existing.total_price = existing.unit_price * existing.quantity;
-              }
-            } else {
-              itemMap.set(key, {
-                ...item,
-                total_price: item.unit_price * item.quantity
-              });
-            }
-          });
-          
-          const consolidatedItems = Array.from(itemMap.values());
-          
-          // Filter out items that don't have proper product data
-          const validItems = consolidatedItems.filter(item => {
-            const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-            const hasValidPrice = item.unit_price && item.unit_price > 0;
-            
-            if (!hasValidProduct || !hasValidPrice) {
-              return false;
-            }
-            return true;
-          });
-          
-          const enrichedItems = await Promise.all(
-            validItems.map(async (item) => {
-              try {
-                // If item doesn't have complete slipper data, fetch it
-                if (!item.slipper || (!item.slipper.images && !item.slipper.image)) {
-                  const slipperResponse = await modernApiClient.get(
-                    API_ENDPOINTS.SLIPPER_BY_ID(item.slipper_id),
-                    { include_images: true },
-                    { cache: false }
-                  );
-                  const slipperData = (slipperResponse as { data?: unknown })?.data || slipperResponse;
-                  
-                  // Fetch images separately if not included
-                  if (slipperData && typeof slipperData === 'object' && slipperData !== null) {
-                    const slipper = slipperData as Record<string, unknown>;
-                    if (!slipper.images || (Array.isArray(slipper.images) && slipper.images.length === 0)) {
-                      try {
-                        const imagesResponse = await modernApiClient.get(
-                          API_ENDPOINTS.SLIPPER_IMAGES(item.slipper_id),
-                          undefined,
-                          { cache: false }
-                        );
-                        const images = (imagesResponse as { data?: unknown[] })?.data || imagesResponse;
-                        if (Array.isArray(images) && images.length > 0) {
-                          slipper.images = images;
-                        }
-                      } catch {
-                        // Failed to fetch images
-                      }
-                    }
-                  }
-                  
-                  return {
-                    ...item,
-                    slipper: slipperData as Slipper
-                  };
-                }
-                return item;
-              } catch {
-                return item; // Return original item if enrichment fails
-              }
-            })
-          );
-          
-          return {
-            ...order,
-            items: enrichedItems
-          };
-        })
-      );
+      // Consolidate duplicates and collect ids needing enrichment across all orders
+      const ordersConsolidated = data.map((order) => {
+        const itemMap = new Map<number, OrderItem>();
+        order.items.forEach((item) => {
+          const key = item.slipper_id;
+          if (itemMap.has(key)) {
+            const existing = itemMap.get(key)!;
+            const addQty = Number(item.quantity ?? 0);
+            existing.quantity = Number(existing.quantity ?? 0) + addQty;
+            const unit = Number(existing.unit_price ?? 0);
+            existing.total_price = unit * Number(existing.quantity ?? 0);
+          } else {
+            const qty = Number(item.quantity ?? 0);
+            const unit = Number(item.unit_price ?? 0);
+            itemMap.set(key, { ...item, quantity: qty, unit_price: unit, total_price: unit * qty });
+          }
+        });
+        const consolidatedItems = Array.from(itemMap.values());
+        const validItems = consolidatedItems.filter((item) => {
+          const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+          const hasValidPrice = Number(item.unit_price) > 0;
+          return hasValidProduct && hasValidPrice;
+        });
+        // Compute total from ORIGINAL items (not consolidated) to preserve mixed prices
+        const validOriginal = (order.items || []).filter((item) => {
+          const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
+          const priceNum = Number(item.unit_price ?? (item as unknown as { price?: number }).price ?? 0);
+          return hasValidProduct && priceNum > 0;
+        });
+        const computedTotal = validOriginal.reduce((sum, it) => {
+          const unit = Number(it.unit_price ?? (it as unknown as { price?: number }).price ?? 0);
+          const qty = Number(it.quantity ?? 0);
+          const fallbackTotal = Number((it as unknown as { total_price?: number }).total_price ?? 0);
+          const lineTotal = unit > 0 && qty > 0 ? unit * qty : fallbackTotal;
+          return sum + (Number.isFinite(lineTotal) ? lineTotal : 0);
+        }, 0);
+        const serverTotal = Number((order as unknown as { total_amount?: unknown }).total_amount ?? 0);
+        const normalizedTotal = Number.isFinite(serverTotal) && Math.abs(serverTotal - computedTotal) <= Math.max(1000, computedTotal * 0.01)
+          ? serverTotal
+          : computedTotal;
+        return { ...order, items: validItems, total_amount: normalizedTotal } as Order;
+      });
+
+      const idsNeeding: number[] = [];
+      const seen = new Set<number>();
+      ordersConsolidated.forEach((order) => {
+        order.items.forEach((it) => {
+          const needs = !it.slipper || (!it.slipper.images && !it.slipper.image);
+          if (needs && !seen.has(it.slipper_id)) { seen.add(it.slipper_id); idsNeeding.push(it.slipper_id); }
+        });
+      });
+
+      // Fetch missing slippers with limited concurrency (avoid 429)
+      if (idsNeeding.length > 0) {
+        const tasks = idsNeeding.map((id) => () => fetchSlipperCached(id));
+        await runWithLimit(3, tasks); // limit to 3 concurrent requests
+      }
+
+      // Build enriched orders using cache (no extra network hits here)
+      const enrichedOrders = ordersConsolidated.map((order) => ({
+        ...order,
+        items: order.items.map((item) => {
+          if (!item.slipper || (!item.slipper.images && !item.slipper.image)) {
+            const cached = slipperCacheRef.current.get(item.slipper_id);
+            if (cached) return { ...item, slipper: cached } as OrderItem;
+          }
+          return item;
+        }),
+      }));
 
       setOrders(enrichedOrders);
+      setLastUpdatedAt(Date.now());
+      lastFetchRef.current = Date.now();
     } catch (error) {
       console.error("Error fetching orders:", error);
       toast.error(t("errors.productsLoad"));
@@ -247,6 +274,24 @@ export default function OrdersPage() {
   useEffect(() => {
     if (isAuthenticated) fetchOrders();
   }, [isAuthenticated, fetchOrders]);
+
+  // Auto-refresh on focus/visibility with cooldown to avoid 429
+  useEffect(() => {
+    const COOLDOWN = 15000; // 15s
+    const onFocus = () => {
+      const now = Date.now();
+      if (now - lastFetchRef.current >= COOLDOWN) {
+        fetchOrders();
+      }
+    };
+    const onVisibility = () => { if (!document.hidden) onFocus(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchOrders]);
 
   /* ------------------------- Filter & Sort ------------------------- */
   const filterAndSortOrders = useCallback(() => {
@@ -503,7 +548,8 @@ export default function OrdersPage() {
         ) : (
           <div className="text-center py-12">{t("ordersPage.noneYet")}</div>
         )}
-      </div>
+        
+  </div>
       <OrderModal />
       
       {/* Refund Contact Modal */}
