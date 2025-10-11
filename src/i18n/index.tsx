@@ -59,7 +59,10 @@ export const I18nProvider: React.FC<React.PropsWithChildren<{initialLocale?: Loc
   useEffect(() => { /* dictionaries already loaded statically */ }, []);
   const t = useCallback((key: string, vars?: Record<string,string|number>) => {
     const dict = dictionaries[locale] || {};
-    let template = dict[key] || key;
+    // Respect intentionally empty strings in translations by checking key existence
+    let template = Object.prototype.hasOwnProperty.call(dict, key)
+      ? dict[key]
+      : key;
     if (vars) {
       Object.entries(vars).forEach(([k,v]) => {
         template = template.replace(new RegExp(`{${k}}`,'g'), String(v));

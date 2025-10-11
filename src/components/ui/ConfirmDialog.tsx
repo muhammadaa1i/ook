@@ -31,7 +31,8 @@ export const ConfirmDialogProvider: React.FC<React.PropsWithChildren> = ({ child
       setState({
         open: true,
         title: options.title || "Подтверждение",
-        message: options.message || "Вы уверены?",
+  // Preserve intentionally empty string/null by only defaulting when undefined
+  message: options.message === undefined ? "Вы уверены?" : options.message,
         confirmText: options.confirmText || "Да",
         cancelText: options.cancelText || "Отмена",
         variant: options.variant || "default",

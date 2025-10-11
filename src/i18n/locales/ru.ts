@@ -58,7 +58,7 @@ export default {
     confirmPassword: 'Подтверждение пароля',
     forgotPassword: 'Забыли пароль?',
     logoutConfirmTitle: 'Выйти из аккаунта?',
-    logoutConfirmMessage: 'Вы уверены, что хотите завершить сессию?',
+  logoutConfirmMessage: '',
     logoutConfirmButton: 'Выйти',
     namePlaceholder: 'Введите ваше имя',
     passwordInputPlaceholder: 'Введите пароль',
