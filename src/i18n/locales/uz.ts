@@ -348,7 +348,7 @@ export default {
       title: 'Nimani sinab ko\'rish mumkin:',
       refresh: 'Sahifani yangilashga harakat qiling',
       checkConnection: 'Internetga ulanishni tekshiring',
-      contactSupport: 'Qo\'llab-quvvatlash xizmatiga murojaat qiling',
+  contactSupport: '',
       tryLater: 'Keyinroq urinib ko\'ring',
       waitFewMinutes: '2-3 daqiqa kutib, qayta urinib ko\'ring',
       slower: 'Saytdan sekinroq foydalanib ko\'ring',

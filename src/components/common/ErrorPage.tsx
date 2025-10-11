@@ -123,12 +123,14 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry }) => {
             {t("errorPage.suggestions.title")}
           </h3>
           <ul className="text-sm text-gray-600 space-y-1">
-            {content.suggestions.map((suggestion, index) => (
-              <li key={index} className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                {suggestion}
-              </li>
-            ))}
+            {content.suggestions
+              .filter((s) => typeof s === 'string' && s.trim().length > 0)
+              .map((suggestion, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-blue-500 mr-2">•</span>
+                  {suggestion}
+                </li>
+              ))}
           </ul>
         </div>
 
