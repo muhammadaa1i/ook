@@ -50,8 +50,8 @@ export default {
     currencySom: 'so\'m',
   },
   auth: {
-    login: 'Hisobga kirish',
-    register: 'Hisob yaratish',
+    login: 'Tizimga kirish',
+    register: "Ro'yhatdan o'tish",
     name: 'Foydalanuvchi nomi',
     password: 'Parol',
     passwordPlaceholder: 'Kamida 8 ta belgi',
