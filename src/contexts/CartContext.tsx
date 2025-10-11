@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import { Slipper, SlipperImage } from "@/types";
 import { useI18n } from "@/i18n";
@@ -38,6 +38,8 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const itemsRef = useRef<CartItem[]>([]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
   const { t } = useI18n();
 
   // Load cart from localStorage on mount
@@ -72,6 +74,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("cart", JSON.stringify(items));
+      // Notify listeners in same tab to re-sync if needed
+      try { window.dispatchEvent(new Event('cart:sync')); } catch {}
     }
   }, [items]);
 
@@ -101,6 +105,47 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         window.removeEventListener("payment:success", handlePaymentSuccess);
       };
     }
+  }, []);
+
+  // Keep UI in sync with storage on focus/visibility/storage/custom events
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncFromStorage = () => {
+      try {
+        // If payment success cookie exists, force-clear storage
+        const cookieStr = document.cookie || '';
+        if (cookieStr.includes('payment_success=1')) {
+          localStorage.removeItem('cart');
+          localStorage.setItem('cart', '[]');
+        }
+
+        const stored = localStorage.getItem('cart');
+        const parsed: CartItem[] = stored ? JSON.parse(stored) : [];
+        const normalized = parsed.map((it) => ({
+          ...it,
+          quantity: Math.max(60, Math.round((it.quantity || 0) / 6) * 6),
+        }));
+
+        const current = itemsRef.current;
+        if (JSON.stringify(current) !== JSON.stringify(normalized)) {
+          setItems(normalized);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    const onVisibility = () => { if (!document.hidden) syncFromStorage(); };
+    window.addEventListener('focus', syncFromStorage);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('storage', syncFromStorage);
+    window.addEventListener('cart:sync', syncFromStorage as EventListener);
+    return () => {
+      window.removeEventListener('focus', syncFromStorage);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('storage', syncFromStorage);
+      window.removeEventListener('cart:sync', syncFromStorage as EventListener);
+    };
   }, []);
 
   const addToCart = (
