@@ -203,7 +203,7 @@ export default function CartPage() {
           });
 
       const paymentRequest = {
-        amount: PaymentService.formatAmount((mainOrder as any).total_amount ?? totalAmount),
+        amount: PaymentService.formatAmount((mainOrder as Order).total_amount ?? totalAmount),
         description,
         order_id: mainOrder.id || parseInt(mainOrder.order_id || '0', 10)
       };
