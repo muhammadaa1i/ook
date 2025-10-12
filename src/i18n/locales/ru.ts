@@ -166,7 +166,7 @@ export default {
     addToCart: 'В корзину',
     addMore: 'Добавить ещё',
     alreadyInCartAddMore: 'Товар уже в корзине. Нажмите чтобы добавить ещё',
-    addToCartHint: 'В корзину (минимум 60, шаг 6)',
+    addToCartHint: 'Добавить в корзину',
     added: '{name}: +{qty} единиц добавлено',
     removed: '{name}: удалён',
     cleared: 'Корзина очищена',
@@ -338,8 +338,7 @@ export default {
     serverErrorLong: 'Ошибка сервера. Попробуйте позже.',
     tooManyRequests: 'Слишком много запросов',
     tooManyRequestsLong: 'Слишком много запросов. Подождите немного и попробуйте снова.',
-    productsLoad: 'Ошибка загрузки товаров',
-    mobileCartUpdate: 'Корзина не обновилась на мобильном устройстве. Локальная версия сохранена, автосинхронизация произойдет позже.'
+    productsLoad: 'Ошибка загрузки товаров'
   },
   errorPage: {
     default: {

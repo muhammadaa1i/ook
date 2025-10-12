@@ -37,8 +37,8 @@ export class RefundService {
         const requests = JSON.parse(stored) as RefundRequest[];
         return requests.sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
       }
-    } catch (error) {
-      console.error('Error loading refund requests:', error);
+    } catch {
+      // Error loading refund requests
     }
     return [];
   }
@@ -48,8 +48,8 @@ export class RefundService {
       const existing = await this.getRefundRequests();
       const updated = [refundRequest, ...existing];
       localStorage.setItem('refundRequests', JSON.stringify(updated));
-    } catch (error) {
-      console.error('Error saving refund request:', error);
+    } catch {
+      // Error saving refund request
     }
   }
 
@@ -60,8 +60,8 @@ export class RefundService {
         req.id === id ? { ...req, status, updated_at: new Date().toISOString() } : req
       );
       localStorage.setItem('refundRequests', JSON.stringify(updated));
-    } catch (error) {
-      console.error('Error updating refund status:', error);
+    } catch {
+      // Error updating refund status
     }
   }
 
@@ -80,9 +80,8 @@ export class RefundService {
           payment_uuid: request.payment_uuid
         });
       }
-    } catch (error) {
-      console.error('OCTO refund failed during approval:', error);
-      // Status is still marked as approved, admin can handle manually
+    } catch {
+      // OCTO refund failed during approval - status is still marked as approved, admin can handle manually
     }
   }
 

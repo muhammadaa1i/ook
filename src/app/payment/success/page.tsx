@@ -28,8 +28,19 @@ function PaymentSuccessContent() {
   useEffect(() => {
     // Clear cart as soon as this page loads
     if (typeof window !== "undefined") {
-      localStorage.removeItem("cart");
-      localStorage.setItem("cart", "[]");
+      // Clear cart from all storage types
+      try {
+        localStorage.removeItem("cart");
+        localStorage.setItem("cart", "[]");
+      } catch (localError) {
+        console.warn('Failed to clear cart from localStorage:', localError);
+      }
+      
+      try {
+        sessionStorage.removeItem("cart");
+      } catch (sessionError) {
+        console.warn('Failed to clear cart from sessionStorage:', sessionError);
+      }
 
       // Set a short-lived cross-subdomain cookie to signal success
       try {
@@ -42,7 +53,9 @@ function PaymentSuccessContent() {
         if (baseDomain.includes(".")) {
           document.cookie = `payment_success=1; path=/; domain=.${baseDomain}; max-age=600`;
         }
-      } catch {}
+      } catch (cookieError) {
+        console.warn('Failed to set payment success cookie:', cookieError);
+      }
     }
     clearCart();
 
@@ -54,9 +67,39 @@ function PaymentSuccessContent() {
 
   const updateOrderStatus = useCallback(async () => {
     try {
-      const paymentOrderData = sessionStorage.getItem('paymentOrder');
+      // Enhanced mobile storage retrieval with multiple fallbacks
+      let paymentOrderData = null;
+      
+      // Try sessionStorage first
+      try {
+        paymentOrderData = sessionStorage.getItem('paymentOrder');
+      } catch (sessionError) {
+        console.warn('SessionStorage access failed:', sessionError);
+      }
+      
+      // Fallback to localStorage
       if (!paymentOrderData) {
-        console.warn('No payment order data found');
+        try {
+          paymentOrderData = localStorage.getItem('paymentOrder_fallback');
+        } catch (localError) {
+          console.warn('LocalStorage fallback access failed:', localError);
+        }
+      }
+      
+      // Fallback to history state (for iOS Safari private mode)
+      if (!paymentOrderData) {
+        try {
+          const historyState = window.history.state;
+          if (historyState?.paymentData) {
+            paymentOrderData = decodeURIComponent(historyState.paymentData);
+          }
+        } catch (historyError) {
+          console.warn('History state access failed:', historyError);
+        }
+      }
+      
+      if (!paymentOrderData) {
+        console.warn('No payment order data found in any storage method');
         return;
       }
 

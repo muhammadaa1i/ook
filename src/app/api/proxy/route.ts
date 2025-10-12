@@ -50,14 +50,6 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("API Error Details:", {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: errorText,
-        url: url.toString(),
-        requestHeaders: headers
-      });
       
       // Return more detailed error for debugging
       return NextResponse.json(
@@ -81,7 +73,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Proxy error:", error);
 
     if (error instanceof Error) {
       if (error.name === "TimeoutError") {
@@ -125,7 +116,6 @@ export async function POST(request: NextRequest) {
     if (endpoint === "/auth/login" && useTestData) {
       try {
         const body = await request.json();
-        console.log("Login attempt with test data:", { name: body.name, hasPassword: !!body.password });
 
         // Test credentials - in a real app, this would be validated against a database
         if (body.name === "admin" && body.password === "password") {
@@ -143,14 +133,12 @@ export async function POST(request: NextRequest) {
             }
           });
         } else {
-          console.log("Invalid test credentials provided");
           return NextResponse.json(
             { error: "Invalid credentials" },
             { status: 401 }
           );
         }
-      } catch (error) {
-        console.error("Error processing login request:", error);
+      } catch {
         return NextResponse.json(
           { error: "Invalid request body" },
           { status: 400 }
@@ -184,6 +172,12 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     if (authHeader) {
       headers.Authorization = authHeader;
+      // Temporary debug logging for cart requests
+      if (endpoint.includes('/cart/items')) {
+        console.log("🔗 Proxy forwarding auth header for cart:", authHeader.substring(0, 30) + "...");
+      }
+    } else if (endpoint.includes('/cart/items')) {
+      console.log("❌ Proxy: No auth header for cart request");
     }
 
     let body: BodyInit | null = null;
@@ -196,16 +190,9 @@ export async function POST(request: NextRequest) {
       // Debug login requests
       if (endpoint === "/auth/login") {
         try {
-          const loginData = JSON.parse(body);
-          console.log("Login request to backend:", {
-            endpoint,
-            url: url.toString(),
-            name: loginData.name,
-            hasPassword: !!loginData.password,
-            passwordLength: loginData.password?.length
-          });
-        } catch (e) {
-          console.error("Failed to parse login request body:", e);
+          JSON.parse(body);
+        } catch {
+          // Failed to parse login request body
         }
       }
     }
@@ -218,14 +205,6 @@ export async function POST(request: NextRequest) {
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("POST API Error Details:", {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: errorText,
-        url: url.toString(),
-        requestHeaders: headers
-      });
       
       // Try to capture text body for diagnostics
       let errPayload: ErrorPayload = { 
@@ -262,8 +241,7 @@ export async function POST(request: NextRequest) {
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error) {
-    console.error("Proxy error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -318,7 +296,6 @@ export async function PUT(request: NextRequest) {
       signal: AbortSignal.timeout(30000), // 30 seconds
     });
     if (!response.ok) {
-      console.error("API Error:", response.status, response.statusText);
       let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
@@ -350,8 +327,7 @@ export async function PUT(request: NextRequest) {
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error) {
-    console.error("Proxy error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -392,7 +368,6 @@ export async function DELETE(request: NextRequest) {
       signal: AbortSignal.timeout(30000), // 30 seconds
     });
     if (!response.ok) {
-      console.error("API Error:", response.status, response.statusText);
       let errPayload: ErrorPayload = { error: `API Error: ${response.status} ${response.statusText}` };
       try {
         const ct = response.headers.get("content-type") || "";
@@ -424,8 +399,7 @@ export async function DELETE(request: NextRequest) {
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error) {
-    console.error("Proxy error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

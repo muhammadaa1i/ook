@@ -125,6 +125,12 @@ class ModernApiClient {
       };
       if (token) {
         defaultHeaders.Authorization = `Bearer ${token}`;
+        // Temporary debug logging
+        if (endpoint.includes('/cart/items')) {
+          console.log("🔐 Cart request with token:", token.substring(0, 20) + "...");
+        }
+      } else if (endpoint.includes('/cart/items')) {
+        console.log("❌ Cart request without token");
       }
       const headers = {
         ...defaultHeaders,
@@ -159,82 +165,50 @@ class ModernApiClient {
     };
 
     let response: Response | null = null;
-    let triedRefresh = false;
     try {
       response = await attemptRequest();
-      // If unauthorized and we have refresh token, attempt refresh once
-      if (
-        response.status === 401 &&
-        Cookies.get("refresh_token") &&
-        !triedRefresh
-      ) {
-        const refreshed = await this.refreshAccessToken();
-        triedRefresh = true;
-        if (refreshed) {
-          response = await attemptRequest();
-        }
-      }
+      // Skip automatic refresh to avoid CORS issues - let user log in again
+      // if (
+      //   response.status === 401 &&
+      //   Cookies.get("refresh_token") &&
+      //   !triedRefresh
+      // ) {
+      //   const refreshed = await this.refreshAccessToken();
+      //   triedRefresh = true;
+      //   if (refreshed) {
+      //     response = await attemptRequest();
+      //   }
+      // }
 
       if (!response.ok) {
+        // Enhanced 401 debugging and automatic logout
+        if (response.status === 401) {
+          const hasAccessToken = !!Cookies.get("access_token");
+          const hasRefreshToken = !!Cookies.get("refresh_token");
+          
+          // Clear invalid tokens and redirect to login
+          if (!hasAccessToken || !hasRefreshToken) {
+            Cookies.remove("access_token");
+            Cookies.remove("refresh_token");
+            Cookies.remove("user");
+            
+            // Only redirect to login if we're not already on auth pages
+            if (typeof window !== "undefined" && 
+                !window.location.pathname.includes('/auth/') &&
+                !window.location.pathname.includes('/login')) {
+              window.location.href = '/auth/login';
+            }
+          }
+        }
+
         // Log error response for debugging refund issues
         if (endpoint.includes('/payments/octo/refund')) {
           try {
             const errorText = await response.clone().text();
-            console.error('🔍 OCTO Refund Error Response:', {
-              status: response.status,
-              statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries()),
-              body: errorText
-            });
-            // Make error more visible
+            // Make error more visible for refund debugging
             alert(`REFUND ERROR:\nStatus: ${response.status}\nResponse: ${errorText}`);
-          } catch (e) {
-            console.error('Could not read error response body:', e);
-          }
-        }
-
-        // Enhanced mobile error debugging
-        if (typeof window !== "undefined") {
-          const mobileInfo = {
-            userAgent: navigator.userAgent,
-            isMobile: /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-            cookieEnabled: navigator.cookieEnabled,
-            localStorage: !!window.localStorage,
-            sessionStorage: !!window.sessionStorage,
-            endpoint,
-            method: fetchOptions.method || 'GET',
-            hasToken: !!Cookies.get("accessToken"),
-            referer: window.location.href
-          };
-          
-          console.error('🚨 Mobile API Error:', {
-            status: response.status,
-            statusText: response.statusText,
-            mobile: mobileInfo,
-            url: response.url
-          });
-          
-          // Special handling for cart operations on mobile
-          if (endpoint.includes('/cart') && mobileInfo.isMobile) {
-            try {
-              const errorBody = await response.clone().text();
-              console.error('📱 Mobile Cart Error Details:', {
-                body: errorBody,
-                cookies: document.cookie,
-                storage: {
-                  localStorage: Object.keys(localStorage).map(key => ({ 
-                    key, 
-                    value: localStorage.getItem(key)?.substring(0, 100) 
-                  })),
-                  sessionStorage: Object.keys(sessionStorage).map(key => ({ 
-                    key, 
-                    value: sessionStorage.getItem(key)?.substring(0, 100) 
-                  }))
-                }
-              });
-            } catch (e) {
-              console.error('Could not read mobile cart error response:', e);
-            }
+          } catch {
+            // Ignore errors when reading response body
           }
         }
 
@@ -311,6 +285,7 @@ class ModernApiClient {
           return { access, refresh };
         };
 
+        // Direct API calls for refresh token (different from regular API calls)
         const build = (suffix: string) => new URL(suffix.replace(/^\/+/, "/"), this.baseURL + "/").toString();
         const strategies: Array<{ label: string; run: () => Promise<Response> }> = [
           {
@@ -358,14 +333,14 @@ class ModernApiClient {
             continue;
           } else {
             if (resp.status === 422) {
-              try { const dbg = await resp.clone().json(); if (process.env.NODE_ENV !== 'production') console.warn('[refreshAccessToken] 422', strat.label, dbg); } catch {}
+              // Refresh strategy failed with validation error
             }
             lastErr = new Error(`Refresh strategy '${strat.label}' failed status ${resp.status}`);
             continue;
           }
         }
         throw lastErr || new Error("All refresh strategies failed");
-      } catch (e) {
+      } catch {
         // Don't immediately logout during payment flows - could be temporary network issues
         const isPaymentFlow = typeof window !== "undefined" && 
           (window.location.pathname.includes('/payment/') || 
@@ -384,9 +359,6 @@ class ModernApiClient {
           }
         } else {
           // During payment flow, just log the error but don't logout
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn("Token refresh failed during payment flow - preserving session", e);
-          }
           
           // Try to restore from backup if available
           const userBackup = sessionStorage.getItem('userBackup');
@@ -401,8 +373,8 @@ class ModernApiClient {
                 expires: 7,
               });
 
-            } catch (error) {
-              console.error("Failed to restore user from backup:", error);
+            } catch {
+              // Failed to restore user from backup
             }
           }
         }

@@ -4,9 +4,10 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 import { toast } from "react-toastify";
 import { Slipper, SlipperImage } from "@/types";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasValidToken } from "@/lib/tokenUtils";
 import cartService, { CartDTO, CartItemDTO } from "@/services/cartService";
 import { fetchProduct } from "@/services/productService";
-import { MobileStorage } from "@/lib/mobileStorage";
 
 interface CartItem {
   id: number;
@@ -92,6 +93,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Suppress server-driven hydration while clearing to avoid flicker/slow clear
   const suppressHydrationRef = useRef<number>(0);
   const { t } = useI18n();
+  const { isAuthenticated } = useAuth();
 
   // Keep ref in sync
   useEffect(() => {
@@ -113,16 +115,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const mirrorToStorage = (list: CartItem[]) => {
     if (typeof window !== "undefined") {
       try {
-        // Use MobileStorage for better mobile compatibility
-        MobileStorage.setItem("cart", JSON.stringify(list));
-      } catch (error) {
-        console.warn("Failed to save cart to storage (mobile browser limitation):", error);
-        // Fallback to direct localStorage
-        try {
-          localStorage.setItem("cart", JSON.stringify(list));
-        } catch (fallbackError) {
-          console.warn("Cart storage completely unavailable:", fallbackError);
-        }
+        localStorage.setItem("cart", JSON.stringify(list));
+      } catch {
+        // Failed to save cart to storage
       }
     }
   };
@@ -137,60 +132,103 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       // If we're in a clear window, skip hydrating from server
       if (suppressHydrationRef.current > Date.now()) return;
+      // Only sync if authenticated
+      if (!isAuthenticated) return;
+      
       const cart = await cartService.getCart();
       let prevForImages: CartItem[] = itemsRef.current;
       if (typeof window !== "undefined") {
         try {
-          const saved = MobileStorage.getItem("cart");
+          const saved = localStorage.getItem("cart");
           if (saved) prevForImages = JSON.parse(saved) as CartItem[];
         } catch { }
       }
       const mapped = mapServerToClient(cart, prevForImages);
-      startTransition(() => setItems(mapped));
-      mirrorToStorage(mapped);
+      
+      // Only sync if server has items or we don't have local items
+      const hasLocalItems = prevForImages.length > 0;
+      const hasServerItems = mapped.length > 0;
+      
+      if (hasServerItems || !hasLocalItems) {
+        startTransition(() => setItems(mapped));
+        mirrorToStorage(mapped);
+      }
       lastServerSyncRef.current = Date.now();
     } catch {
       // silent fallback
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Initial load: prefer server, fallback to localStorage
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      try {
-        const cart = await cartService.getCart();
-        if (!mounted) return;
-        let prevForImages: CartItem[] = itemsRef.current;
-        if (typeof window !== "undefined") {
+    // Small delay to ensure localStorage is ready and avoid race conditions
+    const timeoutId = setTimeout(() => {
+      (async () => {
+        if (isAuthenticated) {
           try {
-            const saved = MobileStorage.getItem("cart");
-            if (saved) prevForImages = JSON.parse(saved) as CartItem[];
-          } catch { }
-        }
-        const mapped = mapServerToClient(cart, prevForImages);
-        startTransition(() => setItems(mapped));
-        mirrorToStorage(mapped);
-      } catch {
-        if (typeof window !== "undefined") {
-          const savedCart = MobileStorage.getItem("cart");
-          if (savedCart) {
-            try {
-              const parsed: CartItem[] = JSON.parse(savedCart);
-              const normalized = parsed.map((it) => ({
-                ...it,
-                quantity: Math.max(60, Math.round((it.quantity || 0) / 6) * 6),
-              }));
-              if (mounted) setItems(normalized);
-            } catch { }
+            const cart = await cartService.getCart();
+            if (!mounted) return;
+            let prevForImages: CartItem[] = itemsRef.current;
+            if (typeof window !== "undefined") {
+              try {
+                const saved = localStorage.getItem("cart");
+                if (saved) prevForImages = JSON.parse(saved) as CartItem[];
+              } catch { }
+            }
+            const mapped = mapServerToClient(cart, prevForImages);
+            
+            // Only update if server has items or localStorage is empty
+            const hasLocalItems = prevForImages.length > 0;
+            const hasServerItems = mapped.length > 0;
+            
+            if (hasServerItems || !hasLocalItems) {
+              startTransition(() => setItems(mapped));
+              mirrorToStorage(mapped);
+            } else {
+              // Server has no items but localStorage has items - keep localStorage items
+              startTransition(() => setItems(prevForImages));
+            }
+          } catch {
+            // Server failed, fall back to localStorage
+            if (typeof window !== "undefined") {
+              const savedCart = localStorage.getItem("cart");
+              if (savedCart) {
+                try {
+                  const parsed: CartItem[] = JSON.parse(savedCart);
+                  const normalized = parsed.map((it) => ({
+                    ...it,
+                    quantity: Math.max(1, Math.round(it.quantity || 1)),
+                  }));
+                  if (mounted) setItems(normalized);
+                } catch { }
+              }
+            }
+          }
+        } else {
+          // Not authenticated - load from localStorage only
+          if (typeof window !== "undefined") {
+            const savedCart = localStorage.getItem("cart");
+            if (savedCart) {
+              try {
+                const parsed: CartItem[] = JSON.parse(savedCart);
+                const normalized = parsed.map((it) => ({
+                  ...it,
+                  quantity: Math.max(1, Math.round(it.quantity || 1)),
+                }));
+                if (mounted) setItems(normalized);
+              } catch { }
+            }
           }
         }
-      }
-    })();
+      })();
+    }, 100); // 100ms delay
+    
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Save cart to localStorage whenever items change
   useEffect(() => {
@@ -274,12 +312,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for cart clear and payment success
   useEffect(() => {
-    const handleCartClear = () => {
-      // Synchronous clear for instant UI
-      suppressHydrationRef.current = Date.now() + 8000;
-      setItems([]);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("cart");
+    const handleCartClear = (event: Event) => {
+      // Only clear cart if it's an intentional action, not an automatic 401 handling
+      const customEvent = event as CustomEvent;
+      const isIntentional = customEvent.detail?.intentional !== false;
+      
+      if (isIntentional) {
+        // Synchronous clear for instant UI
+        suppressHydrationRef.current = Date.now() + 8000;
+        setItems([]);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("cart");
+        }
       }
     };
 
@@ -308,13 +352,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const lastStorageRawRef = { current: "" } as { current: string };
     const syncFromStorage = () => {
       try {
-        const stored = MobileStorage.getItem("cart");
+        const stored = localStorage.getItem("cart");
         if (stored === lastStorageRawRef.current) return;
         lastStorageRawRef.current = stored || "";
         const parsed: CartItem[] = stored ? JSON.parse(stored) : [];
         const normalized = parsed.map((it) => ({
           ...it,
-          quantity: Math.max(60, Math.round((it.quantity || 0) / 6) * 6),
+          quantity: Math.max(1, Math.round(it.quantity || 1)),
         }));
         setItems(normalized);
       } catch {
@@ -346,14 +390,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addToCart = (product: Slipper, quantity = 6, _size?: string, _color?: string) => {
     void _size;
     void _color;
+    
     const availableStock = product.quantity || 0;
     if (availableStock <= 0) {
       toast.error(t("cart.outOfStock", { name: product.name }));
       return;
     }
 
-    let addQty = Math.max(6, Math.round(quantity / 6) * 6);
-    if (addQty < 60) addQty = 60;
+    // Fix quantity logic - don't force minimum 60
+    const addQty = Math.max(1, Math.round(quantity));
 
     type ImageLike = { id: number; image_url?: string; image_path?: string };
     const fallbackImages = (product.images || []).map((img: SlipperImage | ImageLike) => ({
@@ -366,7 +411,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === product.id);
       if (existing) {
-        const nextQty = Math.max(60, Math.round((existing.quantity + addQty) / 6) * 6);
+        const nextQty = existing.quantity + addQty;
         optimisticNext = prev.map((i) =>
           i.id === product.id
             ? {
@@ -399,76 +444,65 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       try { toast.success(t("cart.added", { name: product.name, qty: addQty })); } catch { }
     }, 0);
 
-    (async () => {
-      try {
-        const payload = { slipper_id: product.id, quantity: addQty };
-        const cart = await cartService.addItem(payload);
-        let prevForImages: CartItem[] = optimisticNext;
-        if (typeof window !== "undefined") {
-          try {
-            const saved = MobileStorage.getItem("cart");
-            if (saved) prevForImages = JSON.parse(saved) as CartItem[];
-          } catch { }
-        }
-        let mapped = mapServerToClient(cart, prevForImages);
-        // If backend returns partial cart, merge with local optimistic state
-        mapped = reconcilePartial(mapped, itemsRef.current, product.id, "add");
-        mapped = mapped.map((it: CartItem) =>
-          it.id === product.id
-            ? {
-              ...it,
-              images: it.images && it.images.length > 0 ? it.images : fallbackImages,
-              image: it.image || product.image,
-            }
-            : it
-        );
-        startTransition(() => setItems(mapped));
-        setTimeout(() => { try { mirrorToStorage(mapped); } catch { } }, 0);
-      } catch (error) {
-        console.error('📱 Add to cart error:', error);
-        
-        // Mobile-specific error recovery for add to cart
-        const isMobile = typeof window !== "undefined" && 
-          /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile) {
-          // For mobile, show specific error message and keep optimistic state
-          console.log('🔄 Mobile fallback: keeping optimistic cart state');
+    // Only sync with server if user is authenticated AND has valid token
+    if (isAuthenticated) {
+      (async () => {
+        try {
+          // Check for valid token using our utility
+          const validToken = hasValidToken();
+          console.log(`🔐 Cart Context: Adding product ${product.id} - Token valid: ${validToken}`);
           
-          toast.error(t("errors.mobileCartUpdate"), {
-            position: "top-center",
-            autoClose: 5000,
-          });
+          if (!validToken) {
+            console.log('❌ Cart Context: No valid token - skipping server sync');
+            // No token available - skip server sync but keep local cart
+            return;
+          }
           
-          // Try to sync with server after a delay
-          setTimeout(async () => {
+          console.log('🔄 Cart Context: Syncing with server cart');
+          const payload = { slipper_id: product.id, quantity: addQty };
+          const cart = await cartService.addItem(payload);
+          let prevForImages: CartItem[] = optimisticNext;
+          if (typeof window !== "undefined") {
             try {
-              const syncCart = await cartService.getCart();
-              let syncMapped = mapServerToClient(syncCart, itemsRef.current);
-              // Preserve images from optimistic state
-              syncMapped = syncMapped.map((it: CartItem) =>
-                it.id === product.id
-                  ? {
-                    ...it,
-                    images: it.images && it.images.length > 0 ? it.images : fallbackImages,
-                    image: it.image || product.image,
-                  }
-                  : it
-              );
-              startTransition(() => setItems(syncMapped));
-              mirrorToStorage(syncMapped);
-              console.log('✅ Mobile cart sync after add successful');
-            } catch (syncError) {
-              console.error('❌ Mobile cart sync after add failed:', syncError);
-            }
-          }, 2000);
-        } else {
-          // Desktop: revert optimistic state and show error
-          startTransition(() => setItems(itemsRef.current));
-          toast.error(t("errors.serverErrorLong"));
+              const saved = localStorage.getItem("cart");
+              if (saved) prevForImages = JSON.parse(saved) as CartItem[];
+            } catch { }
+          }
+          let mapped = mapServerToClient(cart, prevForImages);
+          // If backend returns partial cart, merge with local optimistic state
+          mapped = reconcilePartial(mapped, itemsRef.current, product.id, "add");
+          mapped = mapped.map((it: CartItem) =>
+            it.id === product.id
+              ? {
+                ...it,
+                images: it.images && it.images.length > 0 ? it.images : fallbackImages,
+                image: it.image || product.image,
+              }
+              : it
+          );
+          startTransition(() => setItems(mapped));
+          setTimeout(() => { try { mirrorToStorage(mapped); } catch { } }, 0);
+        } catch (error) {
+          // Check if it's an authentication error
+          const isAuthError = error instanceof Error && 
+            (error.message.includes('401') || 
+             error.message.includes('Unauthorized') ||
+             error.message.includes('Authentication required') ||
+             error.message.includes('authentication'));
+          
+          console.log(`❌ Cart Context: Server sync error - Auth error: ${isAuthError}`, error);
+          
+          if (isAuthError) {
+            // Silently ignore authentication errors for guest users
+            // Cart items are already added optimistically to localStorage
+            // This could happen if token expired between user check and server request
+          } else {
+            // General server error - keep optimistic state on failure
+            toast.error(t("errors.serverErrorLong"));
+          }
         }
-      }
-    })();
+      })();
+    }
   };
 
   const removeFromCart = (productId: number) => {
@@ -516,40 +550,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         mapped = reconcilePartial(mapped, itemsRef.current, cartItem.id, "update");
         startTransition(() => setItems(mapped));
         mirrorToStorage(mapped);
-      } catch (error) {
-        console.error('📱 Cart update error:', error);
-        
-        // Mobile-specific error recovery
-        const isMobile = typeof window !== "undefined" && 
-          /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile) {
-          // For mobile, try to maintain the UI state even if server update fails
-          console.log('🔄 Mobile fallback: updating local cart state');
-          startTransition(() => setItems((prev) => prev.map((i) => (i.id === productId ? { ...i, quantity: snapped } : i))));
-          mirrorToStorage(itemsRef.current);
-          
-          // Show a more informative error message for mobile users
-          toast.error(t("errors.mobileCartUpdate"), {
-            position: "top-center",
-            autoClose: 5000,
-          });
-          
-          // Try to sync with server after a delay
-          setTimeout(async () => {
-            try {
-              const syncCart = await cartService.getCart();
-              const syncMapped = mapServerToClient(syncCart, itemsRef.current);
-              startTransition(() => setItems(syncMapped));
-              mirrorToStorage(syncMapped);
-              console.log('✅ Mobile cart sync successful');
-            } catch (syncError) {
-              console.error('❌ Mobile cart sync failed:', syncError);
-            }
-          }, 2000);
-        } else {
-          toast.error(t("errors.serverErrorLong"));
-        }
+      } catch {
+        // Cart update error
+        toast.error(t("errors.serverErrorLong"));
       }
     })();
   };

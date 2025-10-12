@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFullImageUrl, formatPrice } from "@/lib/utils";
-import { PaymentService } from "@/services/paymentService";
+import { PaymentService, PaymentResponse } from "@/services/paymentService";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -22,6 +22,7 @@ import { useI18n } from "@/i18n";
 import { modernApiClient } from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { Order } from "@/types";
+import { logAuthStatus } from "@/lib/authDebug";
 
 // Component for handling product images with error fallback
 const ProductImage = ({
@@ -82,6 +83,11 @@ export default function CartPage() {
 
   const { t } = useI18n();
 
+  // Debug authentication on cart page load
+  useEffect(() => {
+    logAuthStatus();
+  }, []);
+
   const handleCheckout = async () => {
     // Prevent duplicate requests
     if (isProcessingPayment) {
@@ -89,6 +95,7 @@ export default function CartPage() {
     }
     
     if (!isAuthenticated) {
+      logAuthStatus(); // Debug why user is not authenticated
       toast.error(t('auth.login'));
       return;
     }
@@ -177,11 +184,31 @@ export default function CartPage() {
 
       console.log("Creating order from cart endpoint:", endpoint);
       
-      // Add mobile-specific timeout handling
+      // Add mobile-specific timeout handling and retry logic
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const mobileTimeout = isMobile ? 8000 : 6000; // Longer timeout for mobile
+      const mobileTimeout = isMobile ? 12000 : 6000; // Longer timeout for mobile (12s vs 6s)
+      const retryCount = isMobile ? 2 : 1; // Retry once on mobile for network issues
       
-      const orderResponse = await modernApiClient.post(endpoint, undefined, { timeout: mobileTimeout });
+      console.log(`📱 Order creation - Mobile: ${isMobile}, Timeout: ${mobileTimeout}ms, Retries: ${retryCount}`);
+      
+      let orderResponse;
+      let attempt = 0;
+      
+      while (attempt <= retryCount) {
+        try {
+          orderResponse = await modernApiClient.post(endpoint, undefined, { timeout: mobileTimeout });
+          break; // Success, exit retry loop
+        } catch (error) {
+          attempt++;
+          if (attempt > retryCount) {
+            throw error; // Final attempt failed
+          }
+          
+          console.log(`⏳ Order creation attempt ${attempt} failed, retrying...`);
+          // Short delay before retry (especially helpful on mobile)
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
       console.log("Order creation response:", orderResponse);
       
       const env = orderResponse as ApiEnvelope<ApiOrderResponse> | ApiOrderResponse;
@@ -228,8 +255,32 @@ export default function CartPage() {
         order_id: mainOrder.id || parseInt(mainOrder.order_id || '0', 10)
       };
 
-      // Use ultra-fast timeout for payment processing (4 seconds)
-      const paymentResponse = await PaymentService.createPayment(paymentRequest, 4000);
+      // Mobile-optimized payment creation with retry logic
+      const paymentTimeout = isMobile ? 10000 : 4000; // 10s for mobile, 4s for desktop
+      console.log(`💳 Payment creation - Mobile: ${isMobile}, Timeout: ${paymentTimeout}ms`);
+      
+      let paymentResponse: PaymentResponse | undefined;
+      attempt = 0;
+      
+      while (attempt <= retryCount) {
+        try {
+          paymentResponse = await PaymentService.createPayment(paymentRequest, paymentTimeout);
+          break; // Success, exit retry loop
+        } catch (error) {
+          attempt++;
+          if (attempt > retryCount) {
+            throw error; // Final attempt failed
+          }
+          
+          console.log(`⏳ Payment creation attempt ${attempt} failed, retrying...`);
+          // Short delay before retry
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      }
+      
+      if (!paymentResponse) {
+        throw new Error('Payment creation failed after all retry attempts');
+      }
       
       // Check for various possible URL field names  
       interface PaymentResponseExtended {
@@ -260,54 +311,170 @@ export default function CartPage() {
           } : undefined
         };
         
-        // Enhanced mobile storage with multiple fallbacks
+        const paymentDataStr = JSON.stringify(paymentData);
+        
+        // Multi-layer storage approach for mobile compatibility
         try {
-          sessionStorage.setItem('paymentOrder', JSON.stringify(paymentData));
+          // Primary: sessionStorage
+          sessionStorage.setItem('paymentOrder', paymentDataStr);
+          console.log('✅ Payment data saved to sessionStorage');
         } catch (sessionError) {
-          console.warn("SessionStorage failed, trying localStorage fallback:", sessionError);
+          console.warn("⚠️ SessionStorage failed:", sessionError);
           try {
-            localStorage.setItem('paymentOrder_fallback', JSON.stringify(paymentData));
+            // Fallback 1: localStorage
+            localStorage.setItem('paymentOrder_fallback', paymentDataStr);
+            console.log('✅ Payment data saved to localStorage fallback');
           } catch (localError) {
-            console.warn("All storage methods failed for payment data:", localError);
+            console.warn("⚠️ LocalStorage failed:", localError);
+            try {
+              // Fallback 2: URL encoding for iOS Safari private mode
+              const encodedData = encodeURIComponent(paymentDataStr);
+              window.history.replaceState({ paymentData: encodedData }, '', window.location.href);
+              console.log('✅ Payment data saved to history state');
+            } catch (historyError) {
+              console.error("❌ All storage methods failed:", historyError);
+              // Continue anyway - server webhook should handle payment confirmation
+            }
           }
         }
         
-        // Store user authentication data as backup before payment redirect with mobile fallbacks
+        // Store user authentication data as backup before payment redirect with enhanced mobile fallbacks
         if (user) {
+          const userDataStr = JSON.stringify(user);
+          const redirectTimeStr = Date.now().toString();
+          
           try {
-            sessionStorage.setItem('userBackup', JSON.stringify(user));
-            sessionStorage.setItem('paymentRedirectTime', Date.now().toString());
+            // Primary: sessionStorage
+            sessionStorage.setItem('userBackup', userDataStr);
+            sessionStorage.setItem('paymentRedirectTime', redirectTimeStr);
+            console.log('✅ User backup saved to sessionStorage');
           } catch (sessionError) {
-            console.warn("SessionStorage failed for user backup, using localStorage:", sessionError);
+            console.warn("⚠️ SessionStorage failed for user backup:", sessionError);
             try {
-              localStorage.setItem('userBackup_fallback', JSON.stringify(user));
-              localStorage.setItem('paymentRedirectTime_fallback', Date.now().toString());
+              // Fallback 1: localStorage
+              localStorage.setItem('userBackup_fallback', userDataStr);
+              localStorage.setItem('paymentRedirectTime_fallback', redirectTimeStr);
+              console.log('✅ User backup saved to localStorage fallback');
             } catch (localError) {
-              console.warn("All storage methods failed for user backup:", localError);
+              console.warn("⚠️ LocalStorage failed for user backup:", localError);
+              try {
+                // Fallback 2: URL encoding for iOS Safari private mode
+                const encodedUser = encodeURIComponent(userDataStr);
+                const currentState = window.history.state || {};
+                window.history.replaceState({ 
+                  ...currentState, 
+                  userBackup: encodedUser,
+                  redirectTime: redirectTimeStr 
+                }, '', window.location.href);
+                console.log('✅ User backup saved to history state');
+              } catch (historyError) {
+                console.error("❌ All storage methods failed for user backup:", historyError);
+                // Continue anyway - user can log in again if needed
+              }
             }
           }
         }
         
         // Payment status will be handled by the webhook notification endpoint
         // The backend will automatically update order status when payment is completed
-        // Redirect to payment gateway
-        window.location.href = paymentUrl;
+        // Enhanced mobile redirect handling for payment gateway
+        console.log(`🔄 Redirecting to payment URL: ${paymentUrl}`);
+        
+        // iOS Safari and some mobile browsers have issues with programmatic redirects
+        // Use multiple approaches for better compatibility
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        
+        if (isIOS || isSafari) {
+          // iOS Safari: Create a link and trigger click to ensure redirect works
+          const link = document.createElement('a');
+          link.href = paymentUrl;
+          link.target = '_self'; // Same window
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          
+          // Delay to ensure DOM is ready
+          setTimeout(() => {
+            link.click();
+            document.body.removeChild(link);
+          }, 100);
+          
+          // Fallback: if click doesn't work, use window.location
+          setTimeout(() => {
+            if (window.location.href === window.location.href) {
+              window.location.href = paymentUrl;
+            }
+          }, 500);
+        } else {
+          // Other browsers: direct redirect
+          window.location.href = paymentUrl;
+        }
       } else {
         throw new Error(paymentResponse.errMessage || `Payment URL not received. Success: ${paymentResponse.success}, URL: ${paymentUrl}`);
       }
     } catch (error) {
       console.error("Checkout error:", error);
       
-      // Enhanced error handling for mobile debugging
-      if (process.env.NODE_ENV === "production") {
-        const errorDetails = {
-          error: error instanceof Error ? error.message : String(error),
-          userAgent: navigator.userAgent,
-          cookieEnabled: navigator.cookieEnabled,
-          timestamp: new Date().toISOString(),
-          user: user ? { id: user.id, name: user.name } : null
-        };
-        console.error("Mobile checkout error details:", errorDetails);
+      // Comprehensive mobile debugging and error reporting
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const errorDetails = {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        cookieEnabled: navigator.cookieEnabled,
+        onLine: navigator.onLine,
+        connection: (() => {
+          try {
+            const nav = navigator as Navigator & {
+              connection?: {
+                effectiveType?: string;
+                downlink?: number;
+                rtt?: number;
+              };
+            };
+            return nav.connection ? {
+              effectiveType: nav.connection.effectiveType,
+              downlink: nav.connection.downlink,
+              rtt: nav.connection.rtt
+            } : 'unknown';
+          } catch {
+            return 'unknown';
+          }
+        })(),
+        timestamp: new Date().toISOString(),
+        user: user ? { id: user.id, name: user.name } : null,
+        cartItems: items.length,
+        totalAmount,
+        isMobile,
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight
+        },
+        storage: {
+          sessionStorage: (() => {
+            try {
+              return typeof sessionStorage !== 'undefined';
+            } catch {
+              return false;
+            }
+          })(),
+          localStorage: (() => {
+            try {
+              return typeof localStorage !== 'undefined';
+            } catch {
+              return false;
+            }
+          })()
+        },
+        url: window.location.href
+      };
+      
+      console.error("📱 Mobile payment error details:", errorDetails);
+      
+      // Send error to console for debugging
+      if (isMobile) {
+        console.error("🚨 MOBILE PAYMENT FAILURE:", JSON.stringify(errorDetails, null, 2));
       }
       
       const errorMessage = error instanceof Error ? error.message : t('payment.error.initiation');

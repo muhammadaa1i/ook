@@ -49,8 +49,18 @@ export class PaymentService {
 
   async createPayment(paymentData: PaymentRequest, timeout = 4000): Promise<PaymentResponse> {
     try {
+      // Detect mobile browser and adjust timeout accordingly
+      const isMobile = typeof window !== 'undefined' && 
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      // Mobile devices often have slower connections, especially on cellular
+      const mobileTimeout = Math.max(timeout, 8000); // Minimum 8 seconds for mobile
+      const finalTimeout = isMobile ? mobileTimeout : timeout;
+      
+      console.log(`💳 Creating payment - Mobile: ${isMobile}, Timeout: ${finalTimeout}ms`);
+      
       const rawData = await this.apiClient.post(this.ENDPOINTS.create, paymentData, {
-        timeout
+        timeout: finalTimeout
       }) as Record<string, unknown>;
       
       // Helper function to safely extract string values
@@ -90,15 +100,8 @@ export class PaymentService {
         return data;
       }
       
-      console.error('Payment response validation failed:', {
-        success: data.success,
-        hasUrl: !!(data.octo_pay_url || data.payment_url),
-        rawResponse: rawData
-      });
-      
       throw new Error(data.errMessage || `Payment failed: Success=${data.success}, URL=${!!(data.octo_pay_url || data.payment_url)}`);
     } catch (error) {
-      console.error('Payment creation error:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to create payment');
     }
   }
@@ -108,7 +111,6 @@ export class PaymentService {
       const data = await this.apiClient.post(this.ENDPOINTS.refund, refundData) as PaymentStatus;
       return data;
     } catch (error) {
-      console.error('Payment refund error:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to refund payment');
     }
   }

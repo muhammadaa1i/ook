@@ -1,6 +1,75 @@
 // Development authentication helper
 // This file helps debug authentication issues
 
+import Cookies from "js-cookie";
+
+export interface AuthDebugInfo {
+  hasAccessToken: boolean;
+  hasRefreshToken: boolean;
+  hasUserCookie: boolean;
+  accessTokenLength?: number;
+  refreshTokenLength?: number;
+  userDataPreview?: string;
+  cookieCount: number;
+  localStorageAuth?: {
+    hasUser: boolean;
+    hasToken: boolean;
+  };
+}
+
+export function getAuthDebugInfo(): AuthDebugInfo {
+  const accessToken = Cookies.get("access_token");
+  const refreshToken = Cookies.get("refresh_token");
+  const userCookie = Cookies.get("user");
+  
+  let localStorageAuth;
+  if (typeof window !== "undefined") {
+    try {
+      const localUser = localStorage.getItem("user");
+      const localToken = localStorage.getItem("auth_token");
+      localStorageAuth = {
+        hasUser: !!localUser,
+        hasToken: !!localToken
+      };
+    } catch {
+      localStorageAuth = { hasUser: false, hasToken: false };
+    }
+  }
+
+  return {
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    hasUserCookie: !!userCookie,
+    accessTokenLength: accessToken?.length,
+    refreshTokenLength: refreshToken?.length,
+    userDataPreview: userCookie?.substring(0, 50),
+    cookieCount: typeof document !== "undefined" ? document.cookie.split(';').length : 0,
+    localStorageAuth
+  };
+}
+
+export function logAuthStatus(): void {
+  const info = getAuthDebugInfo();
+  console.log("🔐 Authentication Status:", info);
+  
+  if (!info.hasAccessToken) {
+    console.warn("⚠️ No access token found - user needs to log in");
+  }
+  
+  if (!info.hasRefreshToken) {
+    console.warn("⚠️ No refresh token found - automatic token refresh not possible");
+  }
+  
+  if (!info.hasUserCookie) {
+    console.warn("⚠️ No user cookie found - authentication state may be lost");
+  }
+}
+
+export function checkAuthRequirements(): boolean {
+  const info = getAuthDebugInfo();
+  return info.hasAccessToken && info.hasUserCookie;
+}
+
 export const AUTH_DEBUG = {
   // Test credentials that should work
   TEST_CREDENTIALS: {

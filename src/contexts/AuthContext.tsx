@@ -99,10 +99,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               if (localRefreshToken) {
                 Cookies.set("refresh_token", localRefreshToken, { ...cookieOptions, expires: 30 });
               }
-              console.log("Successfully restored cookies from localStorage");
             } catch (cookieError) {
               mobileErrorHandler.log(cookieError as Error, 'cookie-restoration');
-              console.warn("Failed to set cookies on mobile, continuing with localStorage:", cookieError);
             }
           }
         }
@@ -472,9 +470,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = useCallback(() => {
     clearAuthData();
-    // Dispatch custom event to clear cart
+    // Dispatch custom event to clear cart with intentional flag
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("cart:clear"));
+      window.dispatchEvent(new CustomEvent("cart:clear", { detail: { intentional: true } }));
     }
     toast.success(t('auth.toasts.logoutSuccess'));
   }, [clearAuthData, t]);

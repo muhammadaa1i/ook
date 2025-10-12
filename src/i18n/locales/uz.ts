@@ -166,7 +166,7 @@ export default {
     addToCart: 'Savatga',
     addMore: 'Yana qo\'shish',
     alreadyInCartAddMore: 'Mahsulot allaqachon savatda. Yana qo\'shish uchun bosing',
-    addToCartHint: 'Savatga (minimum 60, qadam 6)',
+    addToCartHint: 'Savatga qo\'shish',
     added: '{name}: +{qty} birlik qo\'shildi',
     removed: '{name}: o\'chirildi',
     cleared: 'Savat tozalandi',
@@ -338,8 +338,7 @@ export default {
     serverErrorLong: 'Server xatosi. Keyinroq urinib ko\'ring.',
     tooManyRequests: 'Juda ko\'p so\'rovlar',
     tooManyRequestsLong: 'Juda ko\'p so\'rovlar. Biroz kuting va qayta urinib ko\'ring.',
-    productsLoad: 'Mahsulotlarni yuklashda xato',
-    mobileCartUpdate: 'Mobil qurilmada savat yangilanmadi. Mahalliy versiya saqlanmoqda, keyinroq avtomatik sinxronlanadi.'
+    productsLoad: 'Mahsulotlarni yuklashda xato'
   },
   errorPage: {
     default: {

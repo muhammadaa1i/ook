@@ -12,8 +12,8 @@ export async function uploadProductImages(productId: number, files: File[], toke
     if (res.ok) {
       try { return await res.json(); } catch { return []; }
     }
-  } catch (e) {
-    console.warn('Bulk image upload failed', e);
+  } catch {
+    // Bulk image upload failed
   }
   return [];
 }
