@@ -84,6 +84,7 @@ export default {
       passwordChangeFailed: 'Parolni o\'zgartirib bo\'lmadi',
       userSearchFailed: 'Foydalanuvchini qidirish xatosi',
       registrationFailed: 'Ro\'yxatdan o\'tish xatosi',
+      registrationFailedNetwork: 'Tarmoq xatosi yoki CORS bloklandi. Keyinroq yana urinib ko\'ring yoki brauzer konsolini tekshiring.',
       existingPhone: 'Ushbu telefon raqami bilan foydalanuvchi allaqachon mavjud'
     },
     validation: {

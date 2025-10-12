@@ -94,13 +94,28 @@ class ModernApiClient {
     } = options;
 
     const attemptRequest = async (): Promise<Response> => {
-      // Build direct URL: base + endpoint (endpoint begins with /)
-      const url = new URL(endpoint.replace(/^\/+/, "/"), this.baseURL + "/");
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null)
-            url.searchParams.append(key, String(value));
-        });
+      // Build URL. In browser, route via Next.js proxy to avoid CORS.
+      let url: URL;
+      if (typeof window !== "undefined") {
+        // Same-origin proxy
+        url = new URL("/api/proxy", window.location.origin);
+        const ep = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+        url.searchParams.set("endpoint", ep);
+        if (params) {
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null)
+              url.searchParams.append(key, String(value));
+          });
+        }
+      } else {
+        // Server-side direct backend call
+        url = new URL(endpoint.replace(/^\/+/, "/"), this.baseURL + "/");
+        if (params) {
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null)
+              url.searchParams.append(key, String(value));
+          });
+        }
       }
 
       // Get auth token from cookies each attempt (may change after refresh)

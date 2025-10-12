@@ -1,4 +1,5 @@
 import modernApiClient from '@/lib/modernApiClient';
+import { API_ENDPOINTS } from '@/lib/constants';
 
 export interface AdminRefundRequest {
   order_id: number;
@@ -14,7 +15,7 @@ export class AdminRefundService {
   static async processRefund(data: AdminRefundRequest): Promise<AdminRefundResponse> {
     try {
       const response = await modernApiClient.post(
-        'https://oyoqkiyim.duckdns.org/payments/octo/refund',
+        API_ENDPOINTS.PAYMENT_REFUND,
         { order_id: data.order_id }
       );
       

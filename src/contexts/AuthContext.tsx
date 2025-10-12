@@ -321,11 +321,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       tokenVerificationRef.current = true; // Mark as verified since we just registered
       toast.success(t('auth.toasts.registrationSuccess'));
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: unknown } };
+      const axiosError = error as { response?: { data?: unknown; status?: number; statusText?: string }; message?: string };
+      // Prefer structured server error message
       let message = extractErrorMessage(
         axiosError.response?.data,
         t('auth.errors.registrationFailed')
       );
+      // Fallbacks with diagnostics
+      if (!message || message === t('auth.errors.registrationFailed')) {
+        if (axiosError.response) {
+          // Include status code text if available
+          const code = axiosError.response.status ? ` (HTTP ${axiosError.response.status}${axiosError.response.statusText ? ' ' + axiosError.response.statusText : ''})` : '';
+          message = `${t('auth.errors.registrationFailed')}${code}`;
+        } else if (axiosError.message && /network|failed|cors|fetch/i.test(axiosError.message)) {
+          message = `${t('auth.errors.registrationFailedNetwork')}`;
+        }
+      }
       if (/user with this phone number already exists/i.test(message)) {
         message = t('auth.errors.existingPhone');
       }

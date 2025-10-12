@@ -84,6 +84,7 @@ export default {
       passwordChangeFailed: 'Не удалось изменить пароль',
       userSearchFailed: 'Ошибка поиска пользователя',
       registrationFailed: 'Ошибка регистрации',
+      registrationFailedNetwork: 'Сетевая ошибка или CORS заблокировал запрос. Попробуйте позже или проверьте консоль браузера.',
       existingPhone: 'Пользователь с этим номером телефона уже существует'
     },
     validation: {

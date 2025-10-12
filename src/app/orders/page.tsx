@@ -19,51 +19,15 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { Order, OrderItem, Slipper } from "@/types";
+import { Order, OrderItem } from "@/types";
 
 import { RefundContactModal } from "@/components/ui/RefundContactModal";
 
 /* ------------------------- Carousel ------------------------- */
-function ProductCarousel({ item }: {
-  item: {
-    image?: string;
-    slipper?: {
-      name?: string;
-      image?: string;
-      images?: Array<{ image_path: string; is_primary?: boolean }>;
-    };
-    name?: string;
-  };
-}) {
-  // Try to get image from multiple sources
-  const getImageSource = () => {
-    // 1. Check if item has direct image
-    if (item.image) {
-      return item.image;
-    }
-    
-    // 2. Check if slipper has images array with primary image
-    if (item.slipper?.images && Array.isArray(item.slipper.images) && item.slipper.images.length > 0) {
-      const primaryImage = item.slipper.images.find((img) => img.is_primary);
-      if (primaryImage?.image_path) {
-        return primaryImage.image_path;
-      }
-      // Fallback to first image if no primary
-      if (item.slipper.images[0]?.image_path) {
-        return item.slipper.images[0].image_path;
-      }
-    }
-    
-    // 3. Check if slipper has direct image field
-    if (item.slipper?.image) {
-      return item.slipper.image;
-    }
-    
-    return null;
-  };
-
-  const imageSource = getImageSource();
-  const alt = item.slipper?.name || item.name || "Product";
+function ProductCarousel({ item }: { item: { image?: string; name?: string } }) {
+  // Use only image provided by order item
+  const imageSource = item.image || null;
+  const alt = item.name || "Product";
 
   if (!imageSource) {
     return (
@@ -128,48 +92,6 @@ export default function OrdersPage() {
   } as const;
 
   /* ------------------------- Fetch Orders ------------------------- */
-  const slipperCacheRef = useRef<Map<number, Slipper>>(new Map());
-  const pendingRef = useRef<Map<number, Promise<Slipper | null>>>(new Map());
-
-  // Fetch slipper with simple in-memory cache and no over-parallelism
-  const fetchSlipperCached = useCallback(async (id: number): Promise<Slipper | null> => {
-    const cached = slipperCacheRef.current.get(id);
-    if (cached) return cached;
-    const pending = pendingRef.current.get(id);
-    if (pending) return pending;
-    const p = (async () => {
-      try {
-        const resp = await modernApiClient.get(API_ENDPOINTS.SLIPPER_BY_ID(id), { include_images: true }, { cache: false, timeout: 6000 });
-        const data = (resp as { data?: unknown })?.data || resp;
-        if (data && typeof data === 'object') {
-          slipperCacheRef.current.set(id, data as Slipper);
-          return data as Slipper;
-        }
-        return null;
-      } catch {
-        return null;
-      } finally {
-        pendingRef.current.delete(id);
-      }
-    })();
-    pendingRef.current.set(id, p);
-    return p;
-  }, []);
-
-  // Run tasks with limited concurrency to avoid 429s
-  const runWithLimit = async <T,>(limit: number, tasks: Array<() => Promise<T>>): Promise<T[]> => {
-    const results: T[] = new Array(tasks.length) as T[];
-    let i = 0;
-    const workers = new Array(Math.min(limit, tasks.length)).fill(0).map(async () => {
-      while (true) {
-        const idx = i++;
-        if (idx >= tasks.length) break;
-        results[idx] = await tasks[idx]();
-      }
-    });
-    await Promise.all(workers);
-    return results;
-  };
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -181,77 +103,28 @@ export default function OrdersPage() {
       // Agar API ro'yxat qaytarsa:
       const data: Order[] = Array.isArray(response) ? response : [];
 
-      // Consolidate duplicates and collect ids needing enrichment across all orders
-      const ordersConsolidated = data.map((order) => {
-        const itemMap = new Map<number, OrderItem>();
-        order.items.forEach((item) => {
-          const key = item.slipper_id;
-          if (itemMap.has(key)) {
-            const existing = itemMap.get(key)!;
-            const addQty = Number(item.quantity ?? 0);
-            existing.quantity = Number(existing.quantity ?? 0) + addQty;
-            const unit = Number(existing.unit_price ?? 0);
-            existing.total_price = unit * Number(existing.quantity ?? 0);
-          } else {
-            const qty = Number(item.quantity ?? 0);
-            const unit = Number(item.unit_price ?? 0);
-            itemMap.set(key, { ...item, quantity: qty, unit_price: unit, total_price: unit * qty });
-          }
+      // Preserve original lines; prefer backend totals and compute fallback
+      const normalizedOrders: Order[] = (data || []).map((order) => {
+        const originalItems = Array.isArray(order.items) ? order.items : [];
+        const items: OrderItem[] = originalItems.map((it: any) => {
+          const quantity = Number(it?.quantity ?? (it as any)?.qty ?? 0) || 0;
+          const unit_price = Number(it?.unit_price ?? (it as any)?.price ?? (it as any)?.unitPrice ?? 0) || 0;
+          const declaredTotal = Number(it?.total_price ?? (it as any)?.total ?? (it as any)?.amount ?? 0) || 0;
+          const total_price = declaredTotal > 0 ? declaredTotal : (unit_price > 0 && quantity > 0 ? unit_price * quantity : 0);
+          const name = String(it?.name ?? (it as any)?.slipper_name ?? "");
+          const image = (it as any)?.image ?? it?.image;
+          const slipper_id = Number((it as any)?.slipper_id ?? (it as any)?.product_id ?? it?.slipper_id ?? 0) || 0;
+          return { ...it, slipper_id, name, quantity, unit_price, total_price, image } as OrderItem;
         });
-        const consolidatedItems = Array.from(itemMap.values());
-        const validItems = consolidatedItems.filter((item) => {
-          const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-          const hasValidPrice = Number(item.unit_price) > 0;
-          return hasValidProduct && hasValidPrice;
-        });
-        // Compute total from ORIGINAL items (not consolidated) to preserve mixed prices
-        const validOriginal = (order.items || []).filter((item) => {
-          const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-          const priceNum = Number(item.unit_price ?? (item as unknown as { price?: number }).price ?? 0);
-          return hasValidProduct && priceNum > 0;
-        });
-        const computedTotal = validOriginal.reduce((sum, it) => {
-          const unit = Number(it.unit_price ?? (it as unknown as { price?: number }).price ?? 0);
-          const qty = Number(it.quantity ?? 0);
-          const fallbackTotal = Number((it as unknown as { total_price?: number }).total_price ?? 0);
-          const lineTotal = unit > 0 && qty > 0 ? unit * qty : fallbackTotal;
-          return sum + (Number.isFinite(lineTotal) ? lineTotal : 0);
-        }, 0);
-        const serverTotal = Number((order as unknown as { total_amount?: unknown }).total_amount ?? 0);
-        const normalizedTotal = Number.isFinite(serverTotal) && Math.abs(serverTotal - computedTotal) <= Math.max(1000, computedTotal * 0.01)
-          ? serverTotal
-          : computedTotal;
-        return { ...order, items: validItems, total_amount: normalizedTotal } as Order;
+
+        const serverTotalAny = (order as any)?.total_amount ?? (order as any)?.total ?? (order as any)?.amount ?? (order as any)?.sum;
+        const serverTotal = Number(serverTotalAny ?? 0) || 0;
+        const computedTotal = items.reduce((sum, it) => sum + (Number(it.total_price ?? 0) || 0), 0);
+        const total_amount = serverTotal > 0 ? serverTotal : computedTotal;
+
+        return { ...order, items, total_amount } as Order;
       });
-
-      const idsNeeding: number[] = [];
-      const seen = new Set<number>();
-      ordersConsolidated.forEach((order) => {
-        order.items.forEach((it) => {
-          const needs = !it.slipper || (!it.slipper.images && !it.slipper.image);
-          if (needs && !seen.has(it.slipper_id)) { seen.add(it.slipper_id); idsNeeding.push(it.slipper_id); }
-        });
-      });
-
-      // Fetch missing slippers with limited concurrency (avoid 429)
-      if (idsNeeding.length > 0) {
-        const tasks = idsNeeding.map((id) => () => fetchSlipperCached(id));
-        await runWithLimit(3, tasks); // limit to 3 concurrent requests
-      }
-
-      // Build enriched orders using cache (no extra network hits here)
-      const enrichedOrders = ordersConsolidated.map((order) => ({
-        ...order,
-        items: order.items.map((item) => {
-          if (!item.slipper || (!item.slipper.images && !item.slipper.image)) {
-            const cached = slipperCacheRef.current.get(item.slipper_id);
-            if (cached) return { ...item, slipper: cached } as OrderItem;
-          }
-          return item;
-        }),
-      }));
-
-      setOrders(enrichedOrders);
+      setOrders(normalizedOrders);
       setLastUpdatedAt(Date.now());
       lastFetchRef.current = Date.now();
     } catch (error) {
@@ -302,7 +175,7 @@ export default function OrdersPage() {
         const orderNum = String(order.id).toLowerCase();
         const hasOrderNum = orderNum.includes(term);
         const hasItemMatch = order.items?.some((item) =>
-          (item.slipper?.name || "").toLowerCase().includes(term)
+          String(item.name || "").toLowerCase().includes(term)
         );
         return hasOrderNum || hasItemMatch;
       });
@@ -380,9 +253,12 @@ export default function OrdersPage() {
         <div className="flex gap-2 overflow-x-auto mb-4">
           {order.items
             .filter(item => {
-              // Only show items with valid product data
-              const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-              const hasValidPrice = item.unit_price && item.unit_price > 0;
+              // Only show items with valid product data from order response
+              const hasValidProduct = !!item.name;
+              const unit = Number(item.unit_price ?? 0);
+              const qty = Number(item.quantity ?? 0);
+              const line = Number(item.total_price ?? 0);
+              const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
               return hasValidProduct && hasValidPrice;
             })
             .slice(0, 3)
@@ -394,14 +270,20 @@ export default function OrdersPage() {
             );
           })}
           {order.items.filter(item => {
-            const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-            const hasValidPrice = item.unit_price && item.unit_price > 0;
+            const hasValidProduct = !!item.name;
+            const unit = Number(item.unit_price ?? 0);
+            const qty = Number(item.quantity ?? 0);
+            const line = Number(item.total_price ?? 0);
+            const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
             return hasValidProduct && hasValidPrice;
           }).length > 3 && (
             <div className="flex-shrink-0 h-16 w-16 bg-gray-100 rounded-md flex items-center justify-center text-xs font-medium text-gray-600">
               +{order.items.filter(item => {
-                const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-                const hasValidPrice = item.unit_price && item.unit_price > 0;
+                const hasValidProduct = !!item.name;
+                const unit = Number(item.unit_price ?? 0);
+                const qty = Number(item.quantity ?? 0);
+                const line = Number(item.total_price ?? 0);
+                const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
                 return hasValidProduct && hasValidPrice;
               }).length - 3}
             </div>
@@ -413,8 +295,11 @@ export default function OrdersPage() {
             <span>
               <Package className="h-4 w-4 inline mr-1" />
               {order.items.filter(item => {
-                const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-                const hasValidPrice = item.unit_price && item.unit_price > 0;
+                const hasValidProduct = !!item.name;
+                const unit = Number(item.unit_price ?? 0);
+                const qty = Number(item.quantity ?? 0);
+                const line = Number(item.total_price ?? 0);
+                const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
                 return hasValidProduct && hasValidPrice;
               }).length}
             </span>
@@ -474,27 +359,29 @@ export default function OrdersPage() {
           <div className="space-y-4">
             {selectedOrder.items
               .filter(item => {
-                // Only show items with valid product data
-                const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-                const hasValidPrice = item.unit_price && item.unit_price > 0;
+                // Only show items with valid product data from order response
+                const hasValidProduct = !!item.name;
+                const unit = Number(item.unit_price ?? 0);
+                const qty = Number(item.quantity ?? 0);
+                const line = Number(item.total_price ?? 0);
+                const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
                 return hasValidProduct && hasValidPrice;
               })
               .map((item, index) => (
               <div key={`${item.slipper_id}-${index}`} className="flex gap-4 items-center p-2 border rounded">
                 <ProductCarousel item={item} />
                 <div className="flex-1">
-                  <div className="font-medium">{item.slipper?.name || item.name}</div>
+                  <div className="font-medium">{item.name}</div>
                   <div className="text-sm text-gray-600">
                     {t("orders.modal.quantity")}: {item.quantity} × {formatPrice(item.unit_price)}
                   </div>
-                  {item.slipper?.size && (
-                    <div className="text-xs text-gray-500">
-                      {t("orders.modal.size")}: {item.slipper.size}
-                    </div>
-                  )}
                 </div>
                 <div className="font-semibold">
-                  {formatPrice((item.unit_price ?? 0) * (item.quantity ?? 0))}
+                  {formatPrice(
+                    Number.isFinite(Number(item.total_price ?? 0)) && Number(item.total_price ?? 0) > 0
+                      ? Number(item.total_price ?? 0)
+                      : (Number(item.unit_price ?? 0) * Number(item.quantity ?? 0))
+                  )}
                 </div>
               </div>
             ))}
@@ -503,8 +390,11 @@ export default function OrdersPage() {
                 <span>{t("orders.modal.itemsTotal")}:</span>
                 <span>{selectedOrder.items
                   .filter(item => {
-                    const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-                    const hasValidPrice = item.unit_price && item.unit_price > 0;
+                    const hasValidProduct = !!item.name;
+                    const unit = Number(item.unit_price ?? 0);
+                    const qty = Number(item.quantity ?? 0);
+                    const line = Number(item.total_price ?? 0);
+                    const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
                     return hasValidProduct && hasValidPrice;
                   })
                   .reduce((total, item) => total + item.quantity, 0)}</span>

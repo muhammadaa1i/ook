@@ -10,6 +10,19 @@ const api = axios.create({
 });
 
 const buildUrl = (endpoint: string, params?: Record<string, unknown>) => {
+  // In the browser, route via Next.js proxy to avoid CORS
+  if (typeof window !== 'undefined') {
+    const url = new URL('/api/proxy', window.location.origin);
+    const ep = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    url.searchParams.set('endpoint', ep);
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) url.searchParams.append(k, String(v));
+      });
+    }
+    return url.toString();
+  }
+  // On server (SSR/route handlers), call backend directly
   const url = new URL(endpoint.replace(/^\/+/, '/'), API_BASE_URL + '/');
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
