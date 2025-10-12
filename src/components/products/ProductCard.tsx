@@ -192,15 +192,17 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
                 <>
                   <button
                     onClick={goPrev}
+                    onTouchStart={(e) => e.stopPropagation()} // Prevent touch conflicts
                     aria-label="Previous image"
-                    className="absolute left-0.5 sm:left-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1 sm:p-1.5 backdrop-blur-sm focus:outline-none text-xs sm:text-sm"
+                    className="absolute left-0.5 sm:left-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 active:bg-black/70 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm focus:outline-none text-xs sm:text-sm transition-colors duration-150 touch-manipulation"
                   >
                     ‹
                   </button>
                   <button
                     onClick={goNext}
+                    onTouchStart={(e) => e.stopPropagation()} // Prevent touch conflicts
                     aria-label="Next image"
-                    className="absolute right-0.5 sm:right-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1 sm:p-1.5 backdrop-blur-sm focus:outline-none text-xs sm:text-sm"
+                    className="absolute right-0.5 sm:right-1 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 active:bg-black/70 text-white rounded-full p-1.5 sm:p-2 backdrop-blur-sm focus:outline-none text-xs sm:text-sm transition-colors duration-150 touch-manipulation"
                   >
                     ›
                   </button>

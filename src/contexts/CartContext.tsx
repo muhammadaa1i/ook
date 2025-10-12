@@ -113,7 +113,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("cart", JSON.stringify(list));
-      } catch { }
+      } catch (error) {
+        // Enhanced mobile error handling for localStorage
+        console.warn("Failed to save cart to localStorage (mobile browser limitation):", error);
+        // Try to clear some space and retry
+        try {
+          localStorage.removeItem("cart_backup");
+          localStorage.setItem("cart", JSON.stringify(list));
+        } catch (retryError) {
+          console.warn("Cart localStorage completely unavailable:", retryError);
+        }
+      }
     }
   };
 

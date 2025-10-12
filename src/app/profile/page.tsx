@@ -144,9 +144,8 @@ export default function ProfilePage() {
         }
 
         // Verify current password by attempting a login with the existing username
-        // Use direct fetch to avoid mutating auth cookies/state
-        const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
-        const verifyResp = await fetch(base + "/auth/login", {
+        // Use proxy to avoid CORS issues
+        const verifyResp = await fetch("/api/proxy?endpoint=/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: user?.name ?? "", password: data.current_password })

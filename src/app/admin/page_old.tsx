@@ -44,7 +44,7 @@ export default function AdminDashboard() {
 
       
       // Helper function to safely extract count from various response formats
-      const extractCount = (response: unknown, name: string): number => {
+      const extractCount = (response: unknown): number => {
 
         
         if (!response) return 0;
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
       const fetchStat = async (name: string, endpoint: string, params?: Record<string, unknown>) => {
         try {
           const response = await modernApiClient.get(endpoint, { ...params, limit: 1, _nc: now }, { cache: false, force: true });
-          return extractCount(response, name);
+          return extractCount(response);
         } catch (error) {
           console.error(`❌ Error fetching ${name}:`, error);
           return 0;

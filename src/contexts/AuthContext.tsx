@@ -16,6 +16,9 @@ import { extractErrorMessage } from "@/lib/utils";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
+import { debugMobileAuth, isMobileDevice } from "@/lib/mobileDebug";
+import { mobileStorage } from "@/lib/mobileStorage";
+import { mobileErrorHandler } from "@/lib/mobileErrorHandler";
 
 interface AuthContextType {
   user: User | null;
@@ -46,12 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     Cookies.remove("access_token");
     Cookies.remove("refresh_token");
     Cookies.remove("user");
-    // Also clear localStorage backups
-    try {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
-    } catch {}
+    // Enhanced mobile storage cleanup
+    mobileStorage.removeAuthToken();
+    mobileStorage.removeUser();
     tokenVerificationRef.current = false;
   }, []);
 
@@ -61,35 +61,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (isInitializedRef.current) return;
       isInitializedRef.current = true;
 
+      // Debug mobile issues in production
+      if (process.env.NODE_ENV === "production" && isMobileDevice()) {
+        debugMobileAuth();
+      }
+
       try {
         let storedUser = Cookies.get("user");
         let accessToken = Cookies.get("access_token");
 
         // Fallback to localStorage if cookies are missing (for better persistence)
         if (!storedUser || !accessToken) {
-          try {
-            const localUser = localStorage.getItem('user');
-            const localAccessToken = localStorage.getItem('access_token');
-            const localRefreshToken = localStorage.getItem('refresh_token');
+          const localUser = mobileStorage.getUser();
+          const localAccessToken = mobileStorage.getAuthToken();
+          
+          if (localUser && localAccessToken) {
+            storedUser = JSON.stringify(localUser);
+            accessToken = localAccessToken;
             
-            if (localUser && localAccessToken) {
-              storedUser = localUser;
-              accessToken = localAccessToken;
-              
-              // Restore to cookies for consistency
-              const cookieOptions = {
-                sameSite: "lax" as const,
-                secure: process.env.NODE_ENV === "production",
-                path: "/"
-              };
-              Cookies.set("user", localUser, { ...cookieOptions, expires: 7 });
-              Cookies.set("access_token", localAccessToken, { ...cookieOptions, expires: 1 });
+            // Restore to cookies for consistency with mobile-friendly options
+            const cookieOptions = {
+              sameSite: "lax" as const,
+              secure: typeof window !== "undefined" ? window.location.protocol === "https:" : process.env.NODE_ENV === "production",
+              path: "/",
+              // Fix domain handling for mobile browsers - don't set domain for localhost, and handle subdomain properly
+              ...(typeof window !== "undefined" && 
+                  !window.location.hostname.includes("localhost") && 
+                  !window.location.hostname.includes("127.0.0.1") &&
+                  window.location.hostname.includes(".") 
+                  ? { domain: window.location.hostname } : {})
+            };
+            
+            try {
+              Cookies.set("user", storedUser, { ...cookieOptions, expires: 7 });
+              Cookies.set("access_token", accessToken, { ...cookieOptions, expires: 1 });
+              const localRefreshToken = localStorage.getItem('refresh_token');
               if (localRefreshToken) {
                 Cookies.set("refresh_token", localRefreshToken, { ...cookieOptions, expires: 30 });
               }
+              console.log("Successfully restored cookies from localStorage");
+            } catch (cookieError) {
+              mobileErrorHandler.log(cookieError as Error, 'cookie-restoration');
+              console.warn("Failed to set cookies on mobile, continuing with localStorage:", cookieError);
             }
-          } catch (localStorageError) {
-            console.warn("localStorage access failed:", localStorageError);
           }
         }
 
@@ -116,8 +130,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               Cookies.set("user", JSON.stringify(response.data), {
                 expires: 7,
                 sameSite: "lax",
-                secure: process.env.NODE_ENV === "production",
-                path: "/"
+                secure: typeof window !== "undefined" ? window.location.protocol === "https:" : process.env.NODE_ENV === "production",
+                path: "/",
+                domain: typeof window !== "undefined" ? window.location.hostname.includes("localhost") ? undefined : `.${window.location.hostname}` : undefined
               });
             } catch (error) {
               // Token verification failed - this is normal for expired tokens
@@ -208,8 +223,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 
                 // Re-store in cookies with longer expiration
                 const cookieOptions = {
-                  sameSite: "strict" as const,
-                  secure: process.env.NODE_ENV === "production",
+                  sameSite: "lax" as const,
+                  secure: typeof window !== "undefined" ? window.location.protocol === "https:" : process.env.NODE_ENV === "production",
+                  domain: typeof window !== "undefined" ? window.location.hostname.includes("localhost") ? undefined : `.${window.location.hostname}` : undefined
                 };
                 
                 Cookies.set("user", userBackup, {
@@ -259,51 +275,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true);
 
+      // Debug logging for authentication
+      console.log("Login attempt:", {
+        name: credentials.name,
+        hasPassword: !!credentials.password,
+        passwordLength: credentials.password?.length,
+        endpoint: API_ENDPOINTS.LOGIN
+      });
+
       // Use proxy-enabled apiClient to avoid CORS and keep behavior consistent
       const resp = await apiClient.post(API_ENDPOINTS.LOGIN, credentials);
-      const responseData = resp.data || {};
+      console.log("Login response:", resp);
+      
+      // Handle different response formats from the backend
+      let responseData = resp.data || resp || {};
+      
+      // If the response is wrapped in additional layers, unwrap it
+      if (responseData.data) {
+        responseData = responseData.data;
+      }
+      
+      console.log("Processed response data:", responseData);
 
       const { access_token, refresh_token, user: userData } = responseData as { access_token?: string; refresh_token?: string; user?: User };
 
       if (!access_token || !refresh_token || !userData) {
         // Invalid server response structure
+        console.error("Invalid login response structure:", { access_token: !!access_token, refresh_token: !!refresh_token, userData: !!userData });
         toast.error(t('auth.errors.invalidServerResponse'));
         throw new Error('invalid server response');
       }
       // Store tokens and user data with enhanced persistence for payment flows
       const cookieOptions = {
-        sameSite: "lax" as const, // Changed from "strict" to "lax" for better payment redirect compatibility
-        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax" as const, // Changed from "strict" to "lax" for better mobile compatibility
+        secure: typeof window !== "undefined" ? window.location.protocol === "https:" : process.env.NODE_ENV === "production",
         path: "/", // Ensure cookies are available across all paths
+        // Fix domain handling for mobile browsers - don't set domain for localhost, and handle subdomain properly
+        ...(typeof window !== "undefined" && 
+            !window.location.hostname.includes("localhost") && 
+            !window.location.hostname.includes("127.0.0.1") &&
+            window.location.hostname.includes(".") 
+            ? { domain: window.location.hostname } : {})
       };
-      Cookies.set("access_token", access_token, {
-        ...cookieOptions,
-        expires: 1,
-      });
-      Cookies.set("refresh_token", refresh_token, {
-        ...cookieOptions,
-        expires: 30,
-      });
-      Cookies.set("user", JSON.stringify(userData), {
-        ...cookieOptions,
-        expires: 7,
-      });
-      // LocalStorage backup to survive cross-domain payment redirects / cookie drops
+      
+      // Store auth data in both cookies and localStorage for mobile compatibility
       try {
-        localStorage.setItem('access_token', access_token);
-        localStorage.setItem('refresh_token', refresh_token);
-        localStorage.setItem('user', JSON.stringify(userData));
-      } catch {}
+        Cookies.set("access_token", access_token, { ...cookieOptions, expires: 1 });
+        Cookies.set("refresh_token", refresh_token, { ...cookieOptions, expires: 30 });
+        Cookies.set("user", JSON.stringify(userData), { ...cookieOptions, expires: 7 });
+      } catch (cookieError) {
+        console.warn("Failed to set cookies, using localStorage fallback:", cookieError);
+      }
+      
+      // Always set localStorage as fallback for mobile
+      mobileStorage.setAuthToken(access_token);
+      mobileStorage.setUser(userData);
+      if (refresh_token) {
+        try {
+          localStorage.setItem('refresh_token', refresh_token);
+        } catch (localStorageError) {
+          mobileErrorHandler.log(localStorageError as Error, 'refresh-token-storage');
+        }
+      }
       setUser(userData);
       tokenVerificationRef.current = true;
       setTimeout(() => {
         toast.success(t('auth.toasts.loginSuccess'));
       }, 100);
     } catch (error: unknown) {
-      // Prefer server-provided reason when available
+      // Enhanced error logging for debugging
+      console.error("Login error:", error);
+      
       const axiosError = error as { response?: { data?: unknown; status?: number; statusText?: string } };
+      console.error("Login error details:", {
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        data: axiosError.response?.data
+      });
+      
+      // Prefer server-provided reason when available
       const serverMsg = extractErrorMessage(axiosError.response?.data);
       const message = serverMsg || t('auth.toasts.loginInvalid');
+      
+      console.error("Final error message:", message);
       toast.error(message);
       throw error;
     } finally {

@@ -20,7 +20,14 @@ const buildUrl = (endpoint: string, params?: Record<string, unknown>) => {
         if (v !== undefined && v !== null) url.searchParams.append(k, String(v));
       });
     }
-    return url.toString();
+    const finalUrl = url.toString();
+    
+    // Debug URL construction for auth endpoints
+    if (endpoint.includes('/auth/')) {
+      console.log("Built URL for auth endpoint:", { endpoint, finalUrl });
+    }
+    
+    return finalUrl;
   }
   // On server (SSR/route handlers), call backend directly
   const url = new URL(endpoint.replace(/^\/+/, '/'), API_BASE_URL + '/');
@@ -34,7 +41,17 @@ const buildUrl = (endpoint: string, params?: Record<string, unknown>) => {
 
 api.interceptors.request.use(
   (config) => {
-    const token = Cookies.get("access_token");
+    let token = Cookies.get("access_token");
+    
+    // Fallback to localStorage if cookies are not available (mobile browsers)
+    if (!token && typeof window !== "undefined") {
+      try {
+        token = localStorage.getItem("access_token") || undefined;
+      } catch (error) {
+        console.warn("Failed to access localStorage:", error);
+      }
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -65,26 +82,75 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = Cookies.get("refresh_token");
+        let refreshToken = Cookies.get("refresh_token");
+        
+        // Fallback to localStorage for mobile browsers
+        if (!refreshToken && typeof window !== "undefined") {
+          try {
+            refreshToken = localStorage.getItem("refresh_token") || undefined;
+          } catch (error) {
+            console.warn("Failed to access localStorage for refresh token:", error);
+          }
+        }
+        
         if (!refreshToken) {
           throw new Error("No refresh token");
         }
 
-        const response = await axios.post(buildUrl("/auth/refresh"), {
-          refresh_token: refreshToken,
-          refreshToken: refreshToken, // backend compatibility
+        // Create a fresh axios instance without interceptors for refresh to avoid infinite loops
+        const refreshResponse = await fetch(buildUrl("/auth/refresh"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            refresh_token: refreshToken,
+            refreshToken: refreshToken, // backend compatibility
+          }),
         });
 
-        const { access_token, refresh_token: newRefreshToken } = response.data;
+        if (!refreshResponse.ok) {
+          const errorText = await refreshResponse.text();
+          console.error("Token refresh failed:", {
+            status: refreshResponse.status,
+            statusText: refreshResponse.statusText,
+            body: errorText
+          });
+          throw new Error(`Refresh failed: ${refreshResponse.status} - ${errorText}`);
+        }
+
+        const responseData = await refreshResponse.json();
+        const { access_token, refresh_token: newRefreshToken } = responseData;
+
+        if (!access_token) {
+          throw new Error("No access token received from refresh");
+        }
 
         const cookieOptions = {
           sameSite: 'lax' as const,
-          secure: process.env.NODE_ENV === 'production',
+          secure: typeof window !== "undefined" ? window.location.protocol === "https:" : process.env.NODE_ENV === 'production',
           path: '/',
+          // Fix domain handling for mobile browsers
+          ...(typeof window !== "undefined" && 
+              !window.location.hostname.includes("localhost") && 
+              !window.location.hostname.includes("127.0.0.1") &&
+              window.location.hostname.includes(".") 
+              ? { domain: window.location.hostname } : {})
         };
-        Cookies.set("access_token", access_token, { ...cookieOptions, expires: 1 });
-        if (newRefreshToken) {
-          Cookies.set("refresh_token", newRefreshToken, { ...cookieOptions, expires: 30 });
+        
+        try {
+          Cookies.set("access_token", access_token, { ...cookieOptions, expires: 1 });
+          if (newRefreshToken) {
+            Cookies.set("refresh_token", newRefreshToken, { ...cookieOptions, expires: 30 });
+          }
+          
+          // Also update localStorage for mobile compatibility
+          localStorage.setItem("access_token", access_token);
+          if (newRefreshToken) {
+            localStorage.setItem("refresh_token", newRefreshToken);
+          }
+        } catch (storageError) {
+          console.warn("Failed to store tokens:", storageError);
         }
 
         originalRequest.headers.Authorization = `Bearer ${access_token}`;

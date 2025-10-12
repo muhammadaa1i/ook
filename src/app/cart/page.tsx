@@ -103,6 +103,18 @@ export default function CartPage() {
       return;
     }
 
+    // Debug mobile issues in production
+    if (process.env.NODE_ENV === "production") {
+      console.log("Mobile checkout debug:", {
+        userAgent: navigator.userAgent,
+        cookieEnabled: navigator.cookieEnabled,
+        itemCount: items.length,
+        totalAmount,
+        user: user ? { id: user.id, name: user.name } : null,
+        authStatus: isAuthenticated
+      });
+    }
+
     // Check if there's already a pending payment order
     const existingPaymentOrder = sessionStorage.getItem('paymentOrder');
     
@@ -149,7 +161,7 @@ export default function CartPage() {
       const clearCartFlag = false;
       const endpoint = `${API_ENDPOINTS.ORDERS_FROM_CART}?clear_cart=${clearCartFlag}`;
 
-  interface ApiEnvelope<T> { data?: T; item?: T; items?: T; order?: T; result?: T }
+      interface ApiEnvelope<T> { data?: T; item?: T; items?: T; order?: T; result?: T }
       interface ApiOrderResponse {
         id?: number;
         order_id?: string;
@@ -163,9 +175,17 @@ export default function CartPage() {
         updated_at?: string;
       }
 
-  const orderResponse = await modernApiClient.post(endpoint, undefined, { timeout: 6000 });
-  const env = orderResponse as ApiEnvelope<ApiOrderResponse> | ApiOrderResponse;
-  const container = env as ApiEnvelope<ApiOrderResponse>;
+      console.log("Creating order from cart endpoint:", endpoint);
+      
+      // Add mobile-specific timeout handling
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const mobileTimeout = isMobile ? 8000 : 6000; // Longer timeout for mobile
+      
+      const orderResponse = await modernApiClient.post(endpoint, undefined, { timeout: mobileTimeout });
+      console.log("Order creation response:", orderResponse);
+      
+      const env = orderResponse as ApiEnvelope<ApiOrderResponse> | ApiOrderResponse;
+      const container = env as ApiEnvelope<ApiOrderResponse>;
   const apiOrder = container.data || container.order || container.item || (env as ApiOrderResponse);
 
       const createdOrder: Order = {
@@ -240,12 +260,32 @@ export default function CartPage() {
           } : undefined
         };
         
-        sessionStorage.setItem('paymentOrder', JSON.stringify(paymentData));
+        // Enhanced mobile storage with multiple fallbacks
+        try {
+          sessionStorage.setItem('paymentOrder', JSON.stringify(paymentData));
+        } catch (sessionError) {
+          console.warn("SessionStorage failed, trying localStorage fallback:", sessionError);
+          try {
+            localStorage.setItem('paymentOrder_fallback', JSON.stringify(paymentData));
+          } catch (localError) {
+            console.warn("All storage methods failed for payment data:", localError);
+          }
+        }
         
-        // Store user authentication data as backup before payment redirect
+        // Store user authentication data as backup before payment redirect with mobile fallbacks
         if (user) {
-          sessionStorage.setItem('userBackup', JSON.stringify(user));
-          sessionStorage.setItem('paymentRedirectTime', Date.now().toString());
+          try {
+            sessionStorage.setItem('userBackup', JSON.stringify(user));
+            sessionStorage.setItem('paymentRedirectTime', Date.now().toString());
+          } catch (sessionError) {
+            console.warn("SessionStorage failed for user backup, using localStorage:", sessionError);
+            try {
+              localStorage.setItem('userBackup_fallback', JSON.stringify(user));
+              localStorage.setItem('paymentRedirectTime_fallback', Date.now().toString());
+            } catch (localError) {
+              console.warn("All storage methods failed for user backup:", localError);
+            }
+          }
         }
         
         // Payment status will be handled by the webhook notification endpoint
@@ -256,7 +296,22 @@ export default function CartPage() {
         throw new Error(paymentResponse.errMessage || `Payment URL not received. Success: ${paymentResponse.success}, URL: ${paymentUrl}`);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('payment.error.initiation'));
+      console.error("Checkout error:", error);
+      
+      // Enhanced error handling for mobile debugging
+      if (process.env.NODE_ENV === "production") {
+        const errorDetails = {
+          error: error instanceof Error ? error.message : String(error),
+          userAgent: navigator.userAgent,
+          cookieEnabled: navigator.cookieEnabled,
+          timestamp: new Date().toISOString(),
+          user: user ? { id: user.id, name: user.name } : null
+        };
+        console.error("Mobile checkout error details:", errorDetails);
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : t('payment.error.initiation');
+      toast.error(errorMessage);
     } finally {
       setIsProcessingPayment(false);
     }

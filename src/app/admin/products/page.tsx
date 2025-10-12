@@ -492,9 +492,9 @@ export default function AdminProductsPage() {
         Array.from(multiImageFiles).forEach(f => fd.append('images', f));
 
         try {
-          const directUrlMulti = `${process.env.NEXT_PUBLIC_API_DIRECT_URL || 'https://oyoqkiyim.duckdns.org'}${API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id)}`;
+          const proxyUrl = `/api/proxy?endpoint=${encodeURIComponent(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id))}`;
 
-          const resp = await fetch(directUrlMulti, {
+          const resp = await fetch(proxyUrl, {
             method: 'POST',
             body: fd,
             headers: {
