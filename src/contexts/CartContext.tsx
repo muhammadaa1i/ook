@@ -6,6 +6,7 @@ import { Slipper, SlipperImage } from "@/types";
 import { useI18n } from "@/i18n";
 import cartService, { CartDTO, CartItemDTO } from "@/services/cartService";
 import { fetchProduct } from "@/services/productService";
+import { MobileStorage } from "@/lib/mobileStorage";
 
 interface CartItem {
   id: number;
@@ -112,16 +113,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const mirrorToStorage = (list: CartItem[]) => {
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("cart", JSON.stringify(list));
+        // Use MobileStorage for better mobile compatibility
+        MobileStorage.setItem("cart", JSON.stringify(list));
       } catch (error) {
-        // Enhanced mobile error handling for localStorage
-        console.warn("Failed to save cart to localStorage (mobile browser limitation):", error);
-        // Try to clear some space and retry
+        console.warn("Failed to save cart to storage (mobile browser limitation):", error);
+        // Fallback to direct localStorage
         try {
-          localStorage.removeItem("cart_backup");
           localStorage.setItem("cart", JSON.stringify(list));
-        } catch (retryError) {
-          console.warn("Cart localStorage completely unavailable:", retryError);
+        } catch (fallbackError) {
+          console.warn("Cart storage completely unavailable:", fallbackError);
         }
       }
     }
@@ -141,7 +141,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       let prevForImages: CartItem[] = itemsRef.current;
       if (typeof window !== "undefined") {
         try {
-          const saved = localStorage.getItem("cart");
+          const saved = MobileStorage.getItem("cart");
           if (saved) prevForImages = JSON.parse(saved) as CartItem[];
         } catch { }
       }
@@ -164,7 +164,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         let prevForImages: CartItem[] = itemsRef.current;
         if (typeof window !== "undefined") {
           try {
-            const saved = localStorage.getItem("cart");
+            const saved = MobileStorage.getItem("cart");
             if (saved) prevForImages = JSON.parse(saved) as CartItem[];
           } catch { }
         }
@@ -173,7 +173,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         mirrorToStorage(mapped);
       } catch {
         if (typeof window !== "undefined") {
-          const savedCart = localStorage.getItem("cart");
+          const savedCart = MobileStorage.getItem("cart");
           if (savedCart) {
             try {
               const parsed: CartItem[] = JSON.parse(savedCart);
@@ -308,7 +308,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const lastStorageRawRef = { current: "" } as { current: string };
     const syncFromStorage = () => {
       try {
-        const stored = localStorage.getItem("cart");
+        const stored = MobileStorage.getItem("cart");
         if (stored === lastStorageRawRef.current) return;
         lastStorageRawRef.current = stored || "";
         const parsed: CartItem[] = stored ? JSON.parse(stored) : [];
@@ -406,7 +406,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         let prevForImages: CartItem[] = optimisticNext;
         if (typeof window !== "undefined") {
           try {
-            const saved = localStorage.getItem("cart");
+            const saved = MobileStorage.getItem("cart");
             if (saved) prevForImages = JSON.parse(saved) as CartItem[];
           } catch { }
         }
@@ -424,8 +424,49 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         );
         startTransition(() => setItems(mapped));
         setTimeout(() => { try { mirrorToStorage(mapped); } catch { } }, 0);
-      } catch {
-        // Keep optimistic state on failure
+      } catch (error) {
+        console.error('📱 Add to cart error:', error);
+        
+        // Mobile-specific error recovery for add to cart
+        const isMobile = typeof window !== "undefined" && 
+          /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // For mobile, show specific error message and keep optimistic state
+          console.log('🔄 Mobile fallback: keeping optimistic cart state');
+          
+          toast.error(t("errors.mobileCartUpdate"), {
+            position: "top-center",
+            autoClose: 5000,
+          });
+          
+          // Try to sync with server after a delay
+          setTimeout(async () => {
+            try {
+              const syncCart = await cartService.getCart();
+              let syncMapped = mapServerToClient(syncCart, itemsRef.current);
+              // Preserve images from optimistic state
+              syncMapped = syncMapped.map((it: CartItem) =>
+                it.id === product.id
+                  ? {
+                    ...it,
+                    images: it.images && it.images.length > 0 ? it.images : fallbackImages,
+                    image: it.image || product.image,
+                  }
+                  : it
+              );
+              startTransition(() => setItems(syncMapped));
+              mirrorToStorage(syncMapped);
+              console.log('✅ Mobile cart sync after add successful');
+            } catch (syncError) {
+              console.error('❌ Mobile cart sync after add failed:', syncError);
+            }
+          }, 2000);
+        } else {
+          // Desktop: revert optimistic state and show error
+          startTransition(() => setItems(itemsRef.current));
+          toast.error(t("errors.serverErrorLong"));
+        }
       }
     })();
   };
@@ -475,8 +516,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         mapped = reconcilePartial(mapped, itemsRef.current, cartItem.id, "update");
         startTransition(() => setItems(mapped));
         mirrorToStorage(mapped);
-      } catch {
-        toast.error(t("errors.serverErrorLong"));
+      } catch (error) {
+        console.error('📱 Cart update error:', error);
+        
+        // Mobile-specific error recovery
+        const isMobile = typeof window !== "undefined" && 
+          /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // For mobile, try to maintain the UI state even if server update fails
+          console.log('🔄 Mobile fallback: updating local cart state');
+          startTransition(() => setItems((prev) => prev.map((i) => (i.id === productId ? { ...i, quantity: snapped } : i))));
+          mirrorToStorage(itemsRef.current);
+          
+          // Show a more informative error message for mobile users
+          toast.error(t("errors.mobileCartUpdate"), {
+            position: "top-center",
+            autoClose: 5000,
+          });
+          
+          // Try to sync with server after a delay
+          setTimeout(async () => {
+            try {
+              const syncCart = await cartService.getCart();
+              const syncMapped = mapServerToClient(syncCart, itemsRef.current);
+              startTransition(() => setItems(syncMapped));
+              mirrorToStorage(syncMapped);
+              console.log('✅ Mobile cart sync successful');
+            } catch (syncError) {
+              console.error('❌ Mobile cart sync failed:', syncError);
+            }
+          }, 2000);
+        } else {
+          toast.error(t("errors.serverErrorLong"));
+        }
       }
     })();
   };

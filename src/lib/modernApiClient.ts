@@ -193,6 +193,51 @@ class ModernApiClient {
           }
         }
 
+        // Enhanced mobile error debugging
+        if (typeof window !== "undefined") {
+          const mobileInfo = {
+            userAgent: navigator.userAgent,
+            isMobile: /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+            cookieEnabled: navigator.cookieEnabled,
+            localStorage: !!window.localStorage,
+            sessionStorage: !!window.sessionStorage,
+            endpoint,
+            method: fetchOptions.method || 'GET',
+            hasToken: !!Cookies.get("accessToken"),
+            referer: window.location.href
+          };
+          
+          console.error('🚨 Mobile API Error:', {
+            status: response.status,
+            statusText: response.statusText,
+            mobile: mobileInfo,
+            url: response.url
+          });
+          
+          // Special handling for cart operations on mobile
+          if (endpoint.includes('/cart') && mobileInfo.isMobile) {
+            try {
+              const errorBody = await response.clone().text();
+              console.error('📱 Mobile Cart Error Details:', {
+                body: errorBody,
+                cookies: document.cookie,
+                storage: {
+                  localStorage: Object.keys(localStorage).map(key => ({ 
+                    key, 
+                    value: localStorage.getItem(key)?.substring(0, 100) 
+                  })),
+                  sessionStorage: Object.keys(sessionStorage).map(key => ({ 
+                    key, 
+                    value: sessionStorage.getItem(key)?.substring(0, 100) 
+                  }))
+                }
+              });
+            } catch (e) {
+              console.error('Could not read mobile cart error response:', e);
+            }
+          }
+        }
+
         let errorMessage = `HTTP error! status: ${response.status}`;
         switch (response.status) {
           case 503:

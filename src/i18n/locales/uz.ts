@@ -338,7 +338,8 @@ export default {
     serverErrorLong: 'Server xatosi. Keyinroq urinib ko\'ring.',
     tooManyRequests: 'Juda ko\'p so\'rovlar',
     tooManyRequestsLong: 'Juda ko\'p so\'rovlar. Biroz kuting va qayta urinib ko\'ring.',
-    productsLoad: 'Mahsulotlarni yuklashda xato'
+    productsLoad: 'Mahsulotlarni yuklashda xato',
+    mobileCartUpdate: 'Mobil qurilmada savat yangilanmadi. Mahalliy versiya saqlanmoqda, keyinroq avtomatik sinxronlanadi.'
   },
   errorPage: {
     default: {
