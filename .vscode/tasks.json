@@ -53,6 +53,18 @@
 			"type": "shell",
 			"command": "npm run -s typecheck",
 			"group": "build"
+		},
+		{
+			"label": "Typecheck",
+			"type": "shell",
+			"command": "npm run -s typecheck",
+			"group": "build"
+		},
+		{
+			"label": "Typecheck",
+			"type": "shell",
+			"command": "npm run -s typecheck",
+			"group": "build"
 		}
 	]
 }

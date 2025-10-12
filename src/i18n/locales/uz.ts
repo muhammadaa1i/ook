@@ -50,7 +50,7 @@ export default {
     currencySom: 'so\'m',
   },
   auth: {
-    login: 'Tizimga kirish',
+    login: 'Tizimga kiring',
     register: "Ro'yhatdan o'tish",
     name: 'Foydalanuvchi nomi',
     password: 'Parol',

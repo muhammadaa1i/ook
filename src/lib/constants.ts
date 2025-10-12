@@ -30,6 +30,7 @@ export const API_ENDPOINTS = {
 
   // Orders
   ORDERS: "/orders/",
+  ORDERS_FROM_CART: "/orders/from-cart",
   ORDER_BY_ID: (id: number) => `/orders/${id}`,
 
   // Categories

@@ -21,8 +21,7 @@ import { toast } from "react-toastify";
 import { useI18n } from "@/i18n";
 import { modernApiClient } from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
-import { CreateOrderRequest, Order } from "@/types";
-import { OrderBatchManager } from "../../lib/orderBatchManager";
+import { Order } from "@/types";
 
 // Component for handling product images with error fallback
 const ProductImage = ({
@@ -115,7 +114,7 @@ export default function CartPage() {
         if (timeSinceCreation < 5 * 60 * 1000) {
           // Verify if the order still exists and is in CREATED status
           try {
-            const orderStatus = await modernApiClient.get(`${API_ENDPOINTS.ORDERS}/${paymentData.order_id}`);
+            const orderStatus = await modernApiClient.get(API_ENDPOINTS.ORDER_BY_ID(Number(paymentData.order_id)));
             const status = (orderStatus as { status?: string })?.status || 
                           (orderStatus as { data?: { status?: string } })?.data?.status;
             
@@ -144,142 +143,42 @@ export default function CartPage() {
     // Skip step indicators for maximum speed - go straight to processing
 
     try {
-      // Calculate total quantity to determine if batching is needed
-      const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-      
-      // Pre-calculate payment data for faster processing
-      const orderItems = items.map(item => ({
-        slipper_id: item.id,
-        quantity: item.quantity,
-        unit_price: item.price,
-        notes: `${item.size ? `Size: ${item.size}` : ''}${item.color ? `, Color: ${item.color}` : ''}`.trim()
-      }));
-      
-      const createOrderRequest: CreateOrderRequest = {
-        user_id: user?.id,
-        items: orderItems,
-        total_amount: totalAmount,
-        notes: `Order created for payment`,
-        payment_method: 'OCTO',
-        status: 'CREATED'
-      };
+      // Create order directly from cart on the backend
+      // We do not send cart items manually; backend will read user's cart and create the order
+      // Keep cart items intact until payment completes, so use clear_cart=false
+      const clearCartFlag = false;
+      const endpoint = `${API_ENDPOINTS.ORDERS_FROM_CART}?clear_cart=${clearCartFlag}`;
 
-      // Validate order data before processing
-      if (!orderItems || orderItems.length === 0) {
-        throw new Error('No items to order');
+  interface ApiEnvelope<T> { data?: T; item?: T; items?: T; order?: T; result?: T }
+      interface ApiOrderResponse {
+        id?: number;
+        order_id?: string;
+        user_id?: number;
+        status?: string;
+        total_amount?: number;
+        notes?: string;
+        payment_method?: string;
+        items?: unknown[];
+        created_at?: string;
+        updated_at?: string;
       }
-      
-      // Check for any invalid quantities
-      const invalidItems = orderItems.filter(item => item.quantity <= 0 || !Number.isFinite(item.quantity));
-      if (invalidItems.length > 0) {
-        throw new Error(`Invalid quantities found in ${invalidItems.length} items`);
-      }
-      
-      let createdOrders: Order[];
-      
-      // IMPORTANT: Only use batching for extremely large orders (>200 items)
-      // Normal orders up to 200 items should be created as a single order
-      // The backend should handle this properly
-      if (totalQuantity > 200) {
-        // Ultra-aggressive config for maximum speed with tiny batches
-        const batchConfig = {
-          maxTotalQuantityPerBatch: 100, // Batch size for very large orders
-        };
-        
-        try {
-          const batchResult = await OrderBatchManager.processOrder(
-            createOrderRequest,
-            batchConfig,
-            () => {
-              // intentionally no-op progress callback
-            }
-          );
-          
-          if (!batchResult.success || batchResult.orders.length === 0) {
-            const errorMsg = batchResult.errors.length > 0 
-              ? batchResult.errors.map((e: { batch: number; error: string }) => `Batch ${e.batch}: ${e.error}`).join('; ')
-              : 'Unknown error during batch processing';
-            throw new Error(`Failed to create orders: ${errorMsg}`);
-          }
-          
-          createdOrders = batchResult.orders;
-          
-          // Show success notification
-          toast.success(t('cartPage.batchProcessingSuccess', { count: String(createdOrders.length) }));
-        } catch {
-          // Fallback: try with micro-batches (20 items per batch)
-          const fallbackConfig = {
-            maxTotalQuantityPerBatch: 20,
-          };
-          
-          try {
-            // Show single notification for fallback processing
-            toast.info(t('cartPage.batchProcessingFallback', { total: String(Math.ceil(totalQuantity / 20)) }));
-            
-            const fallbackResult = await OrderBatchManager.processOrder(
-              createOrderRequest,
-              fallbackConfig,
-              () => {
-                // intentionally no-op progress callback
-              }
-            );
-            
-            if (!fallbackResult.success || fallbackResult.orders.length === 0) {
-              throw new Error('Fallback batch processing also failed');
-            }
-            
-            createdOrders = fallbackResult.orders;
-            
-            // Show success notification
-            toast.success(t('cartPage.batchProcessingSuccess', { count: String(createdOrders.length) }));
-          } catch (fallbackError) {
-            throw new Error(`All batch processing attempts failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
-          }
-        }
-      } else {
-        // Single order for smaller quantities
-        
-        try {
-          // Use ultra-fast timeout for payment-related order creation
-          const orderResponse = await modernApiClient.post(API_ENDPOINTS.ORDERS, createOrderRequest, {
-            timeout: 6000 // 6 seconds for ultra-fast payment orders
-          });
-          
-          // Handle both envelope and direct response formats
-          interface ApiEnvelope<T> { data?: T; items?: T; }
-          const env = orderResponse as ApiEnvelope<Order> | Order;
-          const rawOrder = (env as ApiEnvelope<Order>).data || (env as Order);
-          
-          // Transform the API response to match our Order interface
-          interface ApiOrderResponse {
-            id?: number;
-            order_id?: string;
-            user_id?: number;
-            status?: string;
-            total_amount?: number;
-            notes?: string;
-            payment_method?: string;
-            items?: unknown[];
-            created_at?: string;
-            updated_at?: string;
-          }
-          
-          const apiOrder = rawOrder as ApiOrderResponse;
-          const createdOrder = {
-            ...apiOrder,
-            id: apiOrder.id || parseInt(apiOrder.order_id || '0', 10),
-            order_id: apiOrder.order_id,
-            user_id: apiOrder.user_id || user?.id || 0,
-            items: apiOrder.items || [],
-            created_at: apiOrder.created_at || new Date().toISOString(),
-            updated_at: apiOrder.updated_at || apiOrder.created_at || new Date().toISOString(),
-          } as Order;
-          
-          createdOrders = [createdOrder];
-        } catch (orderError) {
-          throw new Error(`Failed to create order: ${orderError instanceof Error ? orderError.message : String(orderError)}`);
-        }
-      }
+
+  const orderResponse = await modernApiClient.post(endpoint, undefined, { timeout: 6000 });
+  const env = orderResponse as ApiEnvelope<ApiOrderResponse> | ApiOrderResponse;
+  const container = env as ApiEnvelope<ApiOrderResponse>;
+  const apiOrder = container.data || container.order || container.item || (env as ApiOrderResponse);
+
+      const createdOrder: Order = {
+        ...(apiOrder as Record<string, unknown>),
+        id: (apiOrder?.id ?? (apiOrder?.order_id ? parseInt(apiOrder.order_id, 10) : undefined)) as number,
+        order_id: apiOrder?.order_id,
+        user_id: (apiOrder?.user_id ?? user?.id ?? 0) as number,
+        items: (apiOrder?.items as unknown[]) || [],
+        created_at: apiOrder?.created_at || new Date().toISOString(),
+        updated_at: apiOrder?.updated_at || apiOrder?.created_at || new Date().toISOString(),
+      } as Order;
+
+      const createdOrders: Order[] = [createdOrder];
       
       if (!createdOrders || createdOrders.length === 0) {
         throw new Error('Failed to create orders: No orders were created');
@@ -304,7 +203,7 @@ export default function CartPage() {
           });
 
       const paymentRequest = {
-        amount: PaymentService.formatAmount(totalAmount),
+        amount: PaymentService.formatAmount((mainOrder as any).total_amount ?? totalAmount),
         description,
         order_id: mainOrder.id || parseInt(mainOrder.order_id || '0', 10)
       };

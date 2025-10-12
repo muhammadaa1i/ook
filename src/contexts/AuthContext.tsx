@@ -50,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
     } catch {}
     tokenVerificationRef.current = false;
   }, []);
@@ -61,28 +62,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       isInitializedRef.current = true;
 
       try {
-        const storedUser = Cookies.get("user");
-        const accessToken = Cookies.get("access_token");
+        let storedUser = Cookies.get("user");
+        let accessToken = Cookies.get("access_token");
+
+        // Fallback to localStorage if cookies are missing (for better persistence)
+        if (!storedUser || !accessToken) {
+          try {
+            const localUser = localStorage.getItem('user');
+            const localAccessToken = localStorage.getItem('access_token');
+            const localRefreshToken = localStorage.getItem('refresh_token');
+            
+            if (localUser && localAccessToken) {
+              storedUser = localUser;
+              accessToken = localAccessToken;
+              
+              // Restore to cookies for consistency
+              const cookieOptions = {
+                sameSite: "lax" as const,
+                secure: process.env.NODE_ENV === "production",
+                path: "/"
+              };
+              Cookies.set("user", localUser, { ...cookieOptions, expires: 7 });
+              Cookies.set("access_token", localAccessToken, { ...cookieOptions, expires: 1 });
+              if (localRefreshToken) {
+                Cookies.set("refresh_token", localRefreshToken, { ...cookieOptions, expires: 30 });
+              }
+            }
+          } catch (localStorageError) {
+            console.warn("localStorage access failed:", localStorageError);
+          }
+        }
 
         if (storedUser && accessToken) {
           const userData = JSON.parse(storedUser);
           setUser(userData);
+          
+          // Set token as verified to prevent immediate logout during initialization
+          tokenVerificationRef.current = true;
 
-          // Only verify token if not already verified in this session
-          // Skip verification if we just logged in (already verified)
-          if (!tokenVerificationRef.current) {
-            tokenVerificationRef.current = true;
+          // Only verify token if we're not in a critical flow and user wants fresh data
+          // Skip verification on hard refresh to prevent immediate logout
+          const isHardRefresh = typeof window !== "undefined" && 
+            (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type === "reload";
+          
+          if (!isHardRefresh && !tokenVerificationRef.current) {
             try {
-              // Add a small delay to ensure cookies are properly available
-              await new Promise((resolve) => setTimeout(resolve, 200));
+              // Add a delay to ensure the app is fully loaded
+              await new Promise((resolve) => setTimeout(resolve, 500));
 
               // Use base API client for token verification to avoid circular dependencies
               const response = await apiClient.get(API_ENDPOINTS.USER_PROFILE);
               setUser(response.data);
               Cookies.set("user", JSON.stringify(response.data), {
                 expires: 7,
-                sameSite: "strict",
+                sameSite: "lax",
                 secure: process.env.NODE_ENV === "production",
+                path: "/"
               });
             } catch (error) {
               // Token verification failed - this is normal for expired tokens
@@ -99,7 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
-        clearAuthData();
+        // Only clear auth data if there's a serious parsing error
+        if (error instanceof SyntaxError) {
+          clearAuthData();
+        }
       } finally {
         setIsLoading(false);
       }
@@ -221,24 +259,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true);
 
-      // Direct backend login (bypass removed proxy)
-      const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_DIRECT_URL || "https://oyoqkiyim.duckdns.org").replace(/\/$/, "");
-      const response = await fetch(base + "/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(credentials),
-      });
+      // Use proxy-enabled apiClient to avoid CORS and keep behavior consistent
+      const resp = await apiClient.post(API_ENDPOINTS.LOGIN, credentials);
+      const responseData = resp.data || {};
 
-      const responseData = await response.json();
-
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${responseData.error || 'Login failed'}`);
-      }
-
-      const { access_token, refresh_token, user: userData } = responseData || {};
+      const { access_token, refresh_token, user: userData } = responseData as { access_token?: string; refresh_token?: string; user?: User };
 
       if (!access_token || !refresh_token || !userData) {
         // Invalid server response structure
@@ -267,6 +292,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         localStorage.setItem('access_token', access_token);
         localStorage.setItem('refresh_token', refresh_token);
+        localStorage.setItem('user', JSON.stringify(userData));
       } catch {}
       setUser(userData);
       tokenVerificationRef.current = true;
@@ -274,13 +300,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         toast.success(t('auth.toasts.loginSuccess'));
       }, 100);
     } catch (error: unknown) {
-      // Login error handled by toast below
-
-      // Show error message for failed login
-      setTimeout(() => {
-        toast.error(t('auth.toasts.loginInvalid'));
-      }, 0);
-
+      // Prefer server-provided reason when available
+      const axiosError = error as { response?: { data?: unknown; status?: number; statusText?: string } };
+      const serverMsg = extractErrorMessage(axiosError.response?.data);
+      const message = serverMsg || t('auth.toasts.loginInvalid');
+      toast.error(message);
       throw error;
     } finally {
       setIsLoading(false);

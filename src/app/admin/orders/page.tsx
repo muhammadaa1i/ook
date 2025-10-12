@@ -91,7 +91,10 @@ export default function AdminOrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-  const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, filters as unknown as Record<string, unknown>);
+      const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, filters as unknown as Record<string, unknown>);
+
+      // Debug: Log the raw response to help diagnose pricing issues
+      console.log("Admin Orders API Response:", response);
 
       // Handle response data structure
       const data =
@@ -121,11 +124,27 @@ export default function AdminOrdersPage() {
           (data as { items?: Order[]; data?: Order[] })?.data ||
           [];
 
+      // Log specific order data for debugging
+      if (Array.isArray(ordersData) && ordersData.length > 0) {
+        console.log("First order raw data:", ordersData[0]);
+      }
+
       // Normalize to ensure user, items and total_amount are present
       type RawOrderItem = Partial<import("@/types").OrderItem> & {
         unit_price?: number;
         quantity?: number;
         total_price?: number;
+        price?: number;
+        unitPrice?: number;
+        qty?: number;
+        total?: number;
+        amount?: number;
+        name?: string;
+        slipper_name?: string;
+        slipper_id?: number;
+        product_id?: number;
+        image?: string;
+        slipper?: { name?: string; price?: number; image?: string };
       };
       type RawOrder = Partial<Order> & {
         order_items?: RawOrderItem[];
@@ -133,6 +152,9 @@ export default function AdminOrdersPage() {
         user?: import("@/types").User;
         customer?: import("@/types").User;
         total_amount?: number;
+        total?: number;
+        amount?: number;
+        sum?: number;
         user_name?: string;
       };
 
@@ -145,14 +167,68 @@ export default function AdminOrdersPage() {
               ? raw.order_items
               : [];
 
-          const computedTotal = typeof raw.total_amount === "number" && !Number.isNaN(raw.total_amount)
-            ? raw.total_amount
-            : rawItems.reduce((sum, it) => {
-                const unit = Number(it.unit_price ?? 0);
-                const qty = Number(it.quantity ?? 0);
-                const line = typeof it.total_price === "number" ? it.total_price : unit * qty;
-                return sum + (Number.isFinite(line) ? line : 0);
-              }, 0);
+          // Enhanced item processing with better price extraction
+          const processedItems = rawItems.map((it) => {
+            // Extract quantity safely
+            const quantity = Number(it?.quantity ?? it?.qty ?? 0) || 0;
+            
+            // Extract unit price from multiple possible field names
+            const unit_price = Number(
+              it?.unit_price ?? 
+              it?.price ?? 
+              it?.unitPrice ?? 
+              it?.slipper?.price ?? 
+              0
+            ) || 0;
+            
+            // Calculate total price: use declared total if available, otherwise calculate carefully
+            const declaredTotal = Number(
+              it?.total_price ?? 
+              it?.total ?? 
+              it?.amount ?? 
+              0
+            ) || 0;
+            
+            // Only calculate if no declared total exists
+            const total_price = declaredTotal > 0 ? declaredTotal : (unit_price * quantity);
+            
+            // Extract name from various possible sources
+            const name = String(
+              it?.name ?? 
+              it?.slipper_name ?? 
+              it?.slipper?.name ?? 
+              ""
+            );
+            
+            // Extract image
+            const image = it?.image ?? it?.slipper?.image;
+            
+            // Extract slipper ID
+            const slipper_id = Number(
+              it?.slipper_id ?? 
+              it?.product_id ?? 
+              0
+            ) || 0;
+            
+            return { 
+              ...it, 
+              slipper_id, 
+              name, 
+              quantity, 
+              unit_price, 
+              total_price, 
+              image 
+            } as import("@/types").OrderItem;
+          });
+
+          // Always prioritize server total - don't recalculate to avoid errors
+          const serverTotal = Number(raw?.total_amount ?? raw?.total ?? raw?.amount ?? raw?.sum ?? 0) || 0;
+          
+          // Only use computed total as absolute last resort when no server total exists
+          const total_amount = serverTotal > 0 ? serverTotal : processedItems.reduce((sum, it) => {
+            const itemTotal = Number(it.total_price ?? 0) || (Number(it.unit_price ?? 0) * Number(it.quantity ?? 0));
+            return sum + itemTotal;
+          }, 0);
 
           const user = raw.user ?? raw.customer ?? (raw.user_name
             ? {
@@ -167,81 +243,69 @@ export default function AdminOrdersPage() {
           return {
             ...(raw as Order),
             user,
-            items: ((rawItems as import("@/types").OrderItem[]) ?? []),
-            total_amount: computedTotal,
+            items: processedItems,
+            total_amount,
           } as Order;
         });
 
-      // Apply consolidation and filtering like in user orders page
-      const consolidatedOrders = normalizedOrders.map(order => {
-        // Remove duplicates and consolidate items by slipper_id
-        const itemMap = new Map<number, import("@/types").OrderItem>();
-        
-        order.items.forEach((item) => {
-          const key = item.slipper_id;
+      // Apply minimal processing - avoid consolidation that might duplicate totals
+      const processedOrders = normalizedOrders.map(order => {
+        // Filter out invalid items but don't consolidate to avoid price duplication
+        const validItems = order.items.filter((item) => {
+          // Only process items with valid data - improved validation
+          const hasValidProduct = !!(item.slipper_id && item.name && item.name.trim().length > 0);
+          const hasValidQuantity = Number(item.quantity ?? 0) > 0;
+          const hasValidPrice = Number(item.unit_price ?? 0) > 0 || Number(item.total_price ?? 0) > 0;
           
-          // Only process items with valid data
-          const hasValidProduct = item.slipper_id && (item.name || item.slipper?.name);
-          const hasValidPrice = item.unit_price && item.unit_price > 0;
-          
-          if (!hasValidProduct || !hasValidPrice) {
+          if (!hasValidProduct || !hasValidQuantity || !hasValidPrice) {
             console.log("Admin: Filtering out invalid item:", {
               slipper_id: item.slipper_id,
               name: item.name,
-              slipper_name: item.slipper?.name,
-              unit_price: item.unit_price
+              unit_price: item.unit_price,
+              quantity: item.quantity,
+              total_price: item.total_price
             });
-            return;
+            return false;
           }
-          
-          if (itemMap.has(key)) {
-            // Consolidate quantities if same product
-            const existing = itemMap.get(key);
-            if (existing) {
-              existing.quantity += item.quantity;
-              existing.total_price = existing.unit_price * existing.quantity;
-            }
-          } else {
-            itemMap.set(key, {
-              ...item,
-              total_price: item.unit_price * item.quantity
-            });
-          }
+          return true;
         });
         
-        const validItems = Array.from(itemMap.values());
-        
-        // Recalculate total amount based on valid items
-        const recalculatedTotal = validItems.reduce((sum, item) => {
-          return sum + (item.unit_price * item.quantity);
-        }, 0);
-        
+        // Keep the original total_amount from server, don't recalculate to avoid duplication
         return {
           ...order,
-          items: validItems,
-          total_amount: recalculatedTotal || order.total_amount
+          items: validItems
         };
       }).filter(order => {
         // Only keep orders that have at least one valid item
         return order.items.length > 0;
       });
 
+      // Debug: Log processed orders to check totals
+      if (processedOrders.length > 0) {
+        console.log("Processed order totals:", processedOrders.map(o => ({
+          id: o.id,
+          original_total: o.total_amount,
+          items_count: o.items.length,
+          items: o.items.map(i => ({ name: i.name, qty: i.quantity, unit_price: i.unit_price, total_price: i.total_price }))
+        })));
+      }
+
 
 
       // Apply client-side slicing if backend returns entire dataset (length > limit)
       const limit = Number(filters.limit || PAGINATION.DEFAULT_LIMIT);
       const skip = Number(filters.skip || 0);
-      const sliced = consolidatedOrders.length > limit
-        ? consolidatedOrders.slice(skip, skip + limit)
-        : consolidatedOrders;
+      const sliced = processedOrders.length > limit
+        ? processedOrders.slice(skip, skip + limit)
+        : processedOrders;
       setOrders(sliced);
       const paginationData = data as {
         total?: number;
         pages?: number;
         total_pages?: number;
       };
-      // If API doesn't provide total, use the actual consolidated orders count
-      const actualTotal = paginationData?.total ?? consolidatedOrders.length;
+      // If API doesn't provide total, use the actual processed orders count
+      const actualTotal = paginationData?.total ?? processedOrders.length;
       setPagination({
         total: actualTotal,
         page:
@@ -539,7 +603,7 @@ export default function AdminOrdersPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {formatPrice(order.total_amount)}
+                            {formatPrice(order.total_amount, 'сум', locale)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -624,7 +688,7 @@ export default function AdminOrdersPage() {
                           {t('admin.orders.table.amount')}
                         </div>
                         <div className="font-medium text-gray-900">
-                          {formatPrice(order.total_amount)}
+                          {formatPrice(order.total_amount, 'сум', locale)}
                         </div>
                       </div>
                       <div className="lg:block hidden">

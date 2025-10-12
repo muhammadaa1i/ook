@@ -56,12 +56,7 @@ export default function OrdersPage() {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"date" | "amount">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showRefundModal, setShowRefundModal] = useState(false);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const lastFetchRef = useRef<number>(0);
   const { t, locale } = useI18n();
 
@@ -100,32 +95,81 @@ export default function OrdersPage() {
       // API dan to'g'ridan-to'g'ri keladigan JSON
       const response = await modernApiClient.get(API_ENDPOINTS.ORDERS);
 
+      // Debug: Log the raw response to help diagnose pricing issues
+      console.log("Orders API Response:", response);
+
       // Agar API ro'yxat qaytarsa:
       const data: Order[] = Array.isArray(response) ? response : [];
 
-      // Preserve original lines; prefer backend totals and compute fallback
-      const normalizedOrders: Order[] = (data || []).map((order) => {
-        const originalItems = Array.isArray(order.items) ? order.items : [];
-        const items: OrderItem[] = originalItems.map((it: any) => {
-          const quantity = Number(it?.quantity ?? (it as any)?.qty ?? 0) || 0;
-          const unit_price = Number(it?.unit_price ?? (it as any)?.price ?? (it as any)?.unitPrice ?? 0) || 0;
-          const declaredTotal = Number(it?.total_price ?? (it as any)?.total ?? (it as any)?.amount ?? 0) || 0;
-          const total_price = declaredTotal > 0 ? declaredTotal : (unit_price > 0 && quantity > 0 ? unit_price * quantity : 0);
-          const name = String(it?.name ?? (it as any)?.slipper_name ?? "");
-          const image = (it as any)?.image ?? it?.image;
-          const slipper_id = Number((it as any)?.slipper_id ?? (it as any)?.product_id ?? it?.slipper_id ?? 0) || 0;
-          return { ...it, slipper_id, name, quantity, unit_price, total_price, image } as OrderItem;
+      // Normalize orders with proper price calculation
+      const normalizedOrders: Order[] = (data || []).map((order: unknown) => {
+        const orderData = order as Record<string, unknown>;
+        const originalItems = Array.isArray(orderData.items) ? orderData.items : [];
+        const items: OrderItem[] = originalItems.map((it: unknown) => {
+          const itemData = it as Record<string, unknown>;
+          // Extract quantity safely
+          const quantity = Number(itemData?.quantity ?? itemData?.qty ?? 0) || 0;
+          
+          // Extract unit price from multiple possible field names
+          const unit_price = Number(
+            itemData?.unit_price ?? 
+            itemData?.price ?? 
+            itemData?.unitPrice ?? 
+            (itemData?.slipper as Record<string, unknown>)?.price ?? 
+            0
+          ) || 0;
+          
+          // Calculate total price: prefer declared total, fallback to quantity * unit_price
+          const declaredTotal = Number(
+            itemData?.total_price ?? 
+            itemData?.total ?? 
+            itemData?.amount ?? 
+            0
+          ) || 0;
+          
+          // Use declared total if available and valid, otherwise calculate
+          const total_price = declaredTotal > 0 ? declaredTotal : (unit_price * quantity);
+          
+          // Extract name from various possible sources
+          const name = String(
+            itemData?.name ?? 
+            itemData?.slipper_name ?? 
+            (itemData?.slipper as Record<string, unknown>)?.name ?? 
+            ""
+          );
+          
+          // Extract image
+          const image = itemData?.image ?? (itemData?.slipper as Record<string, unknown>)?.image;
+          
+          // Extract slipper ID
+          const slipper_id = Number(
+            itemData?.slipper_id ?? 
+            itemData?.product_id ?? 
+            0
+          ) || 0;
+          
+          return { 
+            ...itemData, 
+            slipper_id, 
+            name, 
+            quantity, 
+            unit_price, 
+            total_price, 
+            image 
+          } as OrderItem;
         });
 
-        const serverTotalAny = (order as any)?.total_amount ?? (order as any)?.total ?? (order as any)?.amount ?? (order as any)?.sum;
-        const serverTotal = Number(serverTotalAny ?? 0) || 0;
+        // Calculate total: prefer server total, fallback to sum of item totals
+        const serverTotal = Number(orderData?.total_amount ?? orderData?.total ?? orderData?.amount ?? orderData?.sum ?? 0) || 0;
         const computedTotal = items.reduce((sum, it) => sum + (Number(it.total_price ?? 0) || 0), 0);
+        
+        // Use server total if it exists and is greater than 0, otherwise use computed total
         const total_amount = serverTotal > 0 ? serverTotal : computedTotal;
 
-        return { ...order, items, total_amount } as Order;
+        return { ...orderData, items, total_amount } as Order;
       });
       setOrders(normalizedOrders);
-      setLastUpdatedAt(Date.now());
+      setFilteredOrders(normalizedOrders);
       lastFetchRef.current = Date.now();
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -166,40 +210,10 @@ export default function OrdersPage() {
     };
   }, [fetchOrders]);
 
-  /* ------------------------- Filter & Sort ------------------------- */
-  const filterAndSortOrders = useCallback(() => {
-    let filtered = [...orders];
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((order) => {
-        const orderNum = String(order.id).toLowerCase();
-        const hasOrderNum = orderNum.includes(term);
-        const hasItemMatch = order.items?.some((item) =>
-          String(item.name || "").toLowerCase().includes(term)
-        );
-        return hasOrderNum || hasItemMatch;
-      });
-    }
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((o) => o.status === statusFilter);
-    }
-    filtered.sort((a, b) => {
-      let aValue: number, bValue: number;
-      if (sortBy === "date") {
-        aValue = new Date(a.created_at).getTime();
-        bValue = new Date(b.created_at).getTime();
-      } else {
-        aValue = a.total_amount;
-        bValue = b.total_amount;
-      }
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-    });
-    setFilteredOrders(filtered);
-  }, [orders, searchTerm, statusFilter, sortBy, sortOrder]);
-
+  /* ------------------------- Update filtered orders when orders change ------------------------- */
   useEffect(() => {
-    filterAndSortOrders();
-  }, [filterAndSortOrders]);
+    setFilteredOrders(orders);
+  }, [orders]);
 
   /* ------------------------- Format helpers ------------------------- */
   const formatDate = (dateString: string) => {
@@ -215,12 +229,17 @@ export default function OrdersPage() {
       });
   };
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat("ru-RU", {
+  const formatPrice = (price: number) => {
+    // Ensure price is a valid number
+    const numPrice = Number(price) || 0;
+    
+    return new Intl.NumberFormat(locale === 'uz' ? 'uz-UZ' : 'ru-RU', {
       style: "currency",
       currency: "UZS",
       minimumFractionDigits: 0,
-    }).format(price);
+      maximumFractionDigits: 0,
+    }).format(numPrice);
+  };
 
   /* ------------------------- Components ------------------------- */
   const OrderCard = ({ order }: { order: Order }) => {
@@ -254,12 +273,12 @@ export default function OrdersPage() {
           {order.items
             .filter(item => {
               // Only show items with valid product data from order response
-              const hasValidProduct = !!item.name;
+              const hasValidProduct = !!item.name && item.name.trim().length > 0;
               const unit = Number(item.unit_price ?? 0);
               const qty = Number(item.quantity ?? 0);
               const line = Number(item.total_price ?? 0);
               const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-              return hasValidProduct && hasValidPrice;
+              return hasValidProduct && hasValidPrice && qty > 0;
             })
             .slice(0, 3)
             .map((item, index) => {
@@ -270,21 +289,21 @@ export default function OrdersPage() {
             );
           })}
           {order.items.filter(item => {
-            const hasValidProduct = !!item.name;
+            const hasValidProduct = !!item.name && item.name.trim().length > 0;
             const unit = Number(item.unit_price ?? 0);
             const qty = Number(item.quantity ?? 0);
             const line = Number(item.total_price ?? 0);
             const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-            return hasValidProduct && hasValidPrice;
+            return hasValidProduct && hasValidPrice && qty > 0;
           }).length > 3 && (
             <div className="flex-shrink-0 h-16 w-16 bg-gray-100 rounded-md flex items-center justify-center text-xs font-medium text-gray-600">
               +{order.items.filter(item => {
-                const hasValidProduct = !!item.name;
+                const hasValidProduct = !!item.name && item.name.trim().length > 0;
                 const unit = Number(item.unit_price ?? 0);
                 const qty = Number(item.quantity ?? 0);
                 const line = Number(item.total_price ?? 0);
                 const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-                return hasValidProduct && hasValidPrice;
+                return hasValidProduct && hasValidPrice && qty > 0;
               }).length - 3}
             </div>
           )}
@@ -295,12 +314,12 @@ export default function OrdersPage() {
             <span>
               <Package className="h-4 w-4 inline mr-1" />
               {order.items.filter(item => {
-                const hasValidProduct = !!item.name;
+                const hasValidProduct = !!item.name && item.name.trim().length > 0;
                 const unit = Number(item.unit_price ?? 0);
                 const qty = Number(item.quantity ?? 0);
                 const line = Number(item.total_price ?? 0);
                 const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-                return hasValidProduct && hasValidPrice;
+                return hasValidProduct && hasValidPrice && qty > 0;
               }).length}
             </span>
             {order.payment_method && (
@@ -360,12 +379,12 @@ export default function OrdersPage() {
             {selectedOrder.items
               .filter(item => {
                 // Only show items with valid product data from order response
-                const hasValidProduct = !!item.name;
+                const hasValidProduct = !!item.name && item.name.trim().length > 0;
                 const unit = Number(item.unit_price ?? 0);
                 const qty = Number(item.quantity ?? 0);
                 const line = Number(item.total_price ?? 0);
                 const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-                return hasValidProduct && hasValidPrice;
+                return hasValidProduct && hasValidPrice && qty > 0;
               })
               .map((item, index) => (
               <div key={`${item.slipper_id}-${index}`} className="flex gap-4 items-center p-2 border rounded">
@@ -378,6 +397,7 @@ export default function OrdersPage() {
                 </div>
                 <div className="font-semibold">
                   {formatPrice(
+                    // Use the item's total_price if available and valid, otherwise calculate from unit_price * quantity
                     Number.isFinite(Number(item.total_price ?? 0)) && Number(item.total_price ?? 0) > 0
                       ? Number(item.total_price ?? 0)
                       : (Number(item.unit_price ?? 0) * Number(item.quantity ?? 0))
@@ -390,12 +410,12 @@ export default function OrdersPage() {
                 <span>{t("orders.modal.itemsTotal")}:</span>
                 <span>{selectedOrder.items
                   .filter(item => {
-                    const hasValidProduct = !!item.name;
+                    const hasValidProduct = !!item.name && item.name.trim().length > 0;
                     const unit = Number(item.unit_price ?? 0);
                     const qty = Number(item.quantity ?? 0);
                     const line = Number(item.total_price ?? 0);
                     const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-                    return hasValidProduct && hasValidPrice;
+                    return hasValidProduct && hasValidPrice && qty > 0;
                   })
                   .reduce((total, item) => total + item.quantity, 0)}</span>
               </div>
