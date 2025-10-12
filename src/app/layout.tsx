@@ -11,7 +11,6 @@ import Footer from "@/components/layout/Footer";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
 import { I18nProvider } from "@/i18n";
 import GlobalSWRConfig from "@/lib/swrConfig";
-import { MobileDebugInfo } from "@/components/dev/MobileDebugInfo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,7 +55,6 @@ export default function RootLayout({
                     <Navbar />
                     <main className="flex-grow">{children}</main>
                     <Footer />
-                    <MobileDebugInfo enabled={process.env.NODE_ENV === "production"} />
                   </PaymentProvider>
                 </CartProvider>
                 <DynamicToastContainer />
