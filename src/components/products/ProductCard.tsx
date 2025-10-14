@@ -16,12 +16,13 @@ interface ProductCardProps {
   onViewDetails?: (slipper: Slipper) => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = React.memo(
-  ({ slipper, onAddToCart, onViewDetails }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ slipper, onAddToCart, onViewDetails }) => {
   const [imageError, setImageError] = useState(false);
   const { t } = useI18n();
   const { user } = useAuth();
   const { isInCart, getCartItem, addToCart, updateQuantity } = useCart();
+
+  // Check if current user is admin
   const isAdmin = !!user?.is_admin;
 
   // Compute on each render so context changes are reflected immediately
@@ -84,12 +85,12 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
       () => {
         const quantity = slipper.quantity || 0;
         const isAvailable = quantity > 0;
-        const canAddToCart = quantity >= 50; // Minimum order quantity
+  const canAddToCart = quantity >= 60; // Minimum order quantity
         
         let displayText: string;
         if (quantity === 0) {
           displayText = t('product.notAvailable');
-        } else if (quantity < 50) {
+  } else if (quantity < 60) {
           displayText = `${t('product.availableQuantity', { count: quantity.toString() })} (${t('product.insufficientForOrder')})`;
         } else {
           displayText = t('product.availableQuantity', { count: quantity.toString() });
@@ -262,7 +263,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
           </div>
 
           {/* Quantity Controls (compact) */}
-          {inCart && !isAdmin && onAddToCart && (
+          {inCart && onAddToCart && !isAdmin && (
             <div className="mt-1 flex items-center justify-between">
               <span className="text-xs text-gray-500">{t('product.quantity')}:</span>
               <div className="flex items-center space-x-1">
@@ -289,7 +290,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
           )}
 
           {/* Add to Cart Button */}
-          {onAddToCart && !isAdmin && !inCart && (
+          {onAddToCart && !inCart && !isAdmin && (
             <button
               onClick={(e) => { e.stopPropagation(); if (!availabilityInfo.canAddToCart || addPending) return; setAddPending(true); handleAddToCart(); }}
               disabled={!availabilityInfo.canAddToCart || addPending}
@@ -302,8 +303,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
         </div>
       </div>
     );
-  }
-);
+};
 
 ProductCard.displayName = "ProductCard";
 

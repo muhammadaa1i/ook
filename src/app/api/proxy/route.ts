@@ -172,12 +172,6 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     if (authHeader) {
       headers.Authorization = authHeader;
-      // Temporary debug logging for cart requests
-      if (endpoint.includes('/cart/items')) {
-        console.log("🔗 Proxy forwarding auth header for cart:", authHeader.substring(0, 30) + "...");
-      }
-    } else if (endpoint.includes('/cart/items')) {
-      console.log("❌ Proxy: No auth header for cart request");
     }
 
     let body: BodyInit | null = null;

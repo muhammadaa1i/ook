@@ -1,9 +1,9 @@
 "use client";
 import React, { memo, useCallback } from "react";
-import Image from "next/image";
 import { Slipper } from "@/types";
 import { Package, Edit, Trash2 } from "lucide-react";
 import { formatPrice, getFullImageUrl } from "@/lib/utils";
+import ProductImage from "@/components/admin/products/ProductImage";
 
 interface ProductRowProps {
   product: Slipper;
@@ -67,17 +67,13 @@ const ProductRow: React.FC<ProductRowProps> = ({
                 const img = list[safeIdx];
                 return (
                   <>
-                    <Image
+                    <ProductImage
                       className="h-12 w-12 rounded-lg object-cover transition-opacity duration-200"
                       src={getFullImageUrl(img.image_path)}
                       alt={product.name}
                       width={48}
                       height={48}
-                      unoptimized
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/placeholder-product.svg";
-                      }}
+                      productId={product.id}
                     />
                     {list.length > 1 && (
                       <>
@@ -114,17 +110,13 @@ const ProductRow: React.FC<ProductRowProps> = ({
                 );
               })()
             ) : product.image ? (
-              <Image
+              <ProductImage
                 className="h-12 w-12 rounded-lg object-cover"
                 src={getFullImageUrl(product.image)}
                 alt={product.name}
                 width={48}
                 height={48}
-                unoptimized
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "/placeholder-product.svg";
-                }}
+                productId={product.id}
               />
             ) : (
               <div className="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center">
@@ -208,31 +200,29 @@ const ProductRow: React.FC<ProductRowProps> = ({
                   const safeIdx = ((imageIndex % list.length) + list.length) % list.length;
                   const image = list[safeIdx];
                   return (
-                    <Image
-                      src={getFullImageUrl(image.image_path)}
-                      alt={product.name}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/placeholder-product.svg";
-                      }}
-                    />
+                    <div className="relative w-full h-full">
+                      <ProductImage
+                        src={getFullImageUrl(image.image_path)}
+                        alt={product.name}
+                        width={56}
+                        height={56}
+                        className="object-cover w-full h-full"
+                        productId={product.id}
+                      />
+                    </div>
                   );
                 })()
               ) : product.image ? (
-                <Image
-                  src={getFullImageUrl(product.image)}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = "/placeholder-product.svg";
-                  }}
-                />
+                <div className="relative w-full h-full">
+                  <ProductImage
+                    src={getFullImageUrl(product.image)}
+                    alt={product.name}
+                    width={56}
+                    height={56}
+                    className="object-cover w-full h-full"
+                    productId={product.id}
+                  />
+                </div>
               ) : (
                 <div className="h-full w-full flex items-center justify-center">
                   <Package className="h-6 w-6 text-gray-400" />

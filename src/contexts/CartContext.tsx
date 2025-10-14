@@ -2,10 +2,12 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback, startTransition } from "react";
 import { toast } from "react-toastify";
+import Cookies from "js-cookie";
 import { Slipper, SlipperImage } from "@/types";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasValidToken } from "@/lib/tokenUtils";
+import { mobileStorage } from "@/lib/mobileStorage";
 import cartService, { CartDTO, CartItemDTO } from "@/services/cartService";
 import { fetchProduct } from "@/services/productService";
 
@@ -93,7 +95,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Suppress server-driven hydration while clearing to avoid flicker/slow clear
   const suppressHydrationRef = useRef<number>(0);
   const { t } = useI18n();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   // Keep ref in sync
   useEffect(() => {
@@ -132,8 +134,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       // If we're in a clear window, skip hydrating from server
       if (suppressHydrationRef.current > Date.now()) return;
-      // Only sync if authenticated
-      if (!isAuthenticated) return;
+      
+      // For mobile: Check for auth tokens even if isAuthenticated is false
+      // This handles cases where auth context is still initializing
+      const hasAuthTokens = typeof window !== "undefined" && 
+        (Cookies.get("access_token") || mobileStorage.getAuthToken());
+      
+      // Only sync if authenticated OR we have auth tokens (mobile fallback)
+      if (!isAuthenticated && !hasAuthTokens) {
+        return;
+      }
       
       const cart = await cartService.getCart();
       let prevForImages: CartItem[] = itemsRef.current;
@@ -387,9 +397,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
   }, [syncFromServer]);
 
-  const addToCart = (product: Slipper, quantity = 6, _size?: string, _color?: string) => {
+  const addToCart = (product: Slipper, quantity?: number, _size?: string, _color?: string) => {
     void _size;
     void _color;
+    
+    // Prevent admin users from adding to cart
+    if (user?.is_admin) {
+      toast.error(t("cart.adminCannotAddToCart") || "Администраторы не могут добавлять товары в корзину");
+      return;
+    }
     
     const availableStock = product.quantity || 0;
     if (availableStock <= 0) {
@@ -397,8 +413,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Fix quantity logic - don't force minimum 60
-    const addQty = Math.max(1, Math.round(quantity));
+    // Dynamic quantity calculation with packs of 6, minimum 60
+    const MIN_ORDER = 60;
+    const PACK_SIZE = 6;
+    
+    // Check if item already exists in cart BEFORE any state updates
+    const existingItem = itemsRef.current.find((i) => i.id === product.id);
+    if (existingItem && quantity === undefined) {
+      // Item exists and no explicit quantity specified - don't modify, just show info
+      toast.info(t("cart.alreadyInCartAddMore") || `${product.name} уже в корзине`);
+      return;
+    }
+    
+    // Calculate final quantity
+    let finalQty: number;
+    if (quantity !== undefined) {
+      // Explicit quantity provided - snap to nearest pack
+      const requested = Math.max(MIN_ORDER, Math.round(quantity));
+      finalQty = Math.ceil(requested / PACK_SIZE) * PACK_SIZE;
+    } else {
+      // New item, no quantity specified - use minimum order
+      finalQty = MIN_ORDER;
+    }
 
     type ImageLike = { id: number; image_url?: string; image_path?: string };
     const fallbackImages = (product.images || []).map((img: SlipperImage | ImageLike) => ({
@@ -406,43 +442,48 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       image_url: (img as SlipperImage).image_path || (img as ImageLike).image_url || "",
     }));
 
-    let optimisticNext: CartItem[] = [];
-    // Functional update prevents races across rapid clicks
+    // Track if we actually added a new item
+    let didAdd = false;
+    
+    // Optimistic update: add to cart immediately
     setItems((prev) => {
       const existing = prev.find((i) => i.id === product.id);
       if (existing) {
-        const nextQty = existing.quantity + addQty;
-        optimisticNext = prev.map((i) =>
-          i.id === product.id
-            ? {
-              ...i,
-              quantity: nextQty,
-              images: i.images && i.images.length > 0 ? i.images : fallbackImages,
-              image: i.image || product.image,
-            }
-            : i
-        );
-      } else {
-        optimisticNext = [
-          ...prev,
-          {
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            quantity: addQty,
-            images: fallbackImages,
-            image: product.image,
-            _cartItemId: undefined,
-          },
-        ];
+        // Item already exists - don't add again
+        return prev;
       }
-      return optimisticNext;
+      
+      // New item - add it
+      didAdd = true;
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: finalQty,
+          images: fallbackImages,
+          image: product.image,
+          _cartItemId: undefined,
+        },
+      ];
     });
-    // Defer I/O and toast very slightly to keep main thread free
-    setTimeout(() => {
-      try { mirrorToStorage(optimisticNext); } catch { }
-      try { toast.success(t("cart.added", { name: product.name, qty: addQty })); } catch { }
-    }, 0);
+    
+    // Only proceed if we actually added the item
+    if (!didAdd) return;
+    
+    // Immediately mirror to storage and show toast for instant feedback
+    const updatedItems = [...itemsRef.current, {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: finalQty,
+      images: fallbackImages,
+      image: product.image,
+      _cartItemId: undefined,
+    }];
+    mirrorToStorage(updatedItems);
+    toast.success(t("cart.added", { name: product.name, qty: finalQty }));
 
     // Only sync with server if user is authenticated AND has valid token
     if (isAuthenticated) {
@@ -450,25 +491,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         try {
           // Check for valid token using our utility
           const validToken = hasValidToken();
-          console.log(`🔐 Cart Context: Adding product ${product.id} - Token valid: ${validToken}`);
           
           if (!validToken) {
-            console.log('❌ Cart Context: No valid token - skipping server sync');
             // No token available - skip server sync but keep local cart
             return;
           }
           
-          console.log('🔄 Cart Context: Syncing with server cart');
-          const payload = { slipper_id: product.id, quantity: addQty };
+          const payload = { slipper_id: product.id, quantity: finalQty };
           const cart = await cartService.addItem(payload);
-          let prevForImages: CartItem[] = optimisticNext;
-          if (typeof window !== "undefined") {
-            try {
-              const saved = localStorage.getItem("cart");
-              if (saved) prevForImages = JSON.parse(saved) as CartItem[];
-            } catch { }
-          }
-          let mapped = mapServerToClient(cart, prevForImages);
+          
+          // Use current items from ref for reconciliation
+          let mapped = mapServerToClient(cart, itemsRef.current);
           // If backend returns partial cart, merge with local optimistic state
           mapped = reconcilePartial(mapped, itemsRef.current, product.id, "add");
           mapped = mapped.map((it: CartItem) =>
@@ -481,7 +514,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               : it
           );
           startTransition(() => setItems(mapped));
-          setTimeout(() => { try { mirrorToStorage(mapped); } catch { } }, 0);
+          mirrorToStorage(mapped);
         } catch (error) {
           // Check if it's an authentication error
           const isAuthError = error instanceof Error && 
@@ -489,8 +522,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
              error.message.includes('Unauthorized') ||
              error.message.includes('Authentication required') ||
              error.message.includes('authentication'));
-          
-          console.log(`❌ Cart Context: Server sync error - Auth error: ${isAuthError}`, error);
           
           if (isAuthError) {
             // Silently ignore authentication errors for guest users
@@ -506,30 +537,56 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeFromCart = (productId: number) => {
-    const removedItem = items.find((item) => item.id === productId);
-    const cartItemId = removedItem?._cartItemId;
-    if (!cartItemId) {
-      startTransition(() => setItems((prevItems) => prevItems.filter((i) => i.id !== productId)));
-      if (removedItem) toast.success(t("cart.removed", { name: removedItem.name }));
+    // Prevent admin users from removing items from cart
+    if (user?.is_admin) {
+      toast.error(t("cart.adminCannotModifyCart") || "Администраторы не могут изменять корзину");
       return;
     }
+    
+    const removedItem = items.find((item) => item.id === productId);
+    const cartItemId = removedItem?._cartItemId;
+    
+    // Optimistic update: remove immediately from UI (synchronous, no transition)
+    setItems((prevItems) => {
+      const next = prevItems.filter((i) => i.id !== productId);
+      // Immediately mirror to localStorage to prevent stale rehydration
+      try { mirrorToStorage(next); } catch { /* ignore */ }
+      return next;
+    });
+    
+    // Show toast immediately for better UX
+    if (removedItem) {
+      toast.success(t("cart.removed", { name: removedItem.name }));
+    }
+    
+    // If no server cart item, we're done
+    if (!cartItemId) return;
+    
+    // Sync with server in background
     (async () => {
       try {
         const cart = await cartService.deleteItem(cartItemId);
         let mapped = mapServerToClient(cart, itemsRef.current);
         mapped = reconcilePartial(mapped, itemsRef.current, productId, "delete");
-        startTransition(() => setItems(mapped));
-        mirrorToStorage(mapped);
-        if (removedItem) toast.success(t("cart.removed", { name: removedItem.name }));
+        // Only update if the item hasn't been re-added in the meantime
+        if (!itemsRef.current.some(i => i.id === productId)) {
+          startTransition(() => setItems(mapped));
+          mirrorToStorage(mapped);
+        }
       } catch {
-        startTransition(() => setItems((prevItems) => prevItems.filter((i) => i.id !== productId)));
-        mirrorToStorage(itemsRef.current);
-        if (removedItem) toast.success(t("cart.removed", { name: removedItem.name }));
+        // Server sync failed, but optimistic update already happened
+        // User won't notice the failure since UI already updated
       }
     })();
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
+    // Prevent admin users from updating cart quantities
+    if (user?.is_admin) {
+      toast.error(t("cart.adminCannotModifyCart") || "Администраторы не могут изменять корзину");
+      return;
+    }
+    
     const cartItem = items.find((item) => item.id === productId);
     if (!cartItem) return;
 
@@ -537,22 +594,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     let snapped = isIncrease ? Math.ceil(quantity / 6) * 6 : Math.floor(quantity / 6) * 6;
     if (snapped < 60) snapped = 60;
 
-    if (!cartItem._cartItemId) {
-      startTransition(() => setItems((prev) => prev.map((i) => (i.id === productId ? { ...i, quantity: snapped } : i))));
-      mirrorToStorage(itemsRef.current);
-      return;
-    }
+    // Optimistic update: change immediately in UI (synchronous, no transition)
+    setItems((prev) => prev.map((i) => (i.id === productId ? { ...i, quantity: snapped } : i)));
+    
+    // Immediately mirror to localStorage for consistency
+    try {
+      const updated = itemsRef.current.map((i) => (i.id === productId ? { ...i, quantity: snapped } : i));
+      mirrorToStorage(updated);
+    } catch { /* ignore */ }
 
+    // If no server cart item, we're done
+    if (!cartItem._cartItemId) return;
+
+    // Sync with server in background
     (async () => {
       try {
         const cart = await cartService.updateItem(cartItem._cartItemId!, { quantity: snapped });
         let mapped = mapServerToClient(cart, itemsRef.current);
         mapped = reconcilePartial(mapped, itemsRef.current, cartItem.id, "update");
-        startTransition(() => setItems(mapped));
-        mirrorToStorage(mapped);
+        // Only apply server response if quantity hasn't changed in the meantime
+        const currentItem = itemsRef.current.find(i => i.id === productId);
+        if (currentItem && currentItem.quantity === snapped) {
+          startTransition(() => setItems(mapped));
+          mirrorToStorage(mapped);
+        }
       } catch {
-        // Cart update error
-        toast.error(t("errors.serverErrorLong"));
+        // Server sync failed, but optimistic update already happened
+        // Only show error toast, don't revert the change
+        console.error("Failed to sync quantity with server");
       }
     })();
   };

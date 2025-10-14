@@ -48,6 +48,7 @@ export default {
     nextImage: 'Keyingi rasm',
     showImage: 'Rasmni ko\'rsatish {index}',
     currencySom: 'so\'m',
+    loading: 'Yuklanmoqda...',
   },
   auth: {
     login: 'Tizimga kiring',
@@ -58,8 +59,9 @@ export default {
     confirmPassword: 'Parolni tasdiqlash',
     forgotPassword: 'Parolni unutdingizmi?',
     logoutConfirmTitle: 'Tizimdan chiqishni xohlaysizmi?',
-  logoutConfirmMessage: '',
+    logoutConfirmMessage: '',
     logoutConfirmButton: 'Chiqish',
+    checking: 'Avtorizatsiya tekshirilmoqda',
     namePlaceholder: 'Ismingizni kiriting',
     passwordInputPlaceholder: 'Parolni kiriting',
     confirmPasswordPlaceholder: 'Parolni takrorlang',

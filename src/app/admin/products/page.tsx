@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { toast } from "react-toastify";
 import { modernApiClient } from "@/lib/modernApiClient";
-import { API_ENDPOINTS } from "@/lib/constants";
+import { API_ENDPOINTS, API_BASE_URL } from "@/lib/constants";
 import { getFullImageUrl } from "@/lib/utils";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ProductRow from "@/components/admin/products/ProductRow";
@@ -487,34 +487,95 @@ export default function AdminProductsPage() {
       }
       // Simple multiple images upload (no compression, direct API)
       if (multiImageFiles && multiImageFiles.length) {
+        // For new products, add a small delay to ensure the product is fully created
+        if (!editingProduct) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         const fd = new FormData();
 
-        Array.from(multiImageFiles).forEach(f => fd.append('images', f));
+        Array.from(multiImageFiles).forEach((file, index) => {
+          fd.append('images', file, file.name || `image_${index}.jpg`);
+        });
 
         try {
           const proxyUrl = `/api/proxy?endpoint=${encodeURIComponent(API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id))}`;
+          
+          // Don't set Content-Type header - let browser set it with boundary
+          const headers: Record<string, string> = {};
+          const token = Cookies.get('access_token');
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
 
           const resp = await fetch(proxyUrl, {
             method: 'POST',
             body: fd,
-            headers: {
-              Authorization: Cookies.get('access_token') ? `Bearer ${Cookies.get('access_token')}` : ''
-            }
+            headers
           });
 
           if (!resp.ok) {
             const txt = await resp.text();
             console.error('Multi image upload failed:', resp.status, txt);
+            
+            // Try alternative approach - direct API call without proxy for new products
+            if (!editingProduct) {
+              console.log('Retrying with direct API call...');
+              const directUrl = `${API_BASE_URL}${API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id)}`;
+              
+              const directResp = await fetch(directUrl, {
+                method: 'POST',
+                body: fd,
+                headers
+              });
+              
+              if (directResp.ok) {
+                uploadSuccess = true;
+                console.log('Direct API upload succeeded');
+              } else {
+                const directTxt = await directResp.text();
+                console.error('Direct API upload also failed:', directResp.status, directTxt);
+              }
+            }
           } else {
             uploadSuccess = true;
           }
 
         } catch (e) {
           console.error('Multi image upload network error:', e);
+          
+          // Try alternative approach for new products
+          if (!editingProduct) {
+            try {
+              console.log('Retrying with direct API call after network error...');
+              const directUrl = `${API_BASE_URL}${API_ENDPOINTS.SLIPPER_UPLOAD_IMAGES(id)}`;
+              const token = Cookies.get('access_token');
+              
+              const directResp = await fetch(directUrl, {
+                method: 'POST',
+                body: fd,
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+              });
+              
+              if (directResp.ok) {
+                uploadSuccess = true;
+                console.log('Direct API upload succeeded after retry');
+              }
+            } catch (retryError) {
+              console.error('Direct API retry also failed:', retryError);
+            }
+          }
         }
       }
 
       // Enhanced refresh logic - only if upload was successful
+      if (uploadSuccess) {
+        // Dispatch global event to refresh product images in UI
+        window.dispatchEvent(new CustomEvent('refreshProductImages', { 
+          detail: { productId: id, global: true } 
+        }));
+      }
+
       if (uploadSuccess && editingProduct) { // Only run heavy refresh path while editing to avoid loops on creation
 
 

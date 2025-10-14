@@ -48,6 +48,7 @@ export default {
     nextImage: 'Следующее изображение',
     showImage: 'Показать изображение {index}',
     currencySom: 'сум',
+    loading: 'Загрузка...',
   },
   auth: {
     login: 'Войдите в аккаунт',
@@ -60,6 +61,7 @@ export default {
     logoutConfirmTitle: 'Выйти из аккаунта?',
   logoutConfirmMessage: '',
     logoutConfirmButton: 'Выйти',
+    checking: 'Проверка авторизации',
     namePlaceholder: 'Введите ваше имя',
     passwordInputPlaceholder: 'Введите пароль',
     confirmPasswordPlaceholder: 'Повторите пароль',

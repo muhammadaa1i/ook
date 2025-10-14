@@ -26,6 +26,28 @@ class ModernApiClient {
   private pendingRequests = new Map<string, Promise<unknown>>();
   private readonly baseURL = API_BASE_URL; // direct backend base URL
   private refreshPromise: Promise<boolean> | null = null; // shared in-flight refresh
+  private lastNavigationTime = 0; // Track last navigation to prevent premature logout
+
+  constructor() {
+    // Track navigation events to prevent logout during browser back/forward/reload
+    if (typeof window !== "undefined") {
+      const updateNavigationTime = () => {
+        this.lastNavigationTime = Date.now();
+      };
+      
+      window.addEventListener('popstate', updateNavigationTime);
+      window.addEventListener('pageshow', updateNavigationTime);
+      window.addEventListener('beforeunload', updateNavigationTime); // Track hard refresh
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          updateNavigationTime();
+        }
+      });
+      
+      // Also update on initial load to handle hard refresh
+      updateNavigationTime();
+    }
+  }
 
   // Cache TTL configurations (in milliseconds) - optimized for better performance
   private readonly cacheTTL = {
@@ -125,12 +147,6 @@ class ModernApiClient {
       };
       if (token) {
         defaultHeaders.Authorization = `Bearer ${token}`;
-        // Temporary debug logging
-        if (endpoint.includes('/cart/items')) {
-          console.log("🔐 Cart request with token:", token.substring(0, 20) + "...");
-        }
-      } else if (endpoint.includes('/cart/items')) {
-        console.log("❌ Cart request without token");
       }
       const headers = {
         ...defaultHeaders,
@@ -183,20 +199,48 @@ class ModernApiClient {
       if (!response.ok) {
         // Enhanced 401 debugging and automatic logout
         if (response.status === 401) {
-          const hasAccessToken = !!Cookies.get("access_token");
           const hasRefreshToken = !!Cookies.get("refresh_token");
           
-          // Clear invalid tokens and redirect to login
-          if (!hasAccessToken || !hasRefreshToken) {
+          // Try token refresh if available
+          if (hasRefreshToken && !endpoint.includes('/auth/refresh')) {
+            try {
+              const refreshed = await this.refreshAccessToken();
+              if (refreshed) {
+                // Retry the original request with new token
+                return this.makeRequest(endpoint, options);
+              }
+            } catch (refreshError) {
+              console.error("❌ Token refresh failed:", refreshError);
+            }
+          }
+          
+          // Clear invalid tokens and redirect to login only if refresh failed
+          // But don't do this during navigation or hard refresh to prevent logout
+          const isRecentNavigation = (Date.now() - this.lastNavigationTime) < 5000;
+          const isNavigatingNow = document.readyState !== 'complete' || 
+                                  document.visibilityState === 'hidden';
+          const isHardRefresh = typeof window !== "undefined" && 
+            (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type === "reload";
+          
+          if (!isRecentNavigation && !isNavigatingNow && !isHardRefresh) {
             Cookies.remove("access_token");
             Cookies.remove("refresh_token");
             Cookies.remove("user");
+            
+            // Clear localStorage as well
+            try {
+              localStorage.removeItem("auth_token");
+              localStorage.removeItem("user");
+              localStorage.removeItem("refresh_token");
+            } catch {}
             
             // Only redirect to login if we're not already on auth pages
             if (typeof window !== "undefined" && 
                 !window.location.pathname.includes('/auth/') &&
                 !window.location.pathname.includes('/login')) {
-              window.location.href = '/auth/login';
+              setTimeout(() => {
+                window.location.href = '/auth/login?message=Session expired, please log in again';
+              }, 1000);
             }
           }
         }
@@ -341,16 +385,26 @@ class ModernApiClient {
         }
         throw lastErr || new Error("All refresh strategies failed");
       } catch {
-        // Don't immediately logout during payment flows - could be temporary network issues
+        // Don't immediately logout during payment flows or navigation - could be temporary network issues
         const isPaymentFlow = typeof window !== "undefined" && 
           (window.location.pathname.includes('/payment/') || 
            window.location.search.includes('transfer_id') ||
            window.location.search.includes('payment_uuid') ||
            window.location.search.includes('octo_payment_UUID') ||
            window.location.search.includes('octo-status'));
+
+        // Check if we're in the middle of navigation (browser back/forward/reload)
+        const isNavigating = typeof window !== "undefined" && 
+          (document.readyState !== 'complete' || 
+           document.visibilityState === 'hidden' ||
+           // Check if this is a browser navigation event (including reload/hard refresh)
+           (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type === "back_forward" ||
+           (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type === "reload" ||
+           // Don't logout within 5 seconds of navigation to avoid race conditions (increased from 3s)
+           (Date.now() - this.lastNavigationTime) < 5000);
            
-        if (!isPaymentFlow) {
-          // Clear auth data & notify app to logout only if not in payment flow
+        if (!isPaymentFlow && !isNavigating) {
+          // Clear auth data & notify app to logout only if not in payment flow or navigation
           Cookies.remove("access_token");
           Cookies.remove("refresh_token");
           Cookies.remove("user");

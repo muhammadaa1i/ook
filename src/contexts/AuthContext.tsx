@@ -44,6 +44,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const isAuthenticated = useMemo(() => !!user, [user]);
 
+  // Set a maximum loading time to prevent infinite loading
+  useEffect(() => {
+    const isMobile = typeof window !== "undefined" && 
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Force loading to false after a short timeout
+    const maxLoadingTime = isMobile ? 500 : 1000; // 500ms for mobile, 1s for desktop
+    
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+    }, maxLoadingTime);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
   const clearAuthData = useCallback(() => {
     setUser(null);
     Cookies.remove("access_token");
@@ -57,8 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // Prevent multiple initialization calls
-      if (isInitializedRef.current) return;
+      // Prevent multiple initialization calls and avoid init during browser navigation
+      const navigationType = typeof window !== "undefined" && 
+        (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type;
+      const isBackForwardNavigation = navigationType === "back_forward";
+      
+      if (isInitializedRef.current || isBackForwardNavigation) return;
       isInitializedRef.current = true;
 
       // Debug mobile issues in production
@@ -111,13 +130,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           
           // Set token as verified to prevent immediate logout during initialization
           tokenVerificationRef.current = true;
+          
+          // Set loading to false immediately on mobile for better UX
+          const isMobile = typeof window !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          if (isMobile) {
+            setIsLoading(false);
+          }
 
           // Only verify token if we're not in a critical flow and user wants fresh data
           // Skip verification on hard refresh to prevent immediate logout
-          const isHardRefresh = typeof window !== "undefined" && 
-            (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type === "reload";
+          const navigationType = typeof window !== "undefined" && 
+            (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type;
+          const isHardRefresh = navigationType === "reload";
+          const isBackForward = navigationType === "back_forward";
           
-          if (!isHardRefresh && !tokenVerificationRef.current) {
+          if (!isHardRefresh && !isBackForward && !tokenVerificationRef.current) {
             try {
               // Add a delay to ensure the app is fully loaded
               await new Promise((resolve) => setTimeout(resolve, 500));
@@ -132,13 +159,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 path: "/",
                 domain: typeof window !== "undefined" ? window.location.hostname.includes("localhost") ? undefined : `.${window.location.hostname}` : undefined
               });
-            } catch (error) {
+            } catch {
               // Token verification failed - this is normal for expired tokens
               // The interceptors will handle token refresh automatically
-              console.warn(
-                "Token verification failed during initialization:",
-                error
-              );
 
               // Don't clear auth data immediately - let the interceptors try to refresh
               // Only clear if refresh also fails (handled by interceptors)
@@ -169,11 +192,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         window.location.search.includes('octo_payment_UUID') ||
         window.location.search.includes('octo-status');
 
-      if (!isPaymentPage) {
+      // Also don't logout during navigation events to prevent back button logout
+      const isNavigating = document.readyState !== 'complete' || 
+                           document.visibilityState === 'hidden';
+
+      if (!isPaymentPage && !isNavigating) {
         setUser(null);
         tokenVerificationRef.current = false;
-      } else {
-        console.warn("Prevented logout during payment flow");
       }
     };
 
@@ -273,17 +298,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true);
 
-      // Debug logging for authentication
-      console.log("Login attempt:", {
-        name: credentials.name,
-        hasPassword: !!credentials.password,
-        passwordLength: credentials.password?.length,
-        endpoint: API_ENDPOINTS.LOGIN
-      });
-
       // Use proxy-enabled apiClient to avoid CORS and keep behavior consistent
       const resp = await apiClient.post(API_ENDPOINTS.LOGIN, credentials);
-      console.log("Login response:", resp);
       
       // Handle different response formats from the backend
       let responseData = resp.data || resp || {};
@@ -293,13 +309,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         responseData = responseData.data;
       }
       
-      console.log("Processed response data:", responseData);
-
       const { access_token, refresh_token, user: userData } = responseData as { access_token?: string; refresh_token?: string; user?: User };
 
       if (!access_token || !refresh_token || !userData) {
         // Invalid server response structure
-        console.error("Invalid login response structure:", { access_token: !!access_token, refresh_token: !!refresh_token, userData: !!userData });
         toast.error(t('auth.errors.invalidServerResponse'));
         throw new Error('invalid server response');
       }
@@ -321,19 +334,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         Cookies.set("access_token", access_token, { ...cookieOptions, expires: 1 });
         Cookies.set("refresh_token", refresh_token, { ...cookieOptions, expires: 30 });
         Cookies.set("user", JSON.stringify(userData), { ...cookieOptions, expires: 7 });
-      } catch (cookieError) {
-        console.warn("Failed to set cookies, using localStorage fallback:", cookieError);
+      } catch {
+        // Using localStorage fallback if cookies fail
       }
       
       // Always set localStorage as fallback for mobile
-      mobileStorage.setAuthToken(access_token);
-      mobileStorage.setUser(userData);
-      if (refresh_token) {
-        try {
-          localStorage.setItem('refresh_token', refresh_token);
-        } catch (localStorageError) {
-          mobileErrorHandler.log(localStorageError as Error, 'refresh-token-storage');
-        }
+      try {
+        mobileStorage.setAuthToken(access_token);
+        mobileStorage.setUser(userData);
+        localStorage.setItem('refresh_token', refresh_token);
+      } catch (localStorageError) {
+        mobileErrorHandler.log(localStorageError as Error, 'auth-storage');
       }
       setUser(userData);
       tokenVerificationRef.current = true;

@@ -232,13 +232,13 @@ export default function OrdersPage() {
   const formatPrice = (price: number) => {
     // Ensure price is a valid number
     const numPrice = Number(price) || 0;
-    
-    return new Intl.NumberFormat(locale === 'uz' ? 'uz-UZ' : 'ru-RU', {
-      style: "currency",
-      currency: "UZS",
+    // Format number with locale-specific thousand separators, then append currency after amount
+    const formatted = new Intl.NumberFormat(locale === 'uz' ? 'uz-UZ' : 'ru-RU', {
+      style: 'decimal',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(numPrice);
+    return `${formatted} ${t('common.currencySom')}`;
   };
 
   /* ------------------------- Components ------------------------- */

@@ -7,6 +7,7 @@ import { getFullImageUrl, formatPrice } from "@/lib/utils";
 import { PaymentService, PaymentResponse } from "@/services/paymentService";
 import Link from "next/link";
 import Image from "next/image";
+import Cookies from "js-cookie";
 import {
   ShoppingBag,
   Plus,
@@ -22,7 +23,7 @@ import { useI18n } from "@/i18n";
 import { modernApiClient } from "@/lib/modernApiClient";
 import { API_ENDPOINTS } from "@/lib/constants";
 import { Order } from "@/types";
-import { logAuthStatus } from "@/lib/authDebug";
+import { attemptMobileAuthRestore } from "@/lib/mobileAuth";
 
 // Component for handling product images with error fallback
 const ProductImage = ({
@@ -77,25 +78,108 @@ export default function CartPage() {
     removeFromCart,
     clearCart,
   } = useCart();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [offerAccepted, setOfferAccepted] = useState(false);
 
   const { t } = useI18n();
 
-  // Debug authentication on cart page load
+  // Immediate mobile optimization: check for tokens right away
+  const isMobile = typeof window !== "undefined" &&
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  const hasAnyAuthData = typeof window !== "undefined" && (
+    Cookies.get("access_token") ||
+    Cookies.get("user") ||
+    localStorage.getItem("auth_token") ||
+    localStorage.getItem("user")
+  );
+
+  // For mobile with auth data: never show loading, optimistically show cart
+  // For mobile without auth: show minimal loading
+  // For desktop: show full loading screen
+  const shouldSkipAllChecks = isMobile && hasAnyAuthData;
+  const shouldShowMinimalLoading = isMobile && !hasAnyAuthData && isLoading;
+  const shouldShowFullLoading = !isMobile && isLoading;
+
+  // Debug authentication and handle auth restoration
   useEffect(() => {
-    logAuthStatus();
-  }, []);
+    // Check if user is admin and redirect them away from cart
+    if (user?.is_admin) {
+      toast.error(t("cart.adminCannotAccessCart") || "Администраторы не могут получить доступ к корзине");
+      window.location.href = '/admin';
+      return;
+    }
+
+    // Skip all auth checking for mobile users with tokens - immediate cart display
+    if (shouldSkipAllChecks) {
+      // Attempt auth restoration in background without blocking UI
+      attemptMobileAuthRestore();
+      return;
+    }
+
+    // For desktop or mobile without tokens: normal auth flow but with faster redirect
+    if (!isLoading && !isAuthenticated && !hasAnyAuthData) {
+      // Faster redirect for mobile (500ms vs 1000ms)
+      const redirectDelay = isMobile ? 500 : 1000;
+      setTimeout(() => {
+        if (!isAuthenticated && !hasAnyAuthData) {
+          window.location.href = '/auth/login?message=Please log in to view your cart';
+        }
+      }, redirectDelay);
+    }
+  }, [isLoading, isAuthenticated, isMobile, hasAnyAuthData, shouldSkipAllChecks, user?.is_admin, t]);
+
+  // Show loading while auth is initializing - but only when necessary
+  if (shouldShowFullLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">{t('auth.checking')}</h2>
+          <p className="text-gray-600">{t('common.loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show minimal loading for mobile without auth data
+  if (shouldShowMinimalLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  // Show cart content even if auth is still being verified (optimistic loading)
+  // The useCart hook will handle the actual API auth errors
+
+  // Only show "not authenticated" message for desktop users with no auth data
+  if (!shouldSkipAllChecks && !isAuthenticated && !hasAnyAuthData && !isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4">{t('auth.login')}</h2>
+          <p className="text-gray-600 mb-4">Please log in to view your cart</p>
+          <Link
+            href="/auth/login"
+            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+          >
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleCheckout = async () => {
     // Prevent duplicate requests
     if (isProcessingPayment) {
       return;
     }
-    
+
     if (!isAuthenticated) {
-      logAuthStatus(); // Debug why user is not authenticated
       toast.error(t('auth.login'));
       return;
     }
@@ -110,21 +194,9 @@ export default function CartPage() {
       return;
     }
 
-    // Debug mobile issues in production
-    if (process.env.NODE_ENV === "production") {
-      console.log("Mobile checkout debug:", {
-        userAgent: navigator.userAgent,
-        cookieEnabled: navigator.cookieEnabled,
-        itemCount: items.length,
-        totalAmount,
-        user: user ? { id: user.id, name: user.name } : null,
-        authStatus: isAuthenticated
-      });
-    }
-
     // Check if there's already a pending payment order
     const existingPaymentOrder = sessionStorage.getItem('paymentOrder');
-    
+
     if (existingPaymentOrder) {
       try {
         const paymentData = JSON.parse(existingPaymentOrder);
@@ -134,9 +206,9 @@ export default function CartPage() {
           // Verify if the order still exists and is in CREATED status
           try {
             const orderStatus = await modernApiClient.get(API_ENDPOINTS.ORDER_BY_ID(Number(paymentData.order_id)));
-            const status = (orderStatus as { status?: string })?.status || 
-                          (orderStatus as { data?: { status?: string } })?.data?.status;
-            
+            const status = (orderStatus as { status?: string })?.status ||
+              (orderStatus as { data?: { status?: string } })?.data?.status;
+
             // If order is already PAID or CANCELLED, clear the old payment data and continue
             if (status === 'PAID' || status === 'CANCELLED' || status === 'FAILED') {
               localStorage.removeItem('cart');
@@ -182,18 +254,14 @@ export default function CartPage() {
         updated_at?: string;
       }
 
-      console.log("Creating order from cart endpoint:", endpoint);
-      
       // Add mobile-specific timeout handling and retry logic
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const mobileTimeout = isMobile ? 12000 : 6000; // Longer timeout for mobile (12s vs 6s)
       const retryCount = isMobile ? 2 : 1; // Retry once on mobile for network issues
-      
-      console.log(`📱 Order creation - Mobile: ${isMobile}, Timeout: ${mobileTimeout}ms, Retries: ${retryCount}`);
-      
+
       let orderResponse;
       let attempt = 0;
-      
+
       while (attempt <= retryCount) {
         try {
           orderResponse = await modernApiClient.post(endpoint, undefined, { timeout: mobileTimeout });
@@ -203,17 +271,14 @@ export default function CartPage() {
           if (attempt > retryCount) {
             throw error; // Final attempt failed
           }
-          
-          console.log(`⏳ Order creation attempt ${attempt} failed, retrying...`);
           // Short delay before retry (especially helpful on mobile)
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
-      console.log("Order creation response:", orderResponse);
-      
+
       const env = orderResponse as ApiEnvelope<ApiOrderResponse> | ApiOrderResponse;
       const container = env as ApiEnvelope<ApiOrderResponse>;
-  const apiOrder = container.data || container.order || container.item || (env as ApiOrderResponse);
+      const apiOrder = container.data || container.order || container.item || (env as ApiOrderResponse);
 
       const createdOrder: Order = {
         ...(apiOrder as Record<string, unknown>),
@@ -226,11 +291,11 @@ export default function CartPage() {
       } as Order;
 
       const createdOrders: Order[] = [createdOrder];
-      
+
       if (!createdOrders || createdOrders.length === 0) {
         throw new Error('Failed to create orders: No orders were created');
       }
-      
+
       // For payment, we'll use the first order (main order)
       const mainOrder = createdOrders[0];
       if (!mainOrder.id && !mainOrder.order_id) {
@@ -238,16 +303,16 @@ export default function CartPage() {
       }
 
       // Step 2: Create payment with the main order ID
-      const description = createdOrders.length > 1 
+      const description = createdOrders.length > 1
         ? t('payment.batchOrderDescription', {
-            itemCount: String(itemCount),
-            customerName: user?.name || 'Customer',
-            batchCount: String(createdOrders.length)
-          })
+          itemCount: String(itemCount),
+          customerName: user?.name || 'Customer',
+          batchCount: String(createdOrders.length)
+        })
         : t('payment.orderDescription', {
-            itemCount: String(itemCount),
-            customerName: user?.name || 'Customer'
-          });
+          itemCount: String(itemCount),
+          customerName: user?.name || 'Customer'
+        });
 
       const paymentRequest = {
         amount: PaymentService.formatAmount((mainOrder as Order).total_amount ?? totalAmount),
@@ -257,11 +322,10 @@ export default function CartPage() {
 
       // Mobile-optimized payment creation with retry logic
       const paymentTimeout = isMobile ? 10000 : 4000; // 10s for mobile, 4s for desktop
-      console.log(`💳 Payment creation - Mobile: ${isMobile}, Timeout: ${paymentTimeout}ms`);
-      
+
       let paymentResponse: PaymentResponse | undefined;
       attempt = 0;
-      
+
       while (attempt <= retryCount) {
         try {
           paymentResponse = await PaymentService.createPayment(paymentRequest, paymentTimeout);
@@ -271,31 +335,30 @@ export default function CartPage() {
           if (attempt > retryCount) {
             throw error; // Final attempt failed
           }
-          
-          console.log(`⏳ Payment creation attempt ${attempt} failed, retrying...`);
+
           // Short delay before retry
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
       }
-      
+
       if (!paymentResponse) {
         throw new Error('Payment creation failed after all retry attempts');
       }
-      
+
       // Check for various possible URL field names  
       interface PaymentResponseExtended {
         url?: string;
         redirect_url?: string;
         payment_id?: string;
       }
-      
+
       const extendedResponse = paymentResponse as PaymentResponseExtended;
-      const paymentUrl = paymentResponse.octo_pay_url || 
-                        paymentResponse.payment_url || 
-                        paymentResponse.pay_url ||
-                        extendedResponse.url ||
-                        extendedResponse.redirect_url;
-      
+      const paymentUrl = paymentResponse.octo_pay_url ||
+        paymentResponse.payment_url ||
+        paymentResponse.pay_url ||
+        extendedResponse.url ||
+        extendedResponse.redirect_url;
+
       if (paymentResponse.success && paymentUrl) {
         // Store order and payment info for status updates after payment
         const paymentData = {
@@ -310,81 +373,68 @@ export default function CartPage() {
             all_order_ids: createdOrders.map(o => o.id || o.order_id)
           } : undefined
         };
-        
+
         const paymentDataStr = JSON.stringify(paymentData);
-        
+
         // Multi-layer storage approach for mobile compatibility
         try {
           // Primary: sessionStorage
           sessionStorage.setItem('paymentOrder', paymentDataStr);
-          console.log('✅ Payment data saved to sessionStorage');
-        } catch (sessionError) {
-          console.warn("⚠️ SessionStorage failed:", sessionError);
+        } catch {
           try {
             // Fallback 1: localStorage
             localStorage.setItem('paymentOrder_fallback', paymentDataStr);
-            console.log('✅ Payment data saved to localStorage fallback');
-          } catch (localError) {
-            console.warn("⚠️ LocalStorage failed:", localError);
+          } catch {
             try {
               // Fallback 2: URL encoding for iOS Safari private mode
               const encodedData = encodeURIComponent(paymentDataStr);
               window.history.replaceState({ paymentData: encodedData }, '', window.location.href);
-              console.log('✅ Payment data saved to history state');
-            } catch (historyError) {
-              console.error("❌ All storage methods failed:", historyError);
+            } catch {
               // Continue anyway - server webhook should handle payment confirmation
             }
           }
         }
-        
+
         // Store user authentication data as backup before payment redirect with enhanced mobile fallbacks
         if (user) {
           const userDataStr = JSON.stringify(user);
           const redirectTimeStr = Date.now().toString();
-          
+
           try {
             // Primary: sessionStorage
             sessionStorage.setItem('userBackup', userDataStr);
             sessionStorage.setItem('paymentRedirectTime', redirectTimeStr);
-            console.log('✅ User backup saved to sessionStorage');
-          } catch (sessionError) {
-            console.warn("⚠️ SessionStorage failed for user backup:", sessionError);
+          } catch {
             try {
               // Fallback 1: localStorage
               localStorage.setItem('userBackup_fallback', userDataStr);
               localStorage.setItem('paymentRedirectTime_fallback', redirectTimeStr);
-              console.log('✅ User backup saved to localStorage fallback');
-            } catch (localError) {
-              console.warn("⚠️ LocalStorage failed for user backup:", localError);
+            } catch {
               try {
                 // Fallback 2: URL encoding for iOS Safari private mode
                 const encodedUser = encodeURIComponent(userDataStr);
                 const currentState = window.history.state || {};
-                window.history.replaceState({ 
-                  ...currentState, 
+                window.history.replaceState({
+                  ...currentState,
                   userBackup: encodedUser,
-                  redirectTime: redirectTimeStr 
+                  redirectTime: redirectTimeStr
                 }, '', window.location.href);
-                console.log('✅ User backup saved to history state');
-              } catch (historyError) {
-                console.error("❌ All storage methods failed for user backup:", historyError);
+              } catch {
                 // Continue anyway - user can log in again if needed
               }
             }
           }
         }
-        
+
         // Payment status will be handled by the webhook notification endpoint
         // The backend will automatically update order status when payment is completed
         // Enhanced mobile redirect handling for payment gateway
-        console.log(`🔄 Redirecting to payment URL: ${paymentUrl}`);
-        
+
         // iOS Safari and some mobile browsers have issues with programmatic redirects
         // Use multiple approaches for better compatibility
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        
+
         if (isIOS || isSafari) {
           // iOS Safari: Create a link and trigger click to ensure redirect works
           const link = document.createElement('a');
@@ -392,13 +442,13 @@ export default function CartPage() {
           link.target = '_self'; // Same window
           link.style.display = 'none';
           document.body.appendChild(link);
-          
+
           // Delay to ensure DOM is ready
           setTimeout(() => {
             link.click();
             document.body.removeChild(link);
           }, 100);
-          
+
           // Fallback: if click doesn't work, use window.location
           setTimeout(() => {
             if (window.location.href === window.location.href) {
@@ -414,7 +464,7 @@ export default function CartPage() {
       }
     } catch (error) {
       console.error("Checkout error:", error);
-      
+
       // Comprehensive mobile debugging and error reporting
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const errorDetails = {
@@ -469,14 +519,14 @@ export default function CartPage() {
         },
         url: window.location.href
       };
-      
+
       console.error("📱 Mobile payment error details:", errorDetails);
-      
+
       // Send error to console for debugging
       if (isMobile) {
         console.error("🚨 MOBILE PAYMENT FAILURE:", JSON.stringify(errorDetails, null, 2));
       }
-      
+
       const errorMessage = error instanceof Error ? error.message : t('payment.error.initiation');
       toast.error(errorMessage);
     } finally {
@@ -543,9 +593,8 @@ export default function CartPage() {
               {items.map((item, index) => (
                 <div
                   key={`${item.id}-${item.size || 'no-size'}-${item.color || 'no-color'}-${index}`}
-                  className={`p-3 sm:p-4 lg:p-6 ${
-                    index !== items.length - 1 ? "border-b border-gray-200" : ""
-                  }`}
+                  className={`p-3 sm:p-4 lg:p-6 ${index !== items.length - 1 ? "border-b border-gray-200" : ""
+                    }`}
                 >
                   <div className="flex items-start space-x-3 sm:space-x-4">
                     {/* Product Image */}
@@ -621,11 +670,11 @@ export default function CartPage() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:sticky lg:top-8">
               <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                  <div className="flex justify-between items-start">
-                    <span className="text-base sm:text-lg font-bold">{t('cartPage.total')}</span>
-                    <span className="text-base sm:text-lg font-bold text-blue-600 break-words text-right">
-                      {formatPrice(totalAmount, t('common.currencySom'))}
-                    </span>
+                <div className="flex justify-between items-start">
+                  <span className="text-base sm:text-lg font-bold">{t('cartPage.total')}</span>
+                  <span className="text-base sm:text-lg font-bold text-blue-600 break-words text-right">
+                    {formatPrice(totalAmount, t('common.currencySom'))}
+                  </span>
                 </div>
               </div>
 

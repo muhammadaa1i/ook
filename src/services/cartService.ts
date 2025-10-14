@@ -65,8 +65,12 @@ export const cartService = {
   },
 
   async getCart(): Promise<CartDTO> {
-    const res = await modernApiClient.get(API_ENDPOINTS.CART);
-    return this.normalizeCartResponse(res);
+    try {
+      const res = await modernApiClient.get(API_ENDPOINTS.CART);
+      return this.normalizeCartResponse(res);
+    } catch (error) {
+      throw error;
+    }
   },
 
   async getTotals(): Promise<CartTotalsDTO> {

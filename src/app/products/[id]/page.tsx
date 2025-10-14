@@ -112,18 +112,27 @@ export default function ProductDetailPage() {
   }, [productId, fetchProduct]);
 
   const handleAddToCart = () => {
+    if (user?.is_admin) {
+      return;
+    }
     if (product) {
       addToCart(product); // Use default quantity (will be normalized to 60)
     }
   };
 
   const increaseQuantity = () => {
+    if (user?.is_admin) {
+      return;
+    }
     if (cartItem && product) {
       updateQuantity(product.id, cartItem.quantity + 6);
     }
   };
 
   const decreaseQuantity = () => {
+    if (user?.is_admin) {
+      return;
+    }
     if (cartItem && cartItem.quantity > MIN_ORDER && product) {
       updateQuantity(product.id, cartItem.quantity - 6);
     }
@@ -398,7 +407,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {!cartItem && (
+            {!cartItem && !user?.is_admin && (
               <button
                 onClick={handleAddToCart}
                 className="w-full py-3 px-3 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm bg-blue-500 hover:bg-blue-600 text-white"
@@ -409,7 +418,7 @@ export default function ProductDetailPage() {
             )}
 
             {/* Cart Status Indicator */}
-            {cartItem && (
+            {cartItem && !user?.is_admin && (
               <div className="flex items-center justify-between my-4 p-3 bg-green-50 border border-green-200 rounded-md">
                 <div className="flex items-center space-x-2">
                   <Check className="h-5 w-5 text-green-600" />
