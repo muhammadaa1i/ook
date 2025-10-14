@@ -49,6 +49,7 @@ export default {
     showImage: 'Rasmni ko\'rsatish {index}',
     currencySom: 'so\'m',
     loading: 'Yuklanmoqda...',
+    close: 'Yopish',
   },
   auth: {
     login: 'Tizimga kiring',
@@ -243,6 +244,21 @@ export default {
     }
   },
   orders: {
+    about: 'Batafsil',
+    details: {
+      title: 'Buyurtma tafsilotlari',
+      orderDate: 'Buyurtma sanasi',
+      paymentMethod: 'To\'lov usuli',
+      shippingAddress: 'Yetkazib berish manzili',
+      totalItems: 'Jami mahsulotlar',
+      customerName: 'Mijoz nomi',
+      orderItems: 'Buyurtma mahsulotlari',
+      size: 'O\'lcham',
+      quantity: 'Miqdor',
+      unitPrice: 'Narx',
+      notes: 'Izohlar',
+      totalAmount: 'Jami summa',
+    },
     status: {
       created: 'Yaratildi',
       pending: 'Kutilmoqda',
@@ -256,7 +272,6 @@ export default {
       delivered: 'Yetkazildi'
     },
     itemCount: '{count} ta mahsulot',
-    viewDetails: 'Batafsil',
     refund: {
       request: 'Qaytarish',
       requesting: 'So\'rov yuborilmoqda...',
@@ -284,19 +299,6 @@ export default {
         telegram: 'Telegram:',
         closeButton: 'Yopish'
       }
-    },
-    modal: {
-      title: 'Buyurtma №{id}',
-      client: 'Mijoz',
-      status: 'Holat',
-      shippingAddress: 'Yetkazib berish manzili',
-      items: 'Mahsulotlar',
-      quantity: 'Miqdori',
-      price: 'Narx',
-      size: 'O\'lcham',
-      itemsTotal: 'Jami miqdor',
-      notes: 'Izoh',
-      total: 'Jami'
     }
   },
   profilePage: {

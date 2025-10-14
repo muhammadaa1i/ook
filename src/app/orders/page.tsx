@@ -12,7 +12,6 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Eye,
   Calendar,
   CreditCard,
   Truck,
@@ -22,6 +21,7 @@ import { useI18n } from "@/i18n";
 import { Order, OrderItem } from "@/types";
 
 import { RefundContactModal } from "@/components/ui/RefundContactModal";
+import { OrderDetailsModal } from "@/components/ui/OrderDetailsModal";
 
 /* ------------------------- Carousel ------------------------- */
 function ProductCarousel({ item }: { item: { image?: string; name?: string } }) {
@@ -55,8 +55,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showRefundModal, setShowRefundModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const lastFetchRef = useRef<number>(0);
   const { t, locale } = useI18n();
 
@@ -182,6 +183,16 @@ export default function OrdersPage() {
   // Refund functionality
   const handleRefundRequest = () => {
     setShowRefundModal(true);
+  };
+
+  const handleShowOrderDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setShowDetailsModal(true);
+  };
+
+  const handleCloseDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedOrder(null);
   };
 
   
@@ -330,12 +341,13 @@ export default function OrdersPage() {
             )}
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+            {/* About button - show for all orders */}
             <button
-              onClick={() => setSelectedOrder(order)}
+              onClick={() => handleShowOrderDetails(order)}
               className="group inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 hover:text-blue-800 font-medium text-xs sm:text-sm rounded-lg border border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto"
             >
-              <Eye className="h-3 w-3 sm:h-4 sm:w-4 group-hover:scale-110 transition-transform duration-200" /> 
-              <span className="text-xs sm:text-sm">{t("orders.viewDetails")}</span>
+              <Package className="h-3 w-3 sm:h-4 sm:w-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="text-xs sm:text-sm">{t('orders.about') || 'About'}</span>
             </button>
             {/* Refund button - show for delivered/paid orders that haven't been refunded */}
             {(['delivered', 'DELIVERED', 'PAID', 'confirmed'].includes(order.status as string)) && 
@@ -348,82 +360,6 @@ export default function OrdersPage() {
                 <span className="text-xs sm:text-sm">{t('orders.refund.request') || 'Refund'}</span>
               </button>
             )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const OrderModal = () => {
-    if (!selectedOrder) return null;
-
-    return (
-      <div
-        className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4"
-        style={{ backgroundColor: "rgba(0, 0, 0, .5)" }}
-        onClick={(e) => e.target === e.currentTarget && setSelectedOrder(null)}
-      >
-        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <div className="flex justify-between items-start mb-4">
-            <h2 className="text-lg sm:text-xl font-bold pr-2">
-              {t("orders.modal.title", { id: selectedOrder.id })}
-            </h2>
-            <button 
-              onClick={() => setSelectedOrder(null)}
-              className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-200 transform hover:scale-110 active:scale-95 focus:ring-2 focus:ring-gray-300 focus:ring-offset-1 flex-shrink-0"
-            >
-              <XCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-            </button>
-          </div>
-          <div className="space-y-3 sm:space-y-4">
-            {selectedOrder.items
-              .filter(item => {
-                // Only show items with valid product data from order response
-                const hasValidProduct = !!item.name && item.name.trim().length > 0;
-                const unit = Number(item.unit_price ?? 0);
-                const qty = Number(item.quantity ?? 0);
-                const line = Number(item.total_price ?? 0);
-                const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-                return hasValidProduct && hasValidPrice && qty > 0;
-              })
-              .map((item, index) => (
-              <div key={`${item.slipper_id}-${index}`} className="flex gap-3 sm:gap-4 items-center p-2 sm:p-3 border rounded">
-                <ProductCarousel item={item} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm sm:text-base truncate">{item.name}</div>
-                  <div className="text-xs sm:text-sm text-gray-600">
-                    {t("orders.modal.quantity")}: {item.quantity} × {formatPrice(item.unit_price)}
-                  </div>
-                </div>
-                <div className="font-semibold text-sm sm:text-base flex-shrink-0">
-                  {formatPrice(
-                    // Use the item's total_price if available and valid, otherwise calculate from unit_price * quantity
-                    Number.isFinite(Number(item.total_price ?? 0)) && Number(item.total_price ?? 0) > 0
-                      ? Number(item.total_price ?? 0)
-                      : (Number(item.unit_price ?? 0) * Number(item.quantity ?? 0))
-                  )}
-                </div>
-              </div>
-            ))}
-            <div className="border-t pt-3 sm:pt-4">
-              <div className="flex justify-between text-xs sm:text-sm text-gray-600 mb-2">
-                <span>{t("orders.modal.itemsTotal")}:</span>
-                <span>{selectedOrder.items
-                  .filter(item => {
-                    const hasValidProduct = !!item.name && item.name.trim().length > 0;
-                    const unit = Number(item.unit_price ?? 0);
-                    const qty = Number(item.quantity ?? 0);
-                    const line = Number(item.total_price ?? 0);
-                    const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
-                    return hasValidProduct && hasValidPrice && qty > 0;
-                  })
-                  .reduce((total, item) => total + item.quantity, 0)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-base sm:text-lg">
-                <span>{t("orders.modal.total")}:</span>
-                <span>{formatPrice(selectedOrder.total_amount)}</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -460,12 +396,20 @@ export default function OrdersPage() {
         )}
         
   </div>
-      <OrderModal />
       
       {/* Refund Contact Modal */}
       <RefundContactModal
         isOpen={showRefundModal}
         onClose={() => setShowRefundModal(false)}
+      />
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        order={selectedOrder}
+        isOpen={showDetailsModal}
+        onClose={handleCloseDetailsModal}
+        formatDate={formatDate}
+        statusConfig={statusConfig}
       />
     </div>
   );

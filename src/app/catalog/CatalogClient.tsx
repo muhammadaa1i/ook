@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/products/ProductCard";
 import ErrorPage from "@/components/common/ErrorPage";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
@@ -26,7 +26,6 @@ function extractArray(data: unknown): Slipper[] {
 
 function CatalogClientInner({ initial }: Props) {
   const { t } = useI18n();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { addToCart } = useCart();
   const initialProducts = extractArray(initial);
@@ -131,11 +130,6 @@ function CatalogClientInner({ initial }: Props) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleViewProduct = (slipper: Slipper) => {
-    // Use client-side navigation to preserve app state (including language)
-    router.push(`/products/${slipper.id}`);
-  };
-
   const handleRetry = () => {
     setHasError(false);
     setErrorMessage("");
@@ -204,7 +198,6 @@ function CatalogClientInner({ initial }: Props) {
                 <ProductCard 
                   key={product.id} 
                   slipper={product} 
-                  onViewDetails={handleViewProduct} 
                   onAddToCart={addToCart} 
                 />
               ))}

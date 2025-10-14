@@ -49,6 +49,7 @@ export default {
     showImage: 'Показать изображение {index}',
     currencySom: 'сум',
     loading: 'Загрузка...',
+    close: 'Закрыть',
   },
   auth: {
     login: 'Войдите в аккаунт',
@@ -244,6 +245,21 @@ export default {
   },
   // Added orders.status.* section to mirror uz locale so that t('orders.status.*') works
   orders: {
+    about: 'Подробнее',
+    details: {
+      title: 'Детали заказа',
+      orderDate: 'Дата заказа',
+      paymentMethod: 'Способ оплаты',
+      shippingAddress: 'Адрес доставки',
+      totalItems: 'Всего товаров',
+      customerName: 'Имя клиента',
+      orderItems: 'Товары заказа',
+      size: 'Размер',
+      quantity: 'Количество',
+      unitPrice: 'Цена',
+      notes: 'Примечания',
+      totalAmount: 'Итоговая сумма',
+    },
     status: {
       created: 'Создан',
       pending: 'Ожидает',
@@ -257,7 +273,6 @@ export default {
       delivered: 'Доставлен'
     },
     itemCount: '{count} товар(ов)',
-    viewDetails: 'Подробнее',
     refund: {
       request: 'Возврат',
       requesting: 'Запрашиваем...',
@@ -284,19 +299,6 @@ export default {
         telegram: 'Telegram:',
         closeButton: 'Закрыть'
       }
-    },
-    modal: {
-      title: 'Заказ №{id}',
-      client: 'Клиент',
-      status: 'Статус',
-      shippingAddress: 'Адрес доставки',
-      items: 'Товары',
-      quantity: 'Количество',
-      price: 'Цена',
-      size: 'Размер',
-      itemsTotal: 'Общее количество',
-      notes: 'Примечание',
-      total: 'Итого'
     }
   },
   profilePage: {
