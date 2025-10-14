@@ -415,10 +415,9 @@ export default function AdminOrdersPage() {
   }, [selectedOrderForRefund, t, setOrders, setRefreshKey, setShowRefundDialog, setSelectedOrderForRefund]);
 
   const handleRefundCancel = useCallback(() => {
-
     setShowRefundDialog(false);
     setSelectedOrderForRefund(null);
-  }, [selectedOrderForRefund?.id]);
+  }, []);
 
   // Status change dropdown removed from UI; handler not needed
 
@@ -588,12 +587,9 @@ export default function AdminOrdersPage() {
                     {orders.map((order) => (
                       <tr key={`${order.id}-${refreshKey}`} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.orders.unspecifiedUser')}{" "}
+                          <div className="text-sm font-medium text-gray-900">
+                            {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.common.unspecified')}{" "}
                             {order.user?.surname || ""}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {order.user?.phone_number || ""}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -648,7 +644,7 @@ export default function AdminOrdersPage() {
                     {/* Order Header */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-sm lg:text-base font-medium text-gray-900">
-                        {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.orders.unspecifiedUser')}{" "}
+                        {order.user?.name || (order as unknown as { user_name?: string }).user_name || t('admin.common.unspecified')}{" "}
                         {order.user?.surname || ""}
                       </div>
                       <span
@@ -665,16 +661,14 @@ export default function AdminOrdersPage() {
 
                     {/* Order Details Grid - Better for tablet screens */}
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm lg:text-base">
-                      {order.user?.phone_number && (
-                        <div>
-                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                            {t('admin.orders.table.phone')}
-                          </div>
-                          <div className="text-gray-900">
-                            {order.user.phone_number}
-                          </div>
+                      <div>
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                          {t('admin.orders.table.phone')}
                         </div>
-                      )}
+                        <div className="text-gray-900">
+                          {order.user?.phone_number || t('admin.common.unspecified')}
+                        </div>
+                      </div>
                       <div>
                         <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
                           {t('admin.orders.table.items')}

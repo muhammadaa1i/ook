@@ -50,6 +50,8 @@ export default {
     currencySom: 'сум',
     loading: 'Загрузка...',
     close: 'Закрыть',
+    previous: 'Предыдущая',
+    next: 'Следующая',
   },
   auth: {
     login: 'Войдите в аккаунт',
@@ -81,6 +83,9 @@ export default {
       logoutSuccess: 'Вы вышли из системы',
       passwordChangeSuccess: 'Пароль успешно изменён',
       userFoundEnterNewPassword: 'Пользователь найден. Введите новый пароль'
+    },
+    serverMessages: {
+      incorrectCredentials: 'Неверное имя или пароль'
     },
     errors: {
       invalidServerResponse: 'Ошибка авторизации: некорректный ответ сервера',
@@ -537,6 +542,13 @@ export default {
         phone: 'Телефон',
         role: 'Роль',
         registeredAt: 'Дата регистрации'
+      },
+      pagination: {
+        info: 'Пользователей: {total}',
+        shown: 'Показано {count} из {total}',
+        showing: 'Показано',
+        users: 'пользователей',
+        page: 'Страница'
       },
       empty: {
         title: 'Пользователи не найдены',

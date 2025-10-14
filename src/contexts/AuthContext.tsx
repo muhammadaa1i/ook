@@ -364,7 +364,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       
       // Prefer server-provided reason when available
       const serverMsg = extractErrorMessage(axiosError.response?.data);
-      const message = serverMsg || t('auth.toasts.loginInvalid');
+      let message = serverMsg || t('auth.toasts.loginInvalid');
+      if (serverMsg && serverMsg.toLowerCase().includes('incorrect name or password')) {
+        message = t('auth.serverMessages.incorrectCredentials');
+      }
       
       console.error("Final error message:", message);
       toast.error(message);

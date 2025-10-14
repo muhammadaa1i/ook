@@ -6,7 +6,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { User, SearchParams } from "@/types";
 import modernApiClient from "@/lib/modernApiClient";
-import { API_ENDPOINTS, PAGINATION } from "@/lib/constants";
+import { API_ENDPOINTS } from "@/lib/constants";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -17,154 +17,127 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user: currentUser } = useAuth();
+  const PAGE_SIZE = 10;
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
-    limit: PAGINATION.DEFAULT_LIMIT as number,
+    limit: PAGE_SIZE,
     totalPages: 1,
   });
-  const [filters, setFilters] = useState<SearchParams>({
-    skip: 0,
-    limit: PAGINATION.DEFAULT_LIMIT,
-  });
+  const [filters, setFilters] = useState<SearchParams>({ skip: 0, limit: PAGE_SIZE });
 
   const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
-  const response = await modernApiClient.get(API_ENDPOINTS.USERS, filters as unknown as Record<string, unknown>);
-
-      // modernApiClient returns direct data, not axios-wrapped response
-      const data =
-        (response as { data?: User[] })?.data || (response as User[]);
-
-      // Handle both response structures: {data: [...]} and {items: [...]}
+      const response = await modernApiClient.get(
+        API_ENDPOINTS.USERS,
+        filters as unknown as Record<string, unknown>
+      );
+      const data = (response as { data?: User[] })?.data || (response as User[]);
       const usersData = Array.isArray(data)
         ? data
         : (data as { items?: User[]; data?: User[] })?.items ||
           (data as { items?: User[]; data?: User[] })?.data ||
           [];
-
       setUsers(Array.isArray(usersData) ? usersData : []);
-      const responseData = response as {
-        data?: { total?: number; pages?: number; total_pages?: number };
+
+      // meta extraction
+      const rawResp: unknown = response;
+      const get = (obj: unknown, path: string[]): unknown => {
+        return path.reduce<unknown>((acc, key) => {
+          if (acc && typeof acc === 'object' && key in (acc as Record<string, unknown>)) {
+            return (acc as Record<string, unknown>)[key];
+          }
+          return undefined;
+        }, obj);
       };
-      setPagination({
-        total: responseData.data?.total || 0,
-        page:
-          Math.floor(
-            (filters.skip || 0) / (filters.limit || PAGINATION.DEFAULT_LIMIT)
-          ) + 1,
-        limit: Number(filters.limit || PAGINATION.DEFAULT_LIMIT),
-        totalPages:
-          responseData.data?.pages ||
-          responseData.data?.total_pages ||
-          Math.ceil(
-            (responseData.data?.total || 0) /
-              (filters.limit || PAGINATION.DEFAULT_LIMIT)
-          ),
-      });
-    } catch (error) {
-      console.error("Error fetching users:", error);
-  toast.error(t('admin.users.toasts.loadError'));
+      const candidatePaths: string[][] = [
+        ['data','total'], ['total'], ['data','pages_total'], ['data','count'], ['count'], ['data','meta','total'], ['meta','total']
+      ];
+      let metaTotal: number | undefined = undefined;
+      for (const p of candidatePaths) {
+        const v = get(rawResp, p);
+        if (typeof v === 'number') { metaTotal = v; break; }
+      }
+      let derivedTotal: number;
+      if (typeof metaTotal === 'number') {
+        derivedTotal = metaTotal;
+      } else if (usersData.length < PAGE_SIZE) {
+        derivedTotal = (filters.skip || 0) + usersData.length;
+      } else {
+        derivedTotal = (filters.skip || 0) + usersData.length + 1;
+      }
+      const currentPage = Math.floor((filters.skip || 0) / PAGE_SIZE) + 1;
+      const totalPages = Math.max(1, Math.ceil(derivedTotal / PAGE_SIZE));
+      setPagination({ total: derivedTotal, page: currentPage, limit: PAGE_SIZE, totalPages });
+    } catch (e) {
+      console.error("Error fetching users:", e);
+      toast.error(t('admin.users.toasts.loadError'));
       setUsers([]);
     } finally {
       setIsLoading(false);
     }
   }, [filters, t]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  const handlePageChange = useCallback(
-    (page: number) => {
-      const skip = (page - 1) * pagination.limit;
-      setFilters((prev) => ({ ...prev, skip }));
-    },
-    [pagination.limit]
-  );
-
-  // Actions removed per request (view/edit/delete)
+  const handlePageChange = useCallback((page: number) => {
+    if (page < 1) return;
+    const skip = (page - 1) * PAGE_SIZE;
+    setFilters(prev => ({ ...prev, skip }));
+  }, [PAGE_SIZE]);
 
   const renderPagination = () => {
-    if (pagination.totalPages <= 1) return null;
-
-    const pages = [];
-    const maxVisiblePages = 5;
-    let startPage = Math.max(
-      1,
-      pagination.page - Math.floor(maxVisiblePages / 2)
-    );
-    const endPage = Math.min(
-      pagination.totalPages,
-      startPage + maxVisiblePages - 1
-    );
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-
+    if (pagination.total === 0) return null;
+    const startItem = (pagination.page - 1) * pagination.limit + 1;
+    const endItem = Math.min(pagination.page * pagination.limit, pagination.total);
     return (
-      <div className="flex items-center justify-center space-x-2 mt-6">
-        <button
-          onClick={() => handlePageChange(pagination.page - 1)}
-          disabled={pagination.page === 1}
-          className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-
-        {startPage > 1 && (
-          <>
-            <button
-              onClick={() => handlePageChange(1)}
-              className="px-3 py-2 rounded-md border border-gray-300 hover:bg-gray-50"
-            >
-              1
-            </button>
-            {startPage > 2 && <span className="px-2">...</span>}
-          </>
-        )}
-
-        {pages.map((page) => (
-          <button
-            key={page}
-            onClick={() => handlePageChange(page)}
-            className={`px-3 py-2 rounded-md border ${
-              page === pagination.page
-                ? "bg-blue-600 text-white border-blue-600"
-                : "border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
-
-        {endPage < pagination.totalPages && (
-          <>
-            {endPage < pagination.totalPages - 1 && (
-              <span className="px-2">...</span>
-            )}
-            <button
-              onClick={() => handlePageChange(pagination.totalPages)}
-              className="px-3 py-2 rounded-md border border-gray-300 hover:bg-gray-50"
-            >
-              {pagination.totalPages}
-            </button>
-          </>
-        )}
-
-        <button
-          onClick={() => handlePageChange(pagination.page + 1)}
-          disabled={pagination.page === pagination.totalPages}
-          className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+      <div className="border-t border-gray-200 bg-white">
+        <div className="px-4 lg:px-6 py-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-xs sm:text-sm text-gray-600">
+            <span className="font-medium">{startItem}-{endItem} / {pagination.total}</span>
+            <span className="hidden md:inline text-gray-400">· {t('admin.users.pagination.page') || 'Sahifa'} {pagination.page}/{pagination.totalPages}</span>
+          </div>
+          <div className="flex items-center justify-between xl:justify-end gap-3">
+            <div className="flex xl:hidden gap-2">
+              <button onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page === 1 || isLoading} className="flex items-center gap-1 px-3 py-2 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label={t('common.previous') || 'Previous'}>
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('common.previous') || 'Oldingi'}</span>
+              </button>
+              <button onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page === pagination.totalPages || isLoading} className="flex items-center gap-1 px-3 py-2 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label={t('common.next') || 'Next'}>
+                <span className="hidden sm:inline">{t('common.next') || 'Keyingi'}</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="hidden xl:flex items-center gap-2">
+              <button onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page === 1 || isLoading} className="h-10 w-10 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label={t('common.previous') || 'Previous'}>
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              {(() => {
+                const total = pagination.totalPages;
+                const current = pagination.page;
+                const items: (number | 'ellipsis')[] = [];
+                if (total <= 7) { for (let p = 1; p <= total; p++) items.push(p); } else {
+                  items.push(1);
+                  const start = Math.max(2, current - 1);
+                  const end = Math.min(total - 1, current + 1);
+                  if (start > 2) items.push('ellipsis');
+                  for (let p = start; p <= end; p++) items.push(p);
+                  if (end < total - 1) items.push('ellipsis');
+                  items.push(total);
+                }
+                return items.map((val, idx) => {
+                  if (val === 'ellipsis') return <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>;
+                  const page = val as number; const active = page === current;
+                  return <button key={page} onClick={() => handlePageChange(page)} disabled={isLoading} aria-current={active ? 'page' : undefined} className={`h-10 min-w-[2.5rem] px-3 flex items-center justify-center rounded-md border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${active ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}>{page}</button>;
+                });
+              })()}
+              <button onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page === pagination.totalPages || isLoading} className="h-10 w-10 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label={t('common.next') || 'Next'}>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -185,7 +158,7 @@ export default function AdminUsersPage() {
         <div className="bg-white shadow rounded-lg overflow-hidden">
           {isLoading ? (
             <div className="p-6">
-              <TableSkeleton rows={10} cols={4} />
+              <TableSkeleton rows={PAGE_SIZE} cols={4} />
             </div>
           ) : users.length > 0 ? (
             <>
@@ -205,7 +178,6 @@ export default function AdminUsersPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {t('admin.users.table.registeredAt')}
                       </th>
-                      {/* Actions column removed */}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -231,22 +203,23 @@ export default function AdminUsersPage() {
                             {user.phone_number}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                user.is_admin
-                                  ? "bg-purple-100 text-purple-800"
-                                  : "bg-green-100 text-green-800"
-                              }`}
-                            >
-                              {user.is_admin ? t('admin.users.role.admin') : t('admin.users.role.user')}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  user.is_admin
+                                    ? "bg-purple-100 text-purple-800"
+                                    : "bg-green-100 text-green-800"
+                                }`}
+                              >
+                                {user.is_admin ? t('admin.users.role.admin') : t('admin.users.role.user')}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {user.created_at
                               ? formatDate(user.created_at, locale)
                               : t('admin.users.dateNA')}
                           </td>
-                          {/* Actions cell removed */}
                         </tr>
                       ))}
                   </tbody>

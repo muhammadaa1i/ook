@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/products/ProductCard";
+import ProductQuickViewModal from "@/components/products/ProductQuickViewModal";
 import ErrorPage from "@/components/common/ErrorPage";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
 import { Slipper, SearchParams as FilterParams } from "@/types";
@@ -30,6 +31,8 @@ function CatalogClientInner({ initial }: Props) {
   const { addToCart } = useCart();
   const initialProducts = extractArray(initial);
   const [products, setProducts] = useState<Slipper[]>(initialProducts);
+  const [quickViewProduct, setQuickViewProduct] = useState<Slipper | null>(null);
+  const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(initialProducts.length === 0);
   const [hasLoaded, setHasLoaded] = useState(initialProducts.length > 0);
@@ -130,6 +133,16 @@ function CatalogClientInner({ initial }: Props) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const openQuickView = (p: Slipper) => {
+    setQuickViewProduct(p);
+    setIsQuickViewOpen(true);
+  };
+  const closeQuickView = () => {
+    setIsQuickViewOpen(false);
+    // delay clearing to allow exit animation if added later
+    setTimeout(() => setQuickViewProduct(null), 200);
+  };
+
   const handleRetry = () => {
     setHasError(false);
     setErrorMessage("");
@@ -195,14 +208,20 @@ function CatalogClientInner({ initial }: Props) {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map(product => (
-                <ProductCard 
-                  key={product.id} 
-                  slipper={product} 
-                  onAddToCart={addToCart} 
+                <ProductCard
+                  key={product.id}
+                  slipper={product}
+                  onAddToCart={addToCart}
+                  onViewDetails={openQuickView}
                 />
               ))}
             </div>
             {renderPagination()}
+            <ProductQuickViewModal
+              product={quickViewProduct}
+              isOpen={isQuickViewOpen}
+              onClose={closeQuickView}
+            />
           </>
         ) : hasLoaded ? (
           <div className="text-center py-12">

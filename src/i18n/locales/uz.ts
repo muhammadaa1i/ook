@@ -50,6 +50,8 @@ export default {
     currencySom: 'so\'m',
     loading: 'Yuklanmoqda...',
     close: 'Yopish',
+    previous: 'Oldingi',
+    next: 'Keyingi',
   },
   auth: {
     login: 'Tizimga kiring',
@@ -81,6 +83,9 @@ export default {
       logoutSuccess: 'Tizimdan chiqdingiz',
       passwordChangeSuccess: 'Parol muvaffaqiyatli o\'zgartirildi',
       userFoundEnterNewPassword: 'Foydalanuvchi topildi. Yangi parolni kiriting'
+    },
+    serverMessages: {
+      incorrectCredentials: 'Noto\'g\'ri ism yoki parol'
     },
     errors: {
       invalidServerResponse: 'Avtorizatsiya xatosi: noto\'g\'ri server javobi',
@@ -536,6 +541,10 @@ export default {
         phone: 'Telefon',
         role: 'Rol',
         registeredAt: 'Ro\'yxatdan o\'tgan sana'
+      },
+      pagination: {
+        info: 'Foydalanuvchilar: {total}',
+        shown: '{total} dan {count} ta ko\'rsatilmoqda'
       },
       empty: {
         title: 'Foydalanuvchilar topilmadi',
