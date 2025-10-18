@@ -89,14 +89,11 @@ export default function AdminUsersPage() {
 
   const renderPagination = () => {
     if (pagination.total === 0) return null;
-    const startItem = (pagination.page - 1) * pagination.limit + 1;
-    const endItem = Math.min(pagination.page * pagination.limit, pagination.total);
     return (
       <div className="border-t border-gray-200 bg-white">
         <div className="px-4 lg:px-6 py-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-xs sm:text-sm text-gray-600">
-            <span className="font-medium">{startItem}-{endItem} / {pagination.total}</span>
-            <span className="hidden md:inline text-gray-400">· {t('admin.users.pagination.page') || 'Sahifa'} {pagination.page}/{pagination.totalPages}</span>
+            <span className="hidden md:inline text-gray-400">{pagination.page}/{pagination.totalPages}</span>
           </div>
           <div className="flex items-center justify-between xl:justify-end gap-3">
             <div className="flex xl:hidden gap-2">

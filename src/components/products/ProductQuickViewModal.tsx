@@ -127,7 +127,6 @@ const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({ product, 
             <div className="text-sm text-gray-600 space-y-1">
               <p>{t('product.availableQuantity', { count: String(product.quantity || 0) })}</p>
               {product.category_name && <p>{t('product.category')}: {product.category_name}</p>}
-              <p className="text-xs text-gray-400">ID: {product.id}</p>
             </div>
             <div className="mt-auto pt-2">
               {!isAdmin && !inCart && (
