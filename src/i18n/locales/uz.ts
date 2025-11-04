@@ -148,6 +148,8 @@ export default {
     productsLine: 'Mahsulotlar ({count} dona)',
     total: 'Jami summa',
     emptyCart: 'Savat bo\'sh',
+    loginRequiredMessage: 'Iltimos, savatingizni ko\'rish uchun tizimga kiring',
+    goToLogin: 'Kirishga o\'tish',
     checkout: 'Buyurtma berish',
     loginForCheckout: 'Tizimga kiring',
     loginForCheckoutSuffix: 'buyurtma berish uchun',
@@ -380,7 +382,11 @@ export default {
     rights: 'Barcha huquqlar himoyalangan.',
     followUs: 'Bizni kuzating',
     contactUs: 'Biz bilan bog\'laning',
-    paymentMethods: 'To\'lov usullari'
+    paymentMethods: 'To\'lov usullari',
+    // Kept for backward compatibility
+    developedBy: '🚀 Websayt',
+    developedByPrefix: '🚀 Websayt',
+    developedBySuffix: 'tomonidan ishlab chiqilgan'
   },
   offerPage: {
     title: 'Ommaviy oferta',

@@ -138,6 +138,19 @@ const Footer = () => {
               {t('offer.title')}
             </a>
           </div>
+          {/* Developer Credit */}
+          <p className="text-xs text-gray-400 mt-3">
+            {t('footer.developedByPrefix')}{' '}
+            <a
+              href="https://t.me/saydullaev_i"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-500"
+            >
+              Iskandar
+            </a>{' '}
+            {t('footer.developedBySuffix')}
+          </p>
         </div>
       </div>
     </footer>

@@ -148,6 +148,8 @@ export default {
     productsLine: 'Товары ({count} шт.)',
     total: 'Общая сумма',
   emptyCart: 'Корзина пуста',
+    loginRequiredMessage: 'Пожалуйста, войдите, чтобы просмотреть вашу корзину',
+    goToLogin: 'Перейти ко входу',
     checkout: 'Оформить заказ',
     loginForCheckout: 'Войдите в систему',
     loginForCheckoutSuffix: 'для оформления заказа',
@@ -380,7 +382,11 @@ export default {
     rights: 'Все права защищены.',
     followUs: 'Следите за нами',
     contactUs: 'Свяжитесь с нами',
-    paymentMethods: 'Способы оплаты'
+    paymentMethods: 'Способы оплаты',
+    // Kept for backward compatibility in case other components use it
+    developedBy: '🚀 Сайт разработан c',
+    developedByPrefix: '🚀 Сайт разработан с',
+    developedBySuffix: ''
   },
   offerPage: {
     title: 'Публичная оферта',

@@ -119,12 +119,13 @@ export default function CartPage() {
     }
 
     // For desktop or mobile without tokens: normal auth flow but with faster redirect
-    if (!isLoading && !isAuthenticated && !hasAnyAuthData) {
+  if (!isLoading && !isAuthenticated && !hasAnyAuthData) {
       // Faster redirect for mobile (500ms vs 1000ms)
       const redirectDelay = isMobile ? 500 : 1000;
       setTimeout(() => {
         if (!isAuthenticated && !hasAnyAuthData) {
-          window.location.href = '/auth/login?message=Please log in to view your cart';
+          const msg = t('cartPage.loginRequiredMessage');
+          window.location.href = '/auth/login?message=' + encodeURIComponent(msg);
         }
       }, redirectDelay);
     }
@@ -161,12 +162,12 @@ export default function CartPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-4">{t('auth.login')}</h2>
-          <p className="text-gray-600 mb-4">Please log in to view your cart</p>
+          <p className="text-gray-600 mb-4">{t('cartPage.loginRequiredMessage')}</p>
           <Link
             href="/auth/login"
             className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
           >
-            Go to Login
+            {t('cartPage.goToLogin')}
           </Link>
         </div>
       </div>
