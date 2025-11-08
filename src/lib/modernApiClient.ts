@@ -321,9 +321,35 @@ class ModernApiClient {
 
   /** Attempt to refresh access token using refresh_token cookie */
   async refreshAccessToken(): Promise<boolean> {
-    if (this.refreshPromise) return this.refreshPromise;
-    const refreshToken = Cookies.get("refresh_token");
-    if (!refreshToken) return false;
+    if (this.refreshPromise) {
+      console.log('⏳ Refresh already in progress, waiting...');
+      return this.refreshPromise;
+    }
+    
+    // Try to get refresh token from cookies, fallback to localStorage
+    let refreshToken = Cookies.get("refresh_token");
+    if (!refreshToken && typeof window !== "undefined") {
+      try {
+        refreshToken = localStorage.getItem("refresh_token") || undefined;
+        if (refreshToken) {
+          console.log('📦 Found refresh token in localStorage, restoring to cookies');
+          Cookies.set("refresh_token", refreshToken, { sameSite: "lax", expires: 30, path: "/" });
+        }
+      } catch (e) {
+        console.warn('⚠️ Failed to access localStorage:', e);
+      }
+    }
+    
+    if (!refreshToken) {
+      console.error('❌ No refresh token available in cookies or localStorage');
+      return false;
+    }
+
+    console.log('🔄 Starting token refresh process...', {
+      refreshTokenLength: refreshToken.length,
+      baseURL: this.baseURL,
+      timestamp: new Date().toISOString()
+    });
 
     this.refreshPromise = (async () => {
       try {
@@ -375,32 +401,84 @@ class ModernApiClient {
 
         let lastErr: unknown = null;
         for (const strat of strategies) {
+          console.log(`🔄 Trying refresh strategy: ${strat.label}`);
           let resp = await strat.run();
+          console.log(`📊 Strategy ${strat.label} response:`, {
+            status: resp.status,
+            ok: resp.ok,
+            statusText: resp.statusText
+          });
+          
           if (!resp.ok && (resp.status === 404 || resp.status === 422)) {
+            console.log(`🔄 Retrying with trailing slash for ${strat.label}...`);
             // attempt with trailing slash variant
             resp = await fetch(build("/auth/refresh/"), { 
               method: "POST", 
               headers: { "Content-Type": "application/json", "Accept": "application/json" }
             });
+            console.log(`📊 Trailing slash retry response:`, {
+              status: resp.status,
+              ok: resp.ok
+            });
           }
           if (resp.ok) {
             const { access, refresh } = await parseTokens(resp);
+            console.log('✅ Successfully parsed tokens:', {
+              hasAccess: !!access,
+              hasRefresh: !!refresh,
+              accessLength: access?.length,
+              refreshLength: refresh?.length
+            });
+            
             const cookieOptions = { sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
-            if (access) Cookies.set("access_token", access, { ...cookieOptions, expires: 1 });
-            if (refresh) Cookies.set("refresh_token", refresh, { ...cookieOptions, expires: 30 });
-            if (access || refresh) return !!access;
+            if (access) {
+              Cookies.set("access_token", access, { ...cookieOptions, expires: 1 });
+              console.log('✅ Access token saved to cookies');
+              // Also save to localStorage as backup for mobile browsers
+              try {
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("auth_token", access);
+                }
+              } catch (e) {
+                console.warn('⚠️ Failed to save access token to localStorage:', e);
+              }
+            }
+            if (refresh) {
+              Cookies.set("refresh_token", refresh, { ...cookieOptions, expires: 30 });
+              console.log('✅ Refresh token saved to cookies');
+              // Also save to localStorage as backup for mobile browsers
+              try {
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("refresh_token", refresh);
+                }
+              } catch (e) {
+                console.warn('⚠️ Failed to save refresh token to localStorage:', e);
+              }
+            }
+            if (access || refresh) {
+              console.log('✅ Token refresh completed successfully');
+              return !!access;
+            }
             lastErr = new Error(`Refresh strategy '${strat.label}' returned no tokens`);
+            console.error(`❌ ${(lastErr as Error).message}`);
             continue;
           } else {
             if (resp.status === 422) {
-              // Refresh strategy failed with validation error
+              // Try to read the error body for debugging
+              try {
+                const errorBody = await resp.clone().text();
+                console.error(`❌ Validation error (422):`, errorBody);
+              } catch {}
             }
             lastErr = new Error(`Refresh strategy '${strat.label}' failed status ${resp.status}`);
+            console.error(`❌ ${(lastErr as Error).message}`);
             continue;
           }
         }
+        console.error('❌ All refresh strategies failed');
         throw lastErr || new Error("All refresh strategies failed");
-      } catch {
+      } catch (refreshError) {
+        console.error('❌ Token refresh exception:', refreshError);
         // Don't immediately logout during payment flows or navigation - could be temporary network issues
         const isPaymentFlow = typeof window !== "undefined" && 
           (window.location.pathname.includes('/payment/') || 

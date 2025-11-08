@@ -20,6 +20,7 @@ export function PaymentProvider({ children }: { children: React.ReactNode }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { t } = useI18n();
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const checkPaymentStatus = useCallback(async (transferId: string): Promise<PaymentStatus | null> => {
     if (isProcessing) return null;
     

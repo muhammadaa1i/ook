@@ -84,11 +84,12 @@ export default function AdminOrdersPage() {
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [selectedOrderForRefund, setSelectedOrderForRefund] = useState<Order | null>(null);
   const [refreshKey, setRefreshKey] = useState(0); // Force re-render key
+  const [tokenReady, setTokenReady] = useState(false); // Track if token validation is complete
   // Search and global status filter removed
 
   // Debounced search removed
 
-  // Proactive token validation on mount
+  // Proactive token validation on mount - MUST complete before fetchOrders
   useEffect(() => {
     const validateTokenOnMount = async () => {
       const Cookies = (await import('js-cookie')).default;
@@ -108,12 +109,20 @@ export default function AdminOrdersPage() {
           const refreshed = await modernApiClient.refreshAccessToken();
           if (refreshed) {
             console.log('✅ Token refreshed successfully on mount');
+            setTokenReady(true);
           } else {
             console.error('❌ Token refresh failed on mount');
             toast.error('Не удалось обновить сессию. Пожалуйста, войдите снова.');
+            setTimeout(() => {
+              window.location.href = '/auth/login?message=Token refresh failed';
+            }, 2000);
           }
         } catch (error) {
           console.error('❌ Error during token refresh on mount:', error);
+          toast.error('Ошибка обновления токена. Войдите снова.');
+          setTimeout(() => {
+            window.location.href = '/auth/login?message=Token refresh error';
+          }, 2000);
         }
       } else if (!hasAccessToken && !hasRefreshToken) {
         console.error('❌ No authentication tokens found');
@@ -121,6 +130,10 @@ export default function AdminOrdersPage() {
         setTimeout(() => {
           window.location.href = '/auth/login';
         }, 2000);
+      } else {
+        // Both tokens present, ready to proceed
+        console.log('✅ Tokens present, ready to fetch orders');
+        setTokenReady(true);
       }
     };
     
@@ -386,9 +399,13 @@ export default function AdminOrdersPage() {
     }
   }, [filters, t]);
 
+  // Only fetch orders after token validation is complete
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    if (tokenReady) {
+      console.log('🔄 Token ready, fetching orders...');
+      fetchOrders();
+    }
+  }, [tokenReady, fetchOrders]);
 
   // Search effect removed
 

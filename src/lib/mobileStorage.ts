@@ -171,7 +171,7 @@ export class MobileStorage {
 
   // Remove item from all possible locations
   static removeItem(key: string, options: StorageOptions = {}): void {
-    const { useSession = false, fallbackKey } = options;
+    const { fallbackKey } = options;
 
     const tryRemove = (storage: Storage | null, storageKey: string): void => {
       if (!storage) return;
