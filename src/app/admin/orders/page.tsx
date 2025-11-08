@@ -88,6 +88,45 @@ export default function AdminOrdersPage() {
 
   // Debounced search removed
 
+  // Proactive token validation on mount
+  useEffect(() => {
+    const validateTokenOnMount = async () => {
+      const Cookies = (await import('js-cookie')).default;
+      const hasAccessToken = !!Cookies.get("access_token");
+      const hasRefreshToken = !!Cookies.get("refresh_token");
+      
+      console.log('🔐 Admin Orders - Token Check:', {
+        hasAccessToken,
+        hasRefreshToken,
+        timestamp: new Date().toISOString()
+      });
+      
+      // If no access token but have refresh token, try to refresh proactively
+      if (!hasAccessToken && hasRefreshToken) {
+        console.log('🔄 No access token found, attempting proactive refresh...');
+        try {
+          const refreshed = await modernApiClient.refreshAccessToken();
+          if (refreshed) {
+            console.log('✅ Token refreshed successfully on mount');
+          } else {
+            console.error('❌ Token refresh failed on mount');
+            toast.error('Не удалось обновить сессию. Пожалуйста, войдите снова.');
+          }
+        } catch (error) {
+          console.error('❌ Error during token refresh on mount:', error);
+        }
+      } else if (!hasAccessToken && !hasRefreshToken) {
+        console.error('❌ No authentication tokens found');
+        toast.error('Требуется авторизация');
+        setTimeout(() => {
+          window.location.href = '/auth/login';
+        }, 2000);
+      }
+    };
+    
+    validateTokenOnMount();
+  }, []); // Run once on mount
+
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -322,7 +361,25 @@ export default function AdminOrdersPage() {
       });
     } catch (error) {
       console.error("Error fetching orders:", error);
-  toast.error(t('admin.orders.toasts.loadError'));
+      
+      // Enhanced error handling with specific messages
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check for authentication errors
+      if (errorMessage.includes('401') || errorMessage.includes('Authentication required')) {
+        toast.error('Требуется повторная авторизация. Пожалуйста, войдите снова.');
+        // Wait briefly before redirecting to allow user to see the message
+        setTimeout(() => {
+          window.location.href = '/auth/login?message=Session expired';
+        }, 2000);
+      } else if (errorMessage.includes('403') || errorMessage.includes('Access denied')) {
+        toast.error('Недостаточно прав для просмотра заказов');
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+        toast.error('Проблема с подключением. Проверьте интернет и попробуйте снова.');
+      } else {
+        toast.error(t('admin.orders.toasts.loadError'));
+      }
+      
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -540,6 +597,17 @@ export default function AdminOrdersPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('admin.orders.title')}</h1>
             <p className="text-gray-600 mt-2 text-sm sm:text-base">{t('admin.orders.subtitle')}</p>
           </div>
+          <button
+            onClick={() => {
+              console.log('🔄 Manual refresh triggered');
+              fetchOrders();
+            }}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+          >
+            <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Обновление...' : 'Обновить'}
+          </button>
         </div>
 
         {/* Info bar */}

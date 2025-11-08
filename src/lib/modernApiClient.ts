@@ -200,18 +200,34 @@ class ModernApiClient {
         // Enhanced 401 debugging and automatic logout
         if (response.status === 401) {
           const hasRefreshToken = !!Cookies.get("refresh_token");
+          const hasAccessToken = !!Cookies.get("access_token");
+          const isAdminEndpoint = endpoint.includes('/admin') || endpoint.includes('/orders');
+          
+          console.log('🔐 401 Error Details:', {
+            endpoint,
+            hasRefreshToken,
+            hasAccessToken,
+            isAdminEndpoint,
+            timestamp: new Date().toISOString()
+          });
           
           // Try token refresh if available
           if (hasRefreshToken && !endpoint.includes('/auth/refresh')) {
             try {
+              console.log('🔄 Attempting token refresh for:', endpoint);
               const refreshed = await this.refreshAccessToken();
               if (refreshed) {
+                console.log('✅ Token refreshed successfully, retrying request:', endpoint);
                 // Retry the original request with new token
                 return this.makeRequest(endpoint, options);
+              } else {
+                console.error('❌ Token refresh returned false');
               }
             } catch (refreshError) {
               console.error("❌ Token refresh failed:", refreshError);
             }
+          } else if (!hasRefreshToken) {
+            console.error('❌ No refresh token available');
           }
           
           // Clear invalid tokens and redirect to login only if refresh failed
@@ -304,7 +320,7 @@ class ModernApiClient {
   }
 
   /** Attempt to refresh access token using refresh_token cookie */
-  private async refreshAccessToken(): Promise<boolean> {
+  async refreshAccessToken(): Promise<boolean> {
     if (this.refreshPromise) return this.refreshPromise;
     const refreshToken = Cookies.get("refresh_token");
     if (!refreshToken) return false;
