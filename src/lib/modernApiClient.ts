@@ -141,7 +141,19 @@ class ModernApiClient {
       }
 
       // Get auth token from cookies each attempt (may change after refresh)
-      const token = Cookies.get("access_token");
+      // Also check localStorage as fallback for mobile browsers
+      let token = Cookies.get("access_token");
+      if (!token && typeof window !== "undefined") {
+        try {
+          token = localStorage.getItem("auth_token") || undefined;
+          if (token) {
+            console.log('📦 Using access token from localStorage');
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to access localStorage for token:', e);
+        }
+      }
+      
       const defaultHeaders: Record<string, string> = {
         Accept: "application/json",
       };
@@ -199,8 +211,23 @@ class ModernApiClient {
       if (!response.ok) {
         // Enhanced 401 debugging and automatic logout
         if (response.status === 401) {
-          const hasRefreshToken = !!Cookies.get("refresh_token");
+          let hasRefreshToken = !!Cookies.get("refresh_token");
           const hasAccessToken = !!Cookies.get("access_token");
+          
+          // Check localStorage for refresh token if not in cookies
+          if (!hasRefreshToken && typeof window !== "undefined") {
+            try {
+              const localRefreshToken = localStorage.getItem("refresh_token");
+              if (localRefreshToken) {
+                console.log('📦 Found refresh token in localStorage, restoring to cookies');
+                Cookies.set("refresh_token", localRefreshToken, { sameSite: "lax", expires: 30, path: "/" });
+                hasRefreshToken = true;
+              }
+            } catch (e) {
+              console.warn('⚠️ Failed to access localStorage for refresh token:', e);
+            }
+          }
+          
           const isAdminEndpoint = endpoint.includes('/admin') || endpoint.includes('/orders');
           
           console.log('🔐 401 Error Details:', {
@@ -227,7 +254,8 @@ class ModernApiClient {
               console.error("❌ Token refresh failed:", refreshError);
             }
           } else if (!hasRefreshToken) {
-            console.error('❌ No refresh token available');
+            console.log('ℹ️ No refresh token available - user not authenticated');
+            // Don't log as error - this is expected when user is not logged in
           }
           
           // Clear invalid tokens and redirect to login only if refresh failed
@@ -355,10 +383,30 @@ class ModernApiClient {
       try {
         // Helper: parse tokens from body + headers
         const parseTokens = async (resp: Response): Promise<{ access?: string; refresh?: string }> => {
-          let body: Record<string, unknown> = {};
-          try { body = await resp.clone().json(); } catch {}
+          let body: Record<string, unknown> | string = {};
+          let access: string | undefined;
+          let refresh: string | undefined;
+          
+          // Try to parse as JSON first
+          try { 
+            const text = await resp.clone().text();
+            // Check if response is just a plain string (the new access token)
+            if (text && !text.startsWith('{') && !text.startsWith('[')) {
+              access = text.trim();
+              console.log('📝 Response is plain text (access token):', access.substring(0, 20) + '...');
+            } else {
+              body = JSON.parse(text);
+            }
+          } catch {}
+          
+          // If body is an object, try to extract tokens
+          if (typeof body === 'object' && body !== null) {
+            access = (body["access_token"] || body["accessToken"] || body["access"]) as string | undefined;
+            refresh = (body["refresh_token"] || body["refreshToken"] || body["refresh"]) as string | undefined;
+          }
+          
+          // Check headers if not found in body
           const headers = resp.headers;
-          let access = (body["access_token"] || body["accessToken"] || body["access"]) as string | undefined;
           if (!access) {
             const authH = headers.get("Authorization") || headers.get("authorization");
             if (authH && /bearer/i.test(authH)) {
@@ -366,8 +414,10 @@ class ModernApiClient {
               if (parts.length === 2) access = parts[1];
             }
           }
-            let refresh = (body["refresh_token"] || body["refreshToken"] || body["refresh"]) as string | undefined;
-            if (!refresh) refresh = headers.get("Refresh-Token") || headers.get("refresh-token") || undefined;
+          if (!refresh) {
+            refresh = headers.get("Refresh-Token") || headers.get("refresh-token") || undefined;
+          }
+          
           return { access, refresh };
         };
 
@@ -411,10 +461,11 @@ class ModernApiClient {
           
           if (!resp.ok && (resp.status === 404 || resp.status === 422)) {
             console.log(`🔄 Retrying with trailing slash for ${strat.label}...`);
-            // attempt with trailing slash variant
+            // attempt with trailing slash variant - try with refresh token in body
             resp = await fetch(build("/auth/refresh/"), { 
               method: "POST", 
-              headers: { "Content-Type": "application/json", "Accept": "application/json" }
+              headers: { "Content-Type": "application/json", "Accept": "application/json" },
+              body: JSON.stringify({ refresh_token: refreshToken })
             });
             console.log(`📊 Trailing slash retry response:`, {
               status: resp.status,
@@ -454,10 +505,14 @@ class ModernApiClient {
               } catch (e) {
                 console.warn('⚠️ Failed to save refresh token to localStorage:', e);
               }
+            } else {
+              // If API doesn't return new refresh token, keep the existing one
+              console.log('ℹ️ No new refresh token in response, keeping existing one');
             }
-            if (access || refresh) {
+            
+            if (access) {
               console.log('✅ Token refresh completed successfully');
-              return !!access;
+              return true;
             }
             lastErr = new Error(`Refresh strategy '${strat.label}' returned no tokens`);
             console.error(`❌ ${(lastErr as Error).message}`);

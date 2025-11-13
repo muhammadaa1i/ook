@@ -573,14 +573,14 @@ export default function CartPage() {
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 flex items-center leading-tight">
-              <ShoppingCart className="h-5 sm:h-6 lg:h-8 w-5 sm:w-6 lg:w-8 mr-2 sm:mr-3 flex-shrink-0" />
-              <span className="break-words">
+              <ShoppingCart className="h-5 sm:h-6 lg:h-8 w-5 sm:w-6 lg:w-8 mr-2 sm:mr-3 shrink-0" />
+              <span className="wrap-break-word">
                 {t('cartPage.heading')} ({t('cartPage.itemsCount', { count: String(itemCount) })})
               </span>
             </h1>
             <button
               onClick={clearCart}
-              className="bg-red-600 text-white hover:bg-red-500 px-3 py-1.5 sm:py-1 rounded-md text-sm font-medium transition-colors flex-shrink-0 self-start sm:self-auto"
+              className="bg-red-600 text-white hover:bg-red-500 px-3 py-1.5 sm:py-1 rounded-md text-sm font-medium transition-colors shrink-0 self-start sm:self-auto"
             >
               {t('cartPage.clear')}
             </button>
@@ -599,7 +599,7 @@ export default function CartPage() {
                 >
                   <div className="flex items-start space-x-3 sm:space-x-4">
                     {/* Product Image */}
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gray-100 rounded-md sm:rounded-lg overflow-hidden flex items-center justify-center border border-blue-100">
                         <ProductImage item={item} />
                       </div>
@@ -607,7 +607,7 @@ export default function CartPage() {
 
                     {/* Product Details */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-1 leading-tight break-words">
+                      <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-1 leading-tight wrap-break-word">
                         {item.name}
                       </h3>
                       {(item.size || item.color) && (
@@ -617,7 +617,7 @@ export default function CartPage() {
                           {item.color && <span>{t('cartPage.color')}: {item.color}</span>}
                         </div>
                       )}
-                      <p className="text-base sm:text-lg lg:text-xl font-bold text-blue-600 mb-3 sm:mb-4 break-words">
+                      <p className="text-base sm:text-lg lg:text-xl font-bold text-blue-600 mb-3 sm:mb-4 wrap-break-word">
                         {formatPrice(item.price, t('common.currencySom'))}
                       </p>
 
@@ -650,7 +650,7 @@ export default function CartPage() {
 
                     {/* Item Total & Remove */}
                     <div className="flex flex-col items-end justify-between ml-2 sm:ml-auto">
-                      <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 mb-2 break-words text-right">
+                      <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 mb-2 wrap-break-word text-right">
                         {formatPrice(item.price * item.quantity, t('common.currencySom'))}
                       </p>
                       <button
@@ -673,7 +673,7 @@ export default function CartPage() {
               <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
                 <div className="flex justify-between items-start">
                   <span className="text-base sm:text-lg font-bold">{t('cartPage.total')}</span>
-                  <span className="text-base sm:text-lg font-bold text-blue-600 break-words text-right">
+                  <span className="text-base sm:text-lg font-bold text-blue-600 wrap-break-word text-right">
                     {formatPrice(totalAmount, t('common.currencySom'))}
                   </span>
                 </div>
@@ -685,7 +685,7 @@ export default function CartPage() {
                   <input
                     id="offer-accept"
                     type="checkbox"
-                    className="mt-0.5 h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 text-green-600 accent-green-600 flex-shrink-0"
+                    className="mt-0.5 h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 text-green-600 accent-green-600 shrink-0"
                     checked={offerAccepted}
                     onChange={(e) => setOfferAccepted(e.target.checked)}
                   />
@@ -696,7 +696,7 @@ export default function CartPage() {
                       href="/offer"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 underline break-words"
+                      className="text-blue-600 hover:text-blue-700 underline wrap-break-word"
                     >
                       ({t('offer.viewLink')})
                     </a>
@@ -716,7 +716,7 @@ export default function CartPage() {
                   </>
                 ) : (
                   <>
-                    <CreditCard className="h-4 sm:h-5 w-4 sm:w-5 mr-2 flex-shrink-0" />
+                    <CreditCard className="h-4 sm:h-5 w-4 sm:w-5 mr-2 shrink-0" />
                     <span className="truncate">{t('cartPage.checkout')}</span>
                   </>
                 )}
@@ -726,7 +726,7 @@ export default function CartPage() {
                 <p className="text-xs sm:text-sm text-gray-600 text-center mt-3 sm:mt-4 leading-5">
                   <Link
                     href="/auth/login"
-                    className="text-blue-600 hover:underline break-words"
+                    className="text-blue-600 hover:underline wrap-break-word"
                   >
                     {t('cartPage.loginForCheckout')}
                   </Link>

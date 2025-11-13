@@ -3,7 +3,20 @@ import Cookies from "js-cookie";
 export function hasValidToken(): boolean {
   if (typeof window === "undefined") return false;
   
-  const accessToken = Cookies.get("access_token");
+  let accessToken = Cookies.get("access_token");
+  
+  // Check localStorage as fallback for mobile browsers
+  if (!accessToken) {
+    try {
+      accessToken = localStorage.getItem("auth_token") || undefined;
+      // If found in localStorage, restore to cookies
+      if (accessToken) {
+        Cookies.set("access_token", accessToken, { sameSite: "lax", expires: 1, path: "/" });
+      }
+    } catch {
+      // localStorage not available
+    }
+  }
   
   // At minimum, we need an access token
   if (!accessToken) {
@@ -19,8 +32,22 @@ export function hasValidToken(): boolean {
 }
 
 export function getTokenInfo() {
-  const accessToken = Cookies.get("access_token");
-  const refreshToken = Cookies.get("refresh_token");
+  let accessToken = Cookies.get("access_token");
+  let refreshToken = Cookies.get("refresh_token");
+  
+  // Check localStorage as fallback
+  if (typeof window !== "undefined") {
+    try {
+      if (!accessToken) {
+        accessToken = localStorage.getItem("auth_token") || undefined;
+      }
+      if (!refreshToken) {
+        refreshToken = localStorage.getItem("refresh_token") || undefined;
+      }
+    } catch {
+      // localStorage not available
+    }
+  }
   
   return {
     hasAccessToken: !!accessToken,

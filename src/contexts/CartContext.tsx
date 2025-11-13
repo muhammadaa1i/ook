@@ -135,6 +135,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // If we're in a clear window, skip hydrating from server
       if (suppressHydrationRef.current > Date.now()) return;
       
+      // Check if we have valid tokens before attempting server sync
+      if (!hasValidToken()) {
+        // No valid token - skip server sync silently
+        return;
+      }
+      
       // For mobile: Check for auth tokens even if isAuthenticated is false
       // This handles cases where auth context is still initializing
       const hasAuthTokens = typeof window !== "undefined" && 

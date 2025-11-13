@@ -581,7 +581,7 @@ export default function AdminOrdersPage() {
                       onClick={() => handlePageChange(val)}
                       className={`px-4 py-2 rounded-lg border font-medium text-sm shadow-sm transition-all duration-200 transform hover:scale-[1.05] active:scale-[0.95] focus:ring-2 focus:ring-offset-1 ${
                         isActive
-                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-500 shadow-md focus:ring-blue-300'
+                          ? 'bg-linear-to-r from-blue-500 to-blue-600 text-white border-blue-500 shadow-md focus:ring-blue-300'
                           : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50 hover:shadow-md focus:ring-gray-300'
                       }`}
                       disabled={isLoading || isActive}

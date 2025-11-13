@@ -71,7 +71,7 @@ const Footer = () => {
                   href="https://www.instagram.com/velora_shoes.uz?igsh=MW5tZ2RqajNwYTdiYg=="
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-linear-to-br from-pink-500 via-red-500 to-yellow-500 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
                   title="Instagram"
                 >
                   <Instagram size={20} />
@@ -87,7 +87,7 @@ const Footer = () => {
                   href="https://t.me/ElbekoptomEshonguzar"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-blue-600 text-white hover:scale-110 transition-transform shadow-lg hover:shadow-xl"
                   title="Telegram Channel"
                 >
                   <Send size={20} />
