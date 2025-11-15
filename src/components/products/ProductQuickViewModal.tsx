@@ -26,33 +26,54 @@ const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({ product, 
   const images: string[] = (() => {
     const urls: string[] = [];
     
-    // Priority: primary_image field → image_gallery/images array → legacy image field
-    if (product?.primary_image) {
+    // Priority 1: images array (array of objects with image_path and is_primary)
+    if (product?.images && product.images.length > 0) {
+      // Add primary image first if it exists
+      const primary = product.images.find(i => i.is_primary);
+      if (primary) {
+        urls.push(getFullImageUrl(primary.image_path));
+      }
+      // Add all other images
+      product.images.forEach(img => {
+        const fullUrl = getFullImageUrl(img.image_path);
+        if (!urls.includes(fullUrl)) {
+          urls.push(fullUrl);
+        }
+      });
+    }
+    
+    // Priority 2: image_gallery array (simple string array)
+    if (urls.length === 0 && product?.image_gallery && product.image_gallery.length > 0) {
+      product.image_gallery.forEach(path => {
+        const fullUrl = getFullImageUrl(path);
+        if (!urls.includes(fullUrl)) {
+          urls.push(fullUrl);
+        }
+      });
+    }
+    
+    // Priority 3: Fallback to primary_image string field
+    if (urls.length === 0 && product?.primary_image) {
       urls.push(getFullImageUrl(product.primary_image));
     }
     
-    // Use image_gallery if present, otherwise fallback to images
-    const gallery = product?.image_gallery || product?.images;
-    if (gallery && gallery.length) {
-      const primary = gallery.find(i => i.is_primary);
-      if (primary && !urls.some(u => u === getFullImageUrl(primary.image_path))) {
-        urls.push(getFullImageUrl(primary.image_path));
-      }
-      gallery.forEach(img => {
-        const full = getFullImageUrl(img.image_path);
-        if (!urls.includes(full)) urls.push(full);
-      });
-    } else if (product?.image && !urls.some(u => u === getFullImageUrl(product.image))) {
+    // Priority 4: Last resort - legacy image field
+    if (urls.length === 0 && product?.image) {
       urls.push(getFullImageUrl(product.image));
     }
     
-    if (!urls.length) urls.push('/placeholder-product.svg');
+    // Final fallback: placeholder
+    if (urls.length === 0) {
+      urls.push('/placeholder-product.svg');
+    }
+    
     return urls;
   })();
 
   const goPrev = useCallback(() => {
     setIndex(i => (i - 1 + images.length) % images.length);
   }, [images.length]);
+  
   const goNext = useCallback(() => {
     setIndex(i => (i + 1) % images.length);
   }, [images.length]);
@@ -73,7 +94,7 @@ const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({ product, 
           </button>
         </div>
 
-  <div className="p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <div className="p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Carousel */}
           <div className="relative w-full flex items-center justify-center">
             <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 aspect-square w-full max-w-[260px] xs:max-w-[300px] sm:max-w-[340px] md:max-w-[380px] lg:max-w-none lg:h-full lg:aspect-square lg:flex-1">
@@ -87,7 +108,7 @@ const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({ product, 
                     <div className="relative w-full h-full rounded-md bg-white shadow-sm flex items-center justify-center overflow-hidden">
                       <Image
                         src={src}
-                        alt={product.name}
+                        alt={`${product.name} - Image ${i + 1}`}
                         fill
                         className="object-contain rounded-md"
                         sizes="(max-width: 640px) 80vw, (max-width: 1024px) 50vw, 400px"

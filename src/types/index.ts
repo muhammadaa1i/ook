@@ -56,8 +56,8 @@ export interface Slipper {
   category?: Category;
   category_name?: string;
   image?: string; // Legacy single image URL (fallback)
-  images?: SlipperImage[]; // Full image gallery array
-  image_gallery?: SlipperImage[]; // Alternative name for images array
+  images?: SlipperImage[]; // Full image gallery array with objects
+  image_gallery?: string[]; // Simple array of image URLs (alternative format)
   primary_image?: string; // Direct URL to primary image (preferred for previews)
   is_available?: boolean;
   created_at: string;

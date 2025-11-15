@@ -143,24 +143,35 @@ export default function ProductDetailPage() {
 
     const list: string[] = [];
 
-    // Priority: primary_image field → image_gallery/images array → legacy image field
-    if (product.primary_image) {
-      list.push(getFullImageUrl(product.primary_image));
-    }
-
-    // Use image_gallery if present, otherwise fallback to images
-    const gallery = product.image_gallery || product.images;
-    if (gallery && gallery.length) {
-      const primary = gallery.find((i) => i.is_primary);
-      if (primary && !list.some(u => u === getFullImageUrl(primary.image_path))) {
+    // Priority 1: images array (array of objects with image_path and is_primary)
+    if (product.images && product.images.length > 0) {
+      // Add primary image first if it exists
+      const primary = product.images.find((i) => i.is_primary);
+      if (primary) {
         list.push(getFullImageUrl(primary.image_path));
       }
-
-      gallery.forEach((img) => {
+      // Add all other images
+      product.images.forEach((img) => {
         const full = getFullImageUrl(img.image_path);
         if (!list.includes(full)) list.push(full);
       });
-    } else if (product?.image && !list.some(u => u === getFullImageUrl(product.image))) {
+    }
+
+    // Priority 2: image_gallery array (simple string array)
+    if (list.length === 0 && product.image_gallery && product.image_gallery.length > 0) {
+      product.image_gallery.forEach(path => {
+        const full = getFullImageUrl(path);
+        if (!list.includes(full)) list.push(full);
+      });
+    }
+
+    // Priority 3: Fallback to primary_image string field
+    if (list.length === 0 && product.primary_image) {
+      list.push(getFullImageUrl(product.primary_image));
+    }
+
+    // Priority 4: Last resort - legacy image field
+    if (list.length === 0 && product?.image) {
       list.push(getFullImageUrl(product.image));
     }
 
