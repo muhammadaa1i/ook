@@ -191,7 +191,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ slipper, onAddToCart, onViewD
       }
     >
       {/* Media */}
-      <div className="relative aspect-[4/3] w-full bg-gray-100">
+        <div className="relative aspect-4/3 w-full bg-gray-100">
         {inCart && !isAdmin && (
           <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 z-10 bg-blue-600 text-white text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-sm sm:rounded-md shadow-sm flex items-center space-x-1">
             <Check className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
@@ -251,7 +251,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ slipper, onAddToCart, onViewD
 
       {/* Details */}
       <div className="flex flex-col flex-1 p-3 gap-1">
-        <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 leading-snug min-h-[2.25rem]">
+          <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 leading-snug min-h-9">
           {slipper.name}
         </h3>
         <div className="flex items-center text-xs sm:text-sm text-gray-600">

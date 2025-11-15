@@ -97,7 +97,7 @@ const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({ product, 
         <div className="p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Carousel */}
           <div className="relative w-full flex items-center justify-center">
-            <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 aspect-square w-full max-w-[260px] xs:max-w-[300px] sm:max-w-[340px] md:max-w-[380px] lg:max-w-none lg:h-full lg:aspect-square lg:flex-1">
+            <div className="relative overflow-hidden rounded-lg bg-linear-to-br from-gray-50 to-gray-100 aspect-square w-full max-w-[260px] xs:max-w-[300px] sm:max-w-[340px] md:max-w-[380px] lg:max-w-none lg:h-full lg:aspect-square lg:flex-1">
               {/* Slides */}
               <div
                 className="flex h-full transition-transform duration-300 ease-in-out"

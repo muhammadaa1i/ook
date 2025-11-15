@@ -273,7 +273,7 @@ export default function ProductDetailPage() {
           {/* Gallery */}
           <div className="w-full lg:w-1/2">
             <div
-              className="relative aspect-[4/3] w-full bg-gray-100 rounded-lg overflow-hidden group select-none"
+              className="relative aspect-4/3 w-full bg-gray-100 rounded-lg overflow-hidden group select-none"
               onTouchStart={onTouchStart}
               onTouchEnd={onTouchEnd}
               onMouseEnter={() => { if (autoplayRef.current) { clearInterval(autoplayRef.current); autoplayRef.current = null; } }}
@@ -339,7 +339,7 @@ export default function ProductDetailPage() {
                   <button
                     key={u + i}
                     onClick={() => setActiveIndex(i)}
-                    className={`relative flex-shrink-0 h-16 w-16 rounded-md overflow-hidden border ${i === safeActive ? "border-blue-500 ring-2 ring-blue-300" : "border-gray-200 hover:border-blue-400"}`}
+                    className={`relative shrink-0 h-16 w-16 rounded-md overflow-hidden border ${i === safeActive ? "border-blue-500 ring-2 ring-blue-300" : "border-gray-200 hover:border-blue-400"}`}
                     aria-label={t('productDetail.thumbnail', { index: String(i + 1) })}
                   >
                     <Image src={u} alt={product.name + ' thumbnail ' + (i + 1)} fill className="object-cover" sizes="64px" />
@@ -404,7 +404,7 @@ export default function ProductDetailPage() {
                         <Minus className="h-4 w-4" />
                       </button>
                       <div className="border border-gray-300 rounded-md">
-                        <span className="px-6 py-2 font-medium text-gray-900 bg-gray-50 block text-center min-w-[80px]">
+                        <span className="px-6 py-2 font-medium text-gray-900 bg-gray-50 block text-center min-w-20">
                           {cartItem.quantity}
                         </span>
                       </div>
