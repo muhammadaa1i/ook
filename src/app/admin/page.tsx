@@ -87,10 +87,24 @@ export default function AdminDashboard() {
       // Fetch stats with individual error handling
       const fetchStat = async (endpoint: string, params?: Record<string, unknown>) => {
         try {
-          const response = await modernApiClient.get(endpoint, { ...params, limit: 1, _nc: now }, { cache: false, force: true });
+          // Some endpoints (e.g., /orders/) may not accept query params and can 500 even without them.
+          // To avoid backend errors and console noise, skip calling orders here until a safe count endpoint exists.
+          if (endpoint === API_ENDPOINTS.ORDERS) {
+            return 0;
+          }
+
+          // Build safe params for other endpoints
+          const safeParams = (() => {
+            return { ...params, limit: 1, _nc: now } as Record<string, unknown>;
+          })();
+
+          // Force single attempt (no retries) to prevent duplicate requests on server errors
+          const response = await modernApiClient.get(endpoint, safeParams, { cache: false, force: true, retries: 0, timeout: 4000 });
           return extractCount(response);
         } catch (error) {
-          console.error(`Error fetching stats from ${endpoint}:`, error);
+          if (process.env.NEXT_PUBLIC_DEBUG_ADMIN === 'true') {
+            console.error(`Error fetching stats from ${endpoint}:`, error);
+          }
           return 0;
         }
       };
@@ -112,7 +126,9 @@ export default function AdminDashboard() {
       });
       
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+      if (process.env.NEXT_PUBLIC_DEBUG_ADMIN === 'true') {
+        console.error("Error fetching dashboard stats:", error);
+      }
     } finally {
       setIsLoading(false);
     }

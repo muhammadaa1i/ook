@@ -5,6 +5,9 @@
 import Cookies from "js-cookie";
 import { API_BASE_URL } from "./constants";
 
+// Toggle verbose auth/network logs via env if needed
+const DEBUG_AUTH = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG_AUTH === 'true';
+
 interface CacheEntry<T = unknown> {
   data: T;
   timestamp: number;
@@ -27,6 +30,7 @@ class ModernApiClient {
   private readonly baseURL = API_BASE_URL; // direct backend base URL
   private refreshPromise: Promise<boolean> | null = null; // shared in-flight refresh
   private lastNavigationTime = 0; // Track last navigation to prevent premature logout
+  private lastRefreshAttempt = 0; // Cooldown to avoid rapid refresh loops
 
   constructor() {
     // Track navigation events to prevent logout during browser back/forward/reload
@@ -146,11 +150,11 @@ class ModernApiClient {
       if (!token && typeof window !== "undefined") {
         try {
           token = localStorage.getItem("auth_token") || undefined;
-          if (token) {
+          if (token && DEBUG_AUTH) {
             console.log('📦 Using access token from localStorage');
           }
         } catch (e) {
-          console.warn('⚠️ Failed to access localStorage for token:', e);
+          if (DEBUG_AUTH) console.warn('⚠️ Failed to access localStorage for token:', e);
         }
       }
       
@@ -219,18 +223,18 @@ class ModernApiClient {
             try {
               const localRefreshToken = localStorage.getItem("refresh_token");
               if (localRefreshToken) {
-                console.log('📦 Found refresh token in localStorage, restoring to cookies');
+                if (DEBUG_AUTH) console.log('📦 Found refresh token in localStorage, restoring to cookies');
                 Cookies.set("refresh_token", localRefreshToken, { sameSite: "lax", expires: 30, path: "/" });
                 hasRefreshToken = true;
               }
             } catch (e) {
-              console.warn('⚠️ Failed to access localStorage for refresh token:', e);
+              if (DEBUG_AUTH) console.warn('⚠️ Failed to access localStorage for refresh token:', e);
             }
           }
           
           const isAdminEndpoint = endpoint.includes('/admin') || endpoint.includes('/orders');
           
-          console.log('🔐 401 Error Details:', {
+          if (DEBUG_AUTH) console.log('🔐 401 Error Details:', {
             endpoint,
             hasRefreshToken,
             hasAccessToken,
@@ -241,20 +245,20 @@ class ModernApiClient {
           // Try token refresh if available
           if (hasRefreshToken && !endpoint.includes('/auth/refresh')) {
             try {
-              console.log('🔄 Attempting token refresh for:', endpoint);
+              if (DEBUG_AUTH) console.log('🔄 Attempting token refresh for:', endpoint);
               const refreshed = await this.refreshAccessToken();
               if (refreshed) {
-                console.log('✅ Token refreshed successfully, retrying request:', endpoint);
+                if (DEBUG_AUTH) console.log('✅ Token refreshed successfully, retrying request:', endpoint);
                 // Retry the original request with new token
                 return this.makeRequest(endpoint, options);
               } else {
-                console.error('❌ Token refresh returned false');
+                if (DEBUG_AUTH) console.error('❌ Token refresh returned false');
               }
             } catch (refreshError) {
-              console.error("❌ Token refresh failed:", refreshError);
+              if (DEBUG_AUTH) console.error("❌ Token refresh failed:", refreshError);
             }
           } else if (!hasRefreshToken) {
-            console.log('ℹ️ No refresh token available - user not authenticated');
+            if (DEBUG_AUTH) console.log('ℹ️ No refresh token available - user not authenticated');
             // Don't log as error - this is expected when user is not logged in
           }
           
@@ -349,8 +353,16 @@ class ModernApiClient {
 
   /** Attempt to refresh access token using refresh_token cookie */
   async refreshAccessToken(): Promise<boolean> {
+    // Prevent hammering the refresh endpoint
+    const now = Date.now();
+    if (now - this.lastRefreshAttempt < 3000 && !this.refreshPromise) {
+      if (DEBUG_AUTH) console.log('⏱️ Refresh cooldown active, skipping');
+      return false;
+    }
+    this.lastRefreshAttempt = now;
+
     if (this.refreshPromise) {
-      console.log('⏳ Refresh already in progress, waiting...');
+      if (DEBUG_AUTH) console.log('⏳ Refresh already in progress, waiting...');
       return this.refreshPromise;
     }
     
@@ -360,20 +372,20 @@ class ModernApiClient {
       try {
         refreshToken = localStorage.getItem("refresh_token") || undefined;
         if (refreshToken) {
-          console.log('📦 Found refresh token in localStorage, restoring to cookies');
+          if (DEBUG_AUTH) console.log('📦 Found refresh token in localStorage, restoring to cookies');
           Cookies.set("refresh_token", refreshToken, { sameSite: "lax", expires: 30, path: "/" });
         }
       } catch (e) {
-        console.warn('⚠️ Failed to access localStorage:', e);
+        if (DEBUG_AUTH) console.warn('⚠️ Failed to access localStorage:', e);
       }
     }
     
     if (!refreshToken) {
-      console.error('❌ No refresh token available in cookies or localStorage');
+      if (DEBUG_AUTH) console.error('❌ No refresh token available in cookies or localStorage');
       return false;
     }
 
-    console.log('🔄 Starting token refresh process...', {
+    if (DEBUG_AUTH) console.log('🔄 Starting token refresh process...', {
       refreshTokenLength: refreshToken.length,
       baseURL: this.baseURL,
       timestamp: new Date().toISOString()
@@ -391,10 +403,15 @@ class ModernApiClient {
           try { 
             const text = await resp.clone().text();
             // Check if response is just a plain string (the new access token)
-            if (text && !text.startsWith('{') && !text.startsWith('[')) {
-              access = text.trim();
-              console.log('📝 Response is plain text (access token):', access.substring(0, 20) + '...');
-            } else {
+            if (text && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+              let tokenText = text.trim();
+              // Some servers return JSON string: "token"
+              if ((tokenText.startsWith('"') && tokenText.endsWith('"')) || (tokenText.startsWith("'") && tokenText.endsWith("'"))) {
+                try { tokenText = JSON.parse(tokenText); } catch {}
+              }
+              access = tokenText;
+              if (DEBUG_AUTH && access) console.log('📝 Response is plain text (access token)');
+            } else if (text) {
               body = JSON.parse(text);
             }
           } catch {}
@@ -423,117 +440,102 @@ class ModernApiClient {
 
         // Direct API calls for refresh token (different from regular API calls)
         const build = (suffix: string) => new URL(suffix.replace(/^\/+/, "/"), this.baseURL + "/").toString();
+        // Use a minimal, canonical strategy that matches backend docs
+        // Primary: JSON body with { refresh_token }
+        // Fallback: Same payload but with trailing slash variant
         const strategies: Array<{ label: string; run: () => Promise<Response> }> = [
           {
-            label: "json-double-field",
+            label: "json-body",
             run: () => fetch(build("/auth/refresh"), {
               method: "POST",
               headers: { "Content-Type": "application/json", Accept: "application/json" },
-              body: JSON.stringify({ refresh_token: refreshToken, refreshToken }),
-            }),
-          },
-          {
-            label: "header-refresh-token",
-            run: () => fetch(build("/auth/refresh"), {
-              method: "POST",
-              headers: { "Refresh-Token": refreshToken, Accept: "application/json" },
-            }),
-          },
-          {
-            label: "form-urlencoded",
-            run: () => fetch(build("/auth/refresh"), {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-              body: new URLSearchParams({ refresh_token: refreshToken }).toString(),
+              body: JSON.stringify({ refresh_token: refreshToken }),
             }),
           },
         ];
 
         let lastErr: unknown = null;
         for (const strat of strategies) {
-          console.log(`🔄 Trying refresh strategy: ${strat.label}`);
+          if (DEBUG_AUTH) console.log(`🔄 Trying refresh strategy: ${strat.label}`);
           let resp = await strat.run();
-          console.log(`📊 Strategy ${strat.label} response:`, {
+          if (DEBUG_AUTH) console.log(`📊 Strategy ${strat.label} response:`, {
             status: resp.status,
             ok: resp.ok,
             statusText: resp.statusText
           });
           
           if (!resp.ok && (resp.status === 404 || resp.status === 422)) {
-            console.log(`🔄 Retrying with trailing slash for ${strat.label}...`);
+            if (DEBUG_AUTH) console.log(`🔄 Retrying with trailing slash for ${strat.label}...`);
             // attempt with trailing slash variant - try with refresh token in body
             resp = await fetch(build("/auth/refresh/"), { 
               method: "POST", 
               headers: { "Content-Type": "application/json", "Accept": "application/json" },
               body: JSON.stringify({ refresh_token: refreshToken })
             });
-            console.log(`📊 Trailing slash retry response:`, {
+            if (DEBUG_AUTH) console.log(`📊 Trailing slash retry response:`, {
               status: resp.status,
               ok: resp.ok
             });
           }
           if (resp.ok) {
             const { access, refresh } = await parseTokens(resp);
-            console.log('✅ Successfully parsed tokens:', {
-              hasAccess: !!access,
-              hasRefresh: !!refresh,
-              accessLength: access?.length,
-              refreshLength: refresh?.length
-            });
+            if (DEBUG_AUTH) {
+              console.log('✅ Successfully parsed tokens:', { hasAccess: !!access, hasRefresh: !!refresh });
+            }
             
             const cookieOptions = { sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
             if (access) {
               Cookies.set("access_token", access, { ...cookieOptions, expires: 1 });
-              console.log('✅ Access token saved to cookies');
+              if (DEBUG_AUTH) console.log('✅ Access token saved to cookies');
               // Also save to localStorage as backup for mobile browsers
               try {
                 if (typeof window !== "undefined") {
                   localStorage.setItem("auth_token", access);
                 }
               } catch (e) {
-                console.warn('⚠️ Failed to save access token to localStorage:', e);
+                if (DEBUG_AUTH) console.warn('⚠️ Failed to save access token to localStorage:', e);
               }
             }
             if (refresh) {
               Cookies.set("refresh_token", refresh, { ...cookieOptions, expires: 30 });
-              console.log('✅ Refresh token saved to cookies');
+              if (DEBUG_AUTH) console.log('✅ Refresh token saved to cookies');
               // Also save to localStorage as backup for mobile browsers
               try {
                 if (typeof window !== "undefined") {
                   localStorage.setItem("refresh_token", refresh);
                 }
               } catch (e) {
-                console.warn('⚠️ Failed to save refresh token to localStorage:', e);
+                if (DEBUG_AUTH) console.warn('⚠️ Failed to save refresh token to localStorage:', e);
               }
             } else {
               // If API doesn't return new refresh token, keep the existing one
-              console.log('ℹ️ No new refresh token in response, keeping existing one');
+              if (DEBUG_AUTH) console.log('ℹ️ No new refresh token in response, keeping existing one');
             }
             
             if (access) {
-              console.log('✅ Token refresh completed successfully');
+              if (DEBUG_AUTH) console.log('✅ Token refresh completed successfully');
               return true;
             }
             lastErr = new Error(`Refresh strategy '${strat.label}' returned no tokens`);
-            console.error(`❌ ${(lastErr as Error).message}`);
+            if (DEBUG_AUTH) console.error(`❌ ${(lastErr as Error).message}`);
             continue;
           } else {
             if (resp.status === 422) {
               // Try to read the error body for debugging
               try {
                 const errorBody = await resp.clone().text();
-                console.error(`❌ Validation error (422):`, errorBody);
+                if (DEBUG_AUTH) console.error(`❌ Validation error (422):`, errorBody);
               } catch {}
             }
             lastErr = new Error(`Refresh strategy '${strat.label}' failed status ${resp.status}`);
-            console.error(`❌ ${(lastErr as Error).message}`);
+            if (DEBUG_AUTH) console.error(`❌ ${(lastErr as Error).message}`);
             continue;
           }
         }
-        console.error('❌ All refresh strategies failed');
+        if (DEBUG_AUTH) console.error('❌ All refresh strategies failed');
         throw lastErr || new Error("All refresh strategies failed");
       } catch (refreshError) {
-        console.error('❌ Token refresh exception:', refreshError);
+        if (DEBUG_AUTH) console.error('❌ Token refresh exception:', refreshError);
         // Don't immediately logout during payment flows or navigation - could be temporary network issues
         const isPaymentFlow = typeof window !== "undefined" && 
           (window.location.pathname.includes('/payment/') || 

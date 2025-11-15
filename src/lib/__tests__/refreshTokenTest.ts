@@ -336,7 +336,6 @@ if (typeof window !== 'undefined') {
     await tester.runAll();
   };
   
-  console.log('💡 Refresh token tester loaded. Run testRefreshToken() to start tests.');
 }
 
 export default RefreshTokenTester;

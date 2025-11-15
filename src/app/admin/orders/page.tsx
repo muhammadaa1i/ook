@@ -96,43 +96,31 @@ export default function AdminOrdersPage() {
       const hasAccessToken = !!Cookies.get("access_token");
       const hasRefreshToken = !!Cookies.get("refresh_token");
       
-      console.log('🔐 Admin Orders - Token Check:', {
-        hasAccessToken,
-        hasRefreshToken,
-        timestamp: new Date().toISOString()
-      });
-      
       // If no access token but have refresh token, try to refresh proactively
       if (!hasAccessToken && hasRefreshToken) {
-        console.log('🔄 No access token found, attempting proactive refresh...');
         try {
           const refreshed = await modernApiClient.refreshAccessToken();
           if (refreshed) {
-            console.log('✅ Token refreshed successfully on mount');
             setTokenReady(true);
           } else {
-            console.error('❌ Token refresh failed on mount');
             toast.error('Не удалось обновить сессию. Пожалуйста, войдите снова.');
             setTimeout(() => {
               window.location.href = '/auth/login?message=Token refresh failed';
             }, 2000);
           }
         } catch (error) {
-          console.error('❌ Error during token refresh on mount:', error);
           toast.error('Ошибка обновления токена. Войдите снова.');
           setTimeout(() => {
             window.location.href = '/auth/login?message=Token refresh error';
           }, 2000);
         }
       } else if (!hasAccessToken && !hasRefreshToken) {
-        console.error('❌ No authentication tokens found');
         toast.error('Требуется авторизация');
         setTimeout(() => {
           window.location.href = '/auth/login';
         }, 2000);
       } else {
         // Both tokens present, ready to proceed
-        console.log('✅ Tokens present, ready to fetch orders');
         setTokenReady(true);
       }
     };
@@ -143,10 +131,12 @@ export default function AdminOrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await modernApiClient.get(API_ENDPOINTS.ORDERS, filters as unknown as Record<string, unknown>);
-
-      // Debug: Log the raw response to help diagnose pricing issues
-      console.log("Admin Orders API Response:", response);
+      // Backend list endpoint: GET /orders/ (no pagination params). We paginate client-side.
+      const response = await modernApiClient.get(
+        API_ENDPOINTS.ORDERS,
+        { _nc: Date.now() },
+        { cache: false, retries: 0, timeout: 8000 }
+      );
 
       // Handle response data structure
       const data =
@@ -176,10 +166,7 @@ export default function AdminOrdersPage() {
           (data as { items?: Order[]; data?: Order[] })?.data ||
           [];
 
-      // Log specific order data for debugging
-      if (Array.isArray(ordersData) && ordersData.length > 0) {
-        console.log("First order raw data:", ordersData[0]);
-      }
+    //
 
       // Normalize to ensure user, items and total_amount are present
       type RawOrderItem = Partial<import("@/types").OrderItem> & {
@@ -310,13 +297,6 @@ export default function AdminOrdersPage() {
           const hasValidPrice = Number(item.unit_price ?? 0) > 0 || Number(item.total_price ?? 0) > 0;
           
           if (!hasValidProduct || !hasValidQuantity || !hasValidPrice) {
-            console.log("Admin: Filtering out invalid item:", {
-              slipper_id: item.slipper_id,
-              name: item.name,
-              unit_price: item.unit_price,
-              quantity: item.quantity,
-              total_price: item.total_price
-            });
             return false;
           }
           return true;
@@ -332,15 +312,7 @@ export default function AdminOrdersPage() {
         return order.items.length > 0;
       });
 
-      // Debug: Log processed orders to check totals
-      if (processedOrders.length > 0) {
-        console.log("Processed order totals:", processedOrders.map(o => ({
-          id: o.id,
-          original_total: o.total_amount,
-          items_count: o.items.length,
-          items: o.items.map(i => ({ name: i.name, qty: i.quantity, unit_price: i.unit_price, total_price: i.total_price }))
-        })));
-      }
+      //
 
 
 
@@ -373,26 +345,20 @@ export default function AdminOrdersPage() {
           ),
       });
     } catch (error) {
-      console.error("Error fetching orders:", error);
-      
-      // Enhanced error handling with specific messages
+      // Graceful suppression: don't surface 500 backend errors while endpoint is unstable.
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Check for authentication errors
-      if (errorMessage.includes('401') || errorMessage.includes('Authentication required')) {
+      const isAuth = errorMessage.includes('401') || errorMessage.includes('Authentication required');
+      const isForbidden = errorMessage.includes('403');
+      const isNetwork = /timeout|network/i.test(errorMessage);
+
+      if (isAuth) {
         toast.error('Требуется повторная авторизация. Пожалуйста, войдите снова.');
-        // Wait briefly before redirecting to allow user to see the message
-        setTimeout(() => {
-          window.location.href = '/auth/login?message=Session expired';
-        }, 2000);
-      } else if (errorMessage.includes('403') || errorMessage.includes('Access denied')) {
+        setTimeout(() => { window.location.href = '/auth/login?message=Session expired'; }, 2000);
+      } else if (isForbidden) {
         toast.error('Недостаточно прав для просмотра заказов');
-      } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+      } else if (isNetwork) {
         toast.error('Проблема с подключением. Проверьте интернет и попробуйте снова.');
-      } else {
-        toast.error(t('admin.orders.toasts.loadError'));
-      }
-      
+      } // else: suppress 5xx / parsing errors silently
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -402,7 +368,6 @@ export default function AdminOrdersPage() {
   // Only fetch orders after token validation is complete
   useEffect(() => {
     if (tokenReady) {
-      console.log('🔄 Token ready, fetching orders...');
       fetchOrders();
     }
   }, [tokenReady, fetchOrders]);
@@ -422,7 +387,6 @@ export default function AdminOrdersPage() {
 
     
     if (!AdminRefundService.canOrderBeRefunded(order.status)) {
-      console.warn(`⚠️ Admin: Order #${order.id} cannot be refunded (status: ${order.status})`);
       toast.error(t('admin.orders.toasts.refundNotAllowed'));
       return;
     }
@@ -444,7 +408,6 @@ export default function AdminOrdersPage() {
 
     // Validate that the order ID matches the selected order
     if (orderId !== selectedOrderForRefund.id) {
-      console.error(`❌ Order ID mismatch! Expected: ${selectedOrderForRefund.id}, Got: ${orderId}`);
       toast.error(t('admin.orders.toasts.refundError'));
       return;
     }
@@ -479,11 +442,9 @@ export default function AdminOrdersPage() {
         setShowRefundDialog(false);
         setSelectedOrderForRefund(null);
       } else {
-        console.error(`❌ Admin: Refund failed for order #${orderId}:`, result);
         toast.error(result.message || t('admin.orders.toasts.refundError'));
       }
     } catch (error) {
-      console.error(`❌ Admin: Refund processing error for order #${orderId}:`, error);
       toast.error(t('admin.orders.toasts.refundError'));
     }
   }, [selectedOrderForRefund, t, setOrders, setRefreshKey, setShowRefundDialog, setSelectedOrderForRefund]);
@@ -615,10 +576,7 @@ export default function AdminOrdersPage() {
             <p className="text-gray-600 mt-2 text-sm sm:text-base">{t('admin.orders.subtitle')}</p>
           </div>
           <button
-            onClick={() => {
-              console.log('🔄 Manual refresh triggered');
-              fetchOrders();
-            }}
+            onClick={() => { fetchOrders(); }}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >

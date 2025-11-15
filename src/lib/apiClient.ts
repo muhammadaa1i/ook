@@ -21,12 +21,12 @@ const buildUrl = (endpoint: string, params?: Record<string, unknown>) => {
       });
     }
     const finalUrl = url.toString();
-    
-    // Debug URL construction for auth endpoints
-    if (endpoint.includes('/auth/')) {
+
+    // Debug URL construction for auth endpoints (only when explicitly enabled)
+    if (process.env.NEXT_PUBLIC_DEBUG_AUTH === 'true' && endpoint.includes('/auth/')) {
       console.log("Built URL for auth endpoint:", { endpoint, finalUrl });
     }
-    
+
     return finalUrl;
   }
   // On server (SSR/route handlers), call backend directly
@@ -78,7 +78,7 @@ api.interceptors.response.use(
 
     // Removed verbose development logging for performance
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+  if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
@@ -103,24 +103,59 @@ api.interceptors.response.use(
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            refresh_token: refreshToken,
-            refreshToken: refreshToken, // backend compatibility
-          }),
+          // Canonical backend payload: JSON body with refresh_token
+          body: JSON.stringify({ refresh_token: refreshToken }),
         });
+
+        // Accept both JSON and plain text responses from backend
+        let access_token: string | undefined;
+        let newRefreshToken: string | undefined;
 
         if (!refreshResponse.ok) {
           const errorText = await refreshResponse.text();
-          console.error("Token refresh failed:", {
-            status: refreshResponse.status,
-            statusText: refreshResponse.statusText,
-            body: errorText
-          });
+          // Quiet by default; enable verbose only via env flag
+          if (process.env.NEXT_PUBLIC_DEBUG_AUTH === 'true') {
+            console.error("Token refresh failed:", {
+              status: refreshResponse.status,
+              statusText: refreshResponse.statusText,
+              body: errorText,
+            });
+          }
           throw new Error(`Refresh failed: ${refreshResponse.status} - ${errorText}`);
+        } else {
+          const ct = refreshResponse.headers.get("content-type") || "";
+          if (ct.includes("application/json")) {
+            try {
+              const data = await refreshResponse.json();
+              access_token = (data?.access_token || data?.access || data?.accessToken) as string | undefined;
+              newRefreshToken = (data?.refresh_token || data?.refresh || data?.refreshToken) as string | undefined;
+            } catch (_) {
+              // Fall back to text parsing below
+            }
+          }
+          if (!access_token) {
+            const text = (await refreshResponse.text()).trim();
+            if (text && !text.startsWith("{") && !text.startsWith("[")) {
+              // Some servers return the access token as a raw string or quoted JSON string
+              try {
+                access_token = JSON.parse(text);
+              } catch {
+                access_token = text;
+              }
+            }
+          }
+          // Also check headers if present
+          if (!access_token) {
+            const authH = refreshResponse.headers.get("authorization") || refreshResponse.headers.get("Authorization");
+            if (authH && /bearer/i.test(authH)) {
+              const parts = authH.split(/\s+/);
+              if (parts.length === 2) access_token = parts[1];
+            }
+          }
+          if (!newRefreshToken) {
+            newRefreshToken = refreshResponse.headers.get("Refresh-Token") || refreshResponse.headers.get("refresh-token") || undefined;
+          }
         }
-
-        const responseData = await refreshResponse.json();
-        const { access_token, refresh_token: newRefreshToken } = responseData;
 
         if (!access_token) {
           throw new Error("No access token received from refresh");
@@ -143,14 +178,16 @@ api.interceptors.response.use(
           if (newRefreshToken) {
             Cookies.set("refresh_token", newRefreshToken, { ...cookieOptions, expires: 30 });
           }
-          
+
           // Also update localStorage for mobile compatibility
           localStorage.setItem("access_token", access_token);
           if (newRefreshToken) {
             localStorage.setItem("refresh_token", newRefreshToken);
           }
         } catch (storageError) {
-          console.warn("Failed to store tokens:", storageError);
+          if (process.env.NEXT_PUBLIC_DEBUG_AUTH === 'true') {
+            console.warn("Failed to store tokens:", storageError);
+          }
         }
 
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
@@ -177,9 +214,7 @@ api.interceptors.response.use(
             setTimeout(() => (window.location.href = "/auth/login"), 100);
           }
         } else {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn("Token refresh failed during payment flow - preserving session", refreshError);
-          }
+          // silent during payment flows
         }
         return Promise.reject(refreshError);
       }

@@ -17,7 +17,7 @@ const Footer = () => {
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <div className="flex items-center space-x-3 mb-4">
               <div className="flex items-center justify-center w-12 h-12">
-                <Image src="/logo.svg" alt={t('brand.name')} width={48} height={48} className="object-contain" />
+                <Image src="/logo.svg" alt={t('brand.name')} width={48} height={48} className="object-contain" style={{ width: 'auto', height: 'auto' }} />
               </div>
               <div className="flex flex-col">
                 <h3 className="text-2xl font-serif font-semibold text-gray-900 tracking-wide">{t('brand.name')}</h3>
@@ -105,24 +105,24 @@ const Footer = () => {
             <div className="grid grid-cols-2 gap-2 w-full max-w-44">
               {/* Visa */}
               <div className="flex items-center justify-center hover:shadow-md transition-shadow">
-                <Image src="/payments/visa.svg" alt="Visa" width={90} height={50} className="object-contain" />
+                <Image src="/payments/visa.svg" alt="Visa" width={90} height={50} className="object-contain" style={{ width: 'auto', height: 'auto' }} />
               </div>
               {/* Mastercard */}
               <div className="flex items-center justify-center hover:shadow-md transition-shadow">
-                <Image src="/payments/mastercard.svg" alt="Mastercard" width={90} height={45} className="object-contain" />
+                <Image src="/payments/mastercard.svg" alt="Mastercard" width={90} height={45} className="object-contain" style={{ width: 'auto', height: 'auto' }} />
               </div>
               {/* UnionPay */}
               <div className="flex items-center justify-center bg-white rounded border border-gray-200 hover:shadow-md transition-shadow">
-                <Image src={i3} alt="UnionPay" width={56} height={30} className="object-contain" />
+                <Image src={i3} alt="UnionPay" width={56} height={30} className="object-contain" style={{ width: 'auto', height: 'auto' }} />
               </div>
               {/* HUMO */}
               <div className="flex items-center justify-center bg-white rounded border border-gray-200 hover:shadow-md transition-shadow">
-                <Image src={i1} alt="Humo" width={56} height={30} className="object-contain" />
+                <Image src={i1} alt="Humo" width={56} height={30} className="object-contain" style={{ width: 'auto', height: 'auto' }} />
               </div>
               {/* UZCARD - Centered */}
               <div className="col-span-2 flex items-center justify-center">
                 <div className="flex items-center justify-center px-3 bg-white rounded border border-gray-200 hover:shadow-md transition-shadow w-fit">
-                  <Image src={i2} alt="Uzcard" width={56} height={30} className="object-contain" />
+                  <Image src={i2} alt="Uzcard" width={56} height={30} className="object-contain" style={{ width: 'auto', height: 'auto' }} />
                 </div>
               </div>
             </div>

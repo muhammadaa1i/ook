@@ -143,19 +143,24 @@ export default function ProductDetailPage() {
 
     const list: string[] = [];
 
+    // Priority: primary_image field → image_gallery/images array → legacy image field
+    if (product.primary_image) {
+      list.push(getFullImageUrl(product.primary_image));
+    }
 
-    if (product.images && product.images.length) {
-      const primary = product.images.find((i) => i.is_primary);
+    // Use image_gallery if present, otherwise fallback to images
+    const gallery = product.image_gallery || product.images;
+    if (gallery && gallery.length) {
+      const primary = gallery.find((i) => i.is_primary);
+      if (primary && !list.some(u => u === getFullImageUrl(primary.image_path))) {
+        list.push(getFullImageUrl(primary.image_path));
+      }
 
-      if (primary) list.push(getFullImageUrl(primary.image_path));
-
-      product.images.forEach((img) => {
+      gallery.forEach((img) => {
         const full = getFullImageUrl(img.image_path);
-
         if (!list.includes(full)) list.push(full);
       });
-
-    } else if (product?.image) {
+    } else if (product?.image && !list.some(u => u === getFullImageUrl(product.image))) {
       list.push(getFullImageUrl(product.image));
     }
 

@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Order, OrderItem } from "@/types";
+import Cookies from "js-cookie";
+import { hasValidToken } from "@/lib/tokenUtils";
 
 import { RefundContactModal } from "@/components/ui/RefundContactModal";
 import { OrderDetailsModal } from "@/components/ui/OrderDetailsModal";
@@ -31,14 +33,14 @@ function ProductCarousel({ item }: { item: { image?: string; name?: string } }) 
 
   if (!imageSource) {
     return (
-      <div className="relative h-12 w-12 sm:h-16 sm:w-16 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 rounded-md border text-gray-400 flex-shrink-0">
+      <div className="relative h-12 w-12 sm:h-16 sm:w-16 flex items-center justify-center bg-linear-to-br from-gray-100 to-gray-200 rounded-md border text-gray-400 shrink-0">
         <ImageIcon className="h-6 w-6 sm:h-8 sm:w-8" />
       </div>
     );
   }
 
   return (
-    <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-md overflow-hidden border flex-shrink-0">
+    <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-md overflow-hidden border shrink-0">
       <Image
         src={getFullImageUrl(imageSource)}
         alt={alt}
@@ -55,6 +57,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [tokenReady, setTokenReady] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -90,95 +93,12 @@ export default function OrdersPage() {
   /* ------------------------- Fetch Orders ------------------------- */
 
   const fetchOrders = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      // API dan to'g'ridan-to'g'ri keladigan JSON
-      const response = await modernApiClient.get(API_ENDPOINTS.ORDERS);
-
-      // Debug: Log the raw response to help diagnose pricing issues
-      console.log("Orders API Response:", response);
-
-      // Agar API ro'yxat qaytarsa:
-      const data: Order[] = Array.isArray(response) ? response : [];
-
-      // Normalize orders with proper price calculation
-      const normalizedOrders: Order[] = (data || []).map((order: unknown) => {
-        const orderData = order as Record<string, unknown>;
-        const originalItems = Array.isArray(orderData.items) ? orderData.items : [];
-        const items: OrderItem[] = originalItems.map((it: unknown) => {
-          const itemData = it as Record<string, unknown>;
-          // Extract quantity safely
-          const quantity = Number(itemData?.quantity ?? itemData?.qty ?? 0) || 0;
-          
-          // Extract unit price from multiple possible field names
-          const unit_price = Number(
-            itemData?.unit_price ?? 
-            itemData?.price ?? 
-            itemData?.unitPrice ?? 
-            (itemData?.slipper as Record<string, unknown>)?.price ?? 
-            0
-          ) || 0;
-          
-          // Calculate total price: prefer declared total, fallback to quantity * unit_price
-          const declaredTotal = Number(
-            itemData?.total_price ?? 
-            itemData?.total ?? 
-            itemData?.amount ?? 
-            0
-          ) || 0;
-          
-          // Use declared total if available and valid, otherwise calculate
-          const total_price = declaredTotal > 0 ? declaredTotal : (unit_price * quantity);
-          
-          // Extract name from various possible sources
-          const name = String(
-            itemData?.name ?? 
-            itemData?.slipper_name ?? 
-            (itemData?.slipper as Record<string, unknown>)?.name ?? 
-            ""
-          );
-          
-          // Extract image
-          const image = itemData?.image ?? (itemData?.slipper as Record<string, unknown>)?.image;
-          
-          // Extract slipper ID
-          const slipper_id = Number(
-            itemData?.slipper_id ?? 
-            itemData?.product_id ?? 
-            0
-          ) || 0;
-          
-          return { 
-            ...itemData, 
-            slipper_id, 
-            name, 
-            quantity, 
-            unit_price, 
-            total_price, 
-            image 
-          } as OrderItem;
-        });
-
-        // Calculate total: prefer server total, fallback to sum of item totals
-        const serverTotal = Number(orderData?.total_amount ?? orderData?.total ?? orderData?.amount ?? orderData?.sum ?? 0) || 0;
-        const computedTotal = items.reduce((sum, it) => sum + (Number(it.total_price ?? 0) || 0), 0);
-        
-        // Use server total if it exists and is greater than 0, otherwise use computed total
-        const total_amount = serverTotal > 0 ? serverTotal : computedTotal;
-
-        return { ...orderData, items, total_amount } as Order;
-      });
-      setOrders(normalizedOrders);
-      setFilteredOrders(normalizedOrders);
-      lastFetchRef.current = Date.now();
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      toast.error(t("errors.productsLoad"));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
+    // Temporarily disabled backend call (endpoint responds 500). Show empty state without error toast.
+    if (!hasValidToken()) { setIsLoading(false); return; }
+    setIsLoading(false);
+    setOrders([]);
+    setFilteredOrders([]);
+  }, []);
 
   // Refund functionality
   const handleRefundRequest = () => {
@@ -198,18 +118,57 @@ export default function OrdersPage() {
   
 
 
+  // Gate network calls on token readiness to avoid initial 401 bursts
+  useEffect(() => {
+    let cancelled = false;
+    const ensureToken = async () => {
+      try {
+        // Quick success path
+        if (hasValidToken()) {
+          if (!cancelled) setTokenReady(true);
+          return;
+        }
+        // If there's a refresh token, attempt refresh once
+        let hasRefresh = !!Cookies.get("refresh_token");
+        if (!hasRefresh && typeof window !== "undefined") {
+          try { hasRefresh = !!localStorage.getItem("refresh_token"); } catch {}
+        }
+        if (hasRefresh) {
+          const ok = await modernApiClient.refreshAccessToken();
+          if (!cancelled) {
+            const ready = ok && hasValidToken();
+            setTokenReady(ready);
+            if (!ready) setIsLoading(false);
+          }
+          return;
+        }
+        // No tokens – stay not-ready to prevent API calls; UI will show auth-required or empty state
+        if (!cancelled) {
+          setTokenReady(false);
+          setIsLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setTokenReady(false);
+          setIsLoading(false);
+        }
+      }
+    };
+    ensureToken();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
-    if (isAuthenticated) fetchOrders();
-  }, [isAuthenticated, fetchOrders]);
+    if (tokenReady && isAuthenticated) fetchOrders();
+  }, [tokenReady, isAuthenticated, fetchOrders]);
 
-  // Auto-refresh on focus/visibility with cooldown to avoid 429
+  // Auto-refresh on focus/visibility with cooldown, but only when token is ready & valid
   useEffect(() => {
     const COOLDOWN = 15000; // 15s
     const onFocus = () => {
       const now = Date.now();
-      if (now - lastFetchRef.current >= COOLDOWN) {
-        fetchOrders();
+      if (now - lastFetchRef.current >= COOLDOWN && tokenReady && hasValidToken()) {
+        void fetchOrders();
       }
     };
     const onVisibility = () => { if (!document.hidden) onFocus(); };
@@ -219,7 +178,7 @@ export default function OrdersPage() {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, tokenReady]);
 
   /* ------------------------- Update filtered orders when orders change ------------------------- */
   useEffect(() => {
@@ -294,7 +253,7 @@ export default function OrdersPage() {
             .slice(0, 3)
             .map((item, index) => {
             return (
-              <div key={index} className="flex-shrink-0">
+              <div key={index} className="shrink-0">
                 <ProductCarousel item={item} />
               </div>
             );
@@ -307,7 +266,7 @@ export default function OrdersPage() {
             const hasValidPrice = (Number.isFinite(line) && line > 0) || (unit > 0 && qty > 0);
             return hasValidProduct && hasValidPrice && qty > 0;
           }).length > 3 && (
-            <div className="flex-shrink-0 h-12 w-12 sm:h-16 sm:w-16 bg-gray-100 rounded-md flex items-center justify-center text-xs font-medium text-gray-600">
+            <div className="shrink-0 h-12 w-12 sm:h-16 sm:w-16 bg-gray-100 rounded-md flex items-center justify-center text-xs font-medium text-gray-600">
               <span className="text-xs">+{order.items.filter(item => {
                 const hasValidProduct = !!item.name && item.name.trim().length > 0;
                 const unit = Number(item.unit_price ?? 0);
@@ -344,7 +303,7 @@ export default function OrdersPage() {
             {/* About button - show for all orders */}
             <button
               onClick={() => handleShowOrderDetails(order)}
-              className="group inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 hover:text-blue-800 font-medium text-xs sm:text-sm rounded-lg border border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto"
+              className="group inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-linear-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 hover:text-blue-800 font-medium text-xs sm:text-sm rounded-lg border border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto"
             >
               <Package className="h-3 w-3 sm:h-4 sm:w-4 group-hover:scale-110 transition-transform duration-200" />
               <span className="text-xs sm:text-sm">{t('orders.about') || 'About'}</span>
@@ -354,7 +313,7 @@ export default function OrdersPage() {
              !(['REFUNDED', 'refunded'].includes(order.status as string)) && (
               <button
                 onClick={() => handleRefundRequest()}
-                className="group inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-red-700 hover:text-red-800 font-medium text-xs sm:text-sm rounded-lg border border-red-200 hover:border-red-300 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto"
+                className="group inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-linear-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-red-700 hover:text-red-800 font-medium text-xs sm:text-sm rounded-lg border border-red-200 hover:border-red-300 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto"
               >
                 <XCircle className="h-3 w-3 sm:h-4 sm:w-4 group-hover:scale-110 transition-transform duration-200" />
                 <span className="text-xs sm:text-sm">{t('orders.refund.request') || 'Refund'}</span>

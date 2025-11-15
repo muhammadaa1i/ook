@@ -25,16 +25,27 @@ const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({ product, 
 
   const images: string[] = (() => {
     const urls: string[] = [];
-    if (product?.images && product.images.length) {
-      const primary = product.images.find(i => i.is_primary);
-      if (primary) urls.push(getFullImageUrl(primary.image_path));
-      product.images.forEach(img => {
+    
+    // Priority: primary_image field → image_gallery/images array → legacy image field
+    if (product?.primary_image) {
+      urls.push(getFullImageUrl(product.primary_image));
+    }
+    
+    // Use image_gallery if present, otherwise fallback to images
+    const gallery = product?.image_gallery || product?.images;
+    if (gallery && gallery.length) {
+      const primary = gallery.find(i => i.is_primary);
+      if (primary && !urls.some(u => u === getFullImageUrl(primary.image_path))) {
+        urls.push(getFullImageUrl(primary.image_path));
+      }
+      gallery.forEach(img => {
         const full = getFullImageUrl(img.image_path);
         if (!urls.includes(full)) urls.push(full);
       });
-    } else if (product?.image) {
+    } else if (product?.image && !urls.some(u => u === getFullImageUrl(product.image))) {
       urls.push(getFullImageUrl(product.image));
     }
+    
     if (!urls.length) urls.push('/placeholder-product.svg');
     return urls;
   })();

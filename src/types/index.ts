@@ -55,8 +55,10 @@ export interface Slipper {
   category_id: number;
   category?: Category;
   category_name?: string;
-  image?: string; // Single image URL from API
-  images?: SlipperImage[];
+  image?: string; // Legacy single image URL (fallback)
+  images?: SlipperImage[]; // Full image gallery array
+  image_gallery?: SlipperImage[]; // Alternative name for images array
+  primary_image?: string; // Direct URL to primary image (preferred for previews)
   is_available?: boolean;
   created_at: string;
   updated_at: string;

@@ -140,6 +140,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         // No valid token - skip server sync silently
         return;
       }
+      // Require presence of a refresh token as well to avoid 401 noise when session expired
+      let hasRefresh = !!Cookies.get("refresh_token");
+      if (!hasRefresh && typeof window !== "undefined") {
+        try { hasRefresh = !!localStorage.getItem("refresh_token"); } catch {}
+      }
+      if (!hasRefresh) return;
       
       // For mobile: Check for auth tokens even if isAuthenticated is false
       // This handles cases where auth context is still initializing
@@ -182,6 +188,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const timeoutId = setTimeout(() => {
       (async () => {
         if (isAuthenticated) {
+          // Skip server call if tokens are missing or clearly invalid
+          const accessOk = hasValidToken();
+          let hasRefresh = !!Cookies.get("refresh_token");
+          if (!hasRefresh && typeof window !== "undefined") {
+            try { hasRefresh = !!localStorage.getItem("refresh_token"); } catch {}
+          }
+          if (!accessOk || !hasRefresh) {
+            // Fallback to local only
+            if (typeof window !== "undefined") {
+              const savedCart = localStorage.getItem("cart");
+              if (savedCart) {
+                try {
+                  const parsed: CartItem[] = JSON.parse(savedCart);
+                  const normalized = parsed.map((it) => ({
+                    ...it,
+                    quantity: Math.max(1, Math.round(it.quantity || 1)),
+                  }));
+                  if (mounted) setItems(normalized);
+                } catch { }
+              }
+            }
+            return;
+          }
           try {
             const cart = await cartService.getCart();
             if (!mounted) return;

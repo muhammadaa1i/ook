@@ -36,19 +36,33 @@ const ProductCard: React.FC<ProductCardProps> = ({ slipper, onAddToCart, onViewD
     // Build list of image URLs for carousel (primary first)
     const imageUrls = useMemo(() => {
       const urls: string[] = [];
-      if (slipper.images && slipper.images.length > 0) {
-        const primary = slipper.images.find((i) => i.is_primary);
-        if (primary) urls.push(getFullImageUrl(primary.image_path));
-        slipper.images.forEach((img) => {
+      
+      // Priority: primary_image field → image_gallery/images array → legacy image field
+      if (slipper.primary_image) {
+        urls.push(getFullImageUrl(slipper.primary_image));
+      }
+      
+      // Use image_gallery if present, otherwise fallback to images
+      const gallery = slipper.image_gallery || slipper.images;
+      if (gallery && gallery.length > 0) {
+        // Add primary image first if not already added
+        const primary = gallery.find((i) => i.is_primary);
+        if (primary && !urls.some(u => u === getFullImageUrl(primary.image_path))) {
+          urls.push(getFullImageUrl(primary.image_path));
+        }
+        // Add remaining images
+        gallery.forEach((img) => {
           const full = getFullImageUrl(img.image_path);
-            if (!urls.includes(full)) urls.push(full);
+          if (!urls.includes(full)) urls.push(full);
         });
-      } else if (slipper.image) {
+      } else if (slipper.image && !urls.some(u => u === getFullImageUrl(slipper.image))) {
+        // Legacy fallback to single image field
         urls.push(getFullImageUrl(slipper.image));
       }
+      
       if (!urls.length) urls.push("/placeholder-product.svg");
       return urls;
-    }, [slipper.images, slipper.image]);
+    }, [slipper.primary_image, slipper.image_gallery, slipper.images, slipper.image]);
 
     const [activeIndex, setActiveIndex] = useState(0);
     useEffect(() => {
