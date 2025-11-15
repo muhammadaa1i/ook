@@ -126,7 +126,7 @@ export default function AdminUsersPage() {
                 return items.map((val, idx) => {
                   if (val === 'ellipsis') return <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>;
                   const page = val as number; const active = page === current;
-                  return <button key={page} onClick={() => handlePageChange(page)} disabled={isLoading} aria-current={active ? 'page' : undefined} className={`h-10 min-w-[2.5rem] px-3 flex items-center justify-center rounded-md border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${active ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}>{page}</button>;
+                  return <button key={page} onClick={() => handlePageChange(page)} disabled={isLoading} aria-current={active ? 'page' : undefined} className={`h-10 min-w-10 px-3 flex items-center justify-center rounded-md border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${active ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}>{page}</button>;
                 });
               })()}
               <button onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page === pagination.totalPages || isLoading} className="h-10 w-10 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label={t('common.next') || 'Next'}>

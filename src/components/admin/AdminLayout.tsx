@@ -68,8 +68,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             className={cn(
               "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
               isActive
-                ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                ? "bg-blue-100 text-blue-700 border-l-4 border-blue-700"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 border-l-4 border-transparent"
             )}
           >
             <Icon className="h-5 w-5 mr-3" />
@@ -83,7 +83,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Admin Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-40">
+      <div className="shadow-sm border-b sticky top-0 z-40 backdrop-blur-sm bg-white/95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-16 justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -100,7 +100,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 {t('admin.header.title')}
               </h1>
             </div>
-            <div className="text-xs sm:text-sm text-gray-600 truncate max-w-[50%] sm:max-w-none">
+              <div className="text-xs sm:text-sm text-gray-600 truncate max-w-1/2 sm:max-w-none">
               {t('admin.header.welcome', { name: user.name })}
             </div>
           </div>
@@ -136,7 +136,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
   <div className="flex flex-col lg:flex-row">
-          <aside className="hidden lg:block w-64 flex-shrink-0">
+          <aside className="hidden lg:block w-64 shrink-0">
             <div className="py-8 sticky top-16">
               <NavItems />
             </div>

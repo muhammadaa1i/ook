@@ -145,7 +145,7 @@ export function OrderDetailsModal({
                     {validItems.map((item, index) => (
                       <div
                         key={index}
-                        className="min-w-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-gray-50 to-gray-100"
+                        className="min-w-full flex flex-col items-center justify-center p-8 bg-linear-to-br from-gray-50 to-gray-100"
                       >
                         {/* Product Image */}
                         <div className="mb-4">
@@ -160,7 +160,7 @@ export function OrderDetailsModal({
                               />
                             </div>
                           ) : (
-                            <div className="h-48 w-48 sm:h-64 sm:w-64 flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg border-2 border-gray-200 shadow-lg text-gray-400">
+                            <div className="h-48 w-48 sm:h-64 sm:w-64 flex items-center justify-center bg-linear-to-br from-gray-200 to-gray-300 rounded-lg border-2 border-gray-200 shadow-lg text-gray-400">
                               <ImageIcon className="h-24 w-24" />
                             </div>
                           )}

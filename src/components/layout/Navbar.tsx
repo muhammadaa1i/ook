@@ -143,7 +143,7 @@ const Navbar = React.memo(() => {
         {distinctCount > 0 && (
           <span
             className={cn(
-              "absolute -top-1.5 -right-1.5 min-w-[1.15rem] h-5 px-1.5 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-semibold shadow-md ring-1 ring-white/70 select-none",
+              "absolute -top-1.5 -right-1.5 min-w-[1.15rem] h-5 px-1.5 flex items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-blue-600 text-white text-[10px] font-semibold shadow-md ring-1 ring-white/70 select-none",
               "animate-[fadeIn_120ms_ease-out]"
             )}
           >
@@ -161,7 +161,7 @@ const Navbar = React.memo(() => {
           {/* Logo + Tagline */}
           <div className="flex flex-col justify-around items-start min-w-0 flex-1 max-w-[200px]">
             <Link href="/" className="flex items-center space-x-1 sm:space-x-2 min-w-0" suppressHydrationWarning>
-              <div className="flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 flex-shrink-0">
+              <div className="flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 shrink-0">
                 <Image src="/logo.svg" alt={t('brand.name')} width={40} height={40} priority className="object-contain" />
               </div>
               <div className="flex flex-col min-w-0">
@@ -179,13 +179,17 @@ const Navbar = React.memo(() => {
               // Skip profile from main nav
               if (item.href === "/profile") return null;
               const Icon = item.icon;
+              // Check if current path matches (exact match or starts with for admin sections)
+              const isActive = item.href === "/admin" 
+                ? pathname?.startsWith("/admin") 
+                : pathname === item.href;
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={cn(
                     "flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    pathname === item.href
+                    isActive
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   )}
@@ -214,9 +218,9 @@ const Navbar = React.memo(() => {
                     "bg-white border border-blue-200/60 text-gray-700 hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:border-blue-200/60"
                   )}
                 >
-                  <User className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                  <span className="truncate max-w-[80px] sm:max-w-none">{userGreeting || t('common.profile')}</span>
-                  <span className={cn("ml-0.5 text-[10px] font-normal text-blue-600/70 transition-transform flex-shrink-0", isProfileDropdownOpen ? "rotate-180" : "")}>▼</span>
+                  <User className="h-4 w-4 text-blue-600 shrink-0" />
+                  <span className="truncate max-w-20 sm:max-w-none">{userGreeting || t('common.profile')}</span>
+                  <span className={cn("ml-0.5 text-[10px] font-normal text-blue-600/70 transition-transform shrink-0", isProfileDropdownOpen ? "rotate-180" : "")}>▼</span>
                 </button>
                 {isProfileDropdownOpen && (
                   <div
@@ -234,7 +238,7 @@ const Navbar = React.memo(() => {
                         <User className="h-4 w-4" />
                         <span>{t('common.profile')}</span>
                       </Link>
-                      <div className="my-2 h-px bg-gradient-to-r from-transparent via-blue-200/70 to-transparent" />
+                      <div className="my-2 h-px bg-linear-to-r from-transparent via-blue-200/70 to-transparent" />
                       <button
                         onClick={() => {
                           setIsProfileDropdownOpen(false);
@@ -315,6 +319,10 @@ const Navbar = React.memo(() => {
             <div className="relative z-50 max-h-full overflow-y-auto bg-white shadow-xl animate-[fadeIn_120ms_ease-out] px-2 pt-2 pb-4 space-y-1 sm:px-3">
               {navigation.map((item) => {
                 const Icon = item.icon;
+                // Check if current path matches (exact match or starts with for admin sections)
+                const isActive = item.href === "/admin" 
+                  ? pathname?.startsWith("/admin") 
+                  : pathname === item.href;
                 return (
                   <Link
                     key={item.name}
@@ -322,7 +330,7 @@ const Navbar = React.memo(() => {
                     onClick={closeMenu}
                     className={cn(
                       "flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors",
-                      pathname === item.href
+                      isActive
                         ? "bg-blue-100 text-blue-700"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                     )}
@@ -351,7 +359,7 @@ const Navbar = React.memo(() => {
                       <span
                         className={cn(
                           "absolute -top-1.5 -right-1.5 min-w-[1.15rem] h-5 px-1.5 flex items-center justify-center rounded-full",
-                          "bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-semibold shadow-md ring-1 ring-white/70 select-none",
+                          "bg-linear-to-br from-blue-500 to-blue-600 text-white text-[10px] font-semibold shadow-md ring-1 ring-white/70 select-none",
                           "animate-[fadeIn_120ms_ease-out]"
                         )}
                       >
