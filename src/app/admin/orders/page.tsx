@@ -706,14 +706,6 @@ export default function AdminOrdersPage() {
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm lg:text-base">
                       <div>
                         <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                          {t('admin.orders.table.phone')}
-                        </div>
-                        <div className="text-gray-900">
-                          {order.user?.phone_number || t('admin.common.unspecified')}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
                           {t('admin.orders.table.items')}
                         </div>
                         <div className="text-gray-900">
