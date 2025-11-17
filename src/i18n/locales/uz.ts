@@ -564,6 +564,8 @@ export default {
       title: 'Buyurtmalarni boshqarish',
       subtitle: 'Mijozlar buyurtmalarini ko\'rish va boshqarish',
       info: { orders: 'Buyurtmalar: {total}', page: 'Sahifa {page} / {pages}' },
+      refresh: 'Yangilash',
+      refreshing: 'Yangilanmoqda...',
       table: {
         order: 'Buyurtma',
         client: 'Mijoz',

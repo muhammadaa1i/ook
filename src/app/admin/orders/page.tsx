@@ -581,7 +581,7 @@ export default function AdminOrdersPage() {
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
             <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? 'Обновление...' : 'Обновить'}
+            {isLoading ? t('admin.orders.refreshing') : t('admin.orders.refresh')}
           </button>
         </div>
 

@@ -568,6 +568,8 @@ export default {
       title: 'Управление заказами',
       subtitle: 'Просмотр и управление заказами клиентов',
       info: { orders: 'Заказов: {total}', page: 'Страница {page} из {pages}' },
+      refresh: 'Обновить',
+      refreshing: 'Обновление...',
       table: {
         order: 'Заказ',
         client: 'Клиент',

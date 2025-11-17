@@ -13,7 +13,8 @@ import { useI18n } from "@/i18n";
 import { formatDate } from "@/lib/utils";
 
 export default function AdminCategoriesPage() {
-  const { locale } = useI18n();
+  // Added translation helper so button labels switch based on selected locale (Uzbek/Russian)
+  const { locale, t } = useI18n();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -318,7 +319,7 @@ export default function AdminCategoriesPage() {
               }
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
             >
-              {editingCategory ? "Обновить" : "Создать"}
+              {editingCategory ? t("products.form.buttons.update") : t("products.form.buttons.create")}
             </button>
           </div>
         </div>
