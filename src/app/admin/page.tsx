@@ -13,6 +13,23 @@ interface DashboardStats {
   totalOrders: number;
 }
 
+interface ApiResponse {
+  total?: number;
+  count?: number;
+  items?: unknown[];
+  data?: {
+    total?: number;
+    count?: number;
+    items?: unknown[];
+    total_count?: number;
+  } | unknown[];
+  meta?: {
+    total?: number;
+    count?: number;
+  };
+  [key: string]: unknown;
+}
+
 export default function AdminDashboard() {
   const { t } = useI18n();
   const [stats, setStats] = useState<DashboardStats>({
@@ -20,97 +37,87 @@ export default function AdminDashboard() {
     totalProducts: 0,
     totalOrders: 0,
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true)
+  /**
+   * Extract count from various API response formats
+   * Handles different backend response structures gracefully
+   */
+  const extractCount = useCallback((response: unknown): number => {
+    if (!response) return 0;
+    
+    const data = response as ApiResponse;
+    
+    // Priority order for extracting count:
+    // 1. meta.total (most reliable for paginated endpoints)
+    if (data.meta?.total !== undefined) return data.meta.total;
+    if (data.meta?.count !== undefined) return data.meta.count;
+    
+    // 2. Direct total/count properties
+    if (data.total !== undefined) return data.total;
+    if (data.count !== undefined) return data.count;
+    
+    // 3. Nested in data object
+    if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
+      const nested = data.data as { total?: number; count?: number; total_count?: number };
+      if (nested.total !== undefined) return nested.total;
+      if (nested.count !== undefined) return nested.count;
+      if (nested.total_count !== undefined) return nested.total_count;
+    }
+    
+    // 4. Array length (least reliable, used as last resort)
+    if (Array.isArray(data.items)) return data.items.length;
+    if (Array.isArray(data.data)) return data.data.length;
+    if (Array.isArray(data)) return data.length;
+    
+    return 0;
+  }, []);
 
-  const fetchStats = useCallback(async () => {
+  /**
+   * Fetch count for a specific endpoint with optimized parameters
+   */
+  const fetchEndpointCount = useCallback(async (endpoint: string): Promise<number> => {
     try {
-      setIsLoading(true);
-      const now = Date.now();
-      
-      const extractCount = (response: unknown): number => {
-        if (!response) return 0;
-        
-        interface ApiResponse {
-          total?: number;
-          count?: number;
-          items?: unknown[];
-          data?: {
-            total?: number;
-            count?: number;
-            items?: unknown[];
-          } | unknown[];
-          [key: string]: unknown;
-        }
-        
-        const data = response as ApiResponse;
-        
-        // Try different possible response structures
-        let count = 0;
-        
-        // Direct total/count properties
-        if (typeof data.total === 'number') count = data.total;
-        else if (typeof data.count === 'number') count = data.count;
-        
-        // Nested in data object
-        else if (data.data && !Array.isArray(data.data)) {
-          const nestedData = data.data as { total?: number; count?: number; items?: unknown[] };
-          if (typeof nestedData.total === 'number') count = nestedData.total;
-          else if (typeof nestedData.count === 'number') count = nestedData.count;
-          else if (Array.isArray(nestedData.items)) count = nestedData.items.length;
-        }
-        else if (Array.isArray(data.data)) count = data.data.length;
-        
-        // Direct items array
-        else if (Array.isArray(data.items)) count = data.items.length;
-        else if (Array.isArray(data)) count = data.length;
-        
-        // Fallback: try to find any array or count-like property
-        else {
-          const keys = Object.keys(data);
-          for (const key of keys) {
-            const value = data[key];
-            if (Array.isArray(value)) {
-              count = value.length;
-              break;
-            }
-            if (typeof value === 'number' && (key.includes('total') || key.includes('count'))) {
-              count = value;
-              break;
-            }
-          }
-        }
-        
-        return count;
-      };
-      
-      // Fetch stats with individual error handling
-      const fetchStat = async (endpoint: string, params?: Record<string, unknown>) => {
-        try {
-          // Build safe params
-          const safeParams = (() => {
-            return { ...params, limit: 1, _nc: now } as Record<string, unknown>;
-          })();
-
-          // Force single attempt (no retries) to prevent duplicate requests on server errors
-          const response = await modernApiClient.get(endpoint, safeParams, { cache: false, force: true, retries: 0, timeout: 8000 });
-          return extractCount(response);
-        } catch (error) {
-          if (process.env.NEXT_PUBLIC_DEBUG_ADMIN === 'true') {
-            console.error(`Error fetching stats from ${endpoint}:`, error);
-          }
-          return 0;
-        }
+      // Use minimal parameters to get just the count/total
+      const params: Record<string, unknown> = {
+        limit: 1, // Minimize data transfer
+        skip: 0,
+        _t: Date.now(), // Cache buster
       };
 
-      const [
-        totalUsers,
-        totalProducts,
-        totalOrders,
-      ] = await Promise.all([
-        fetchStat(API_ENDPOINTS.USERS),
-        fetchStat(API_ENDPOINTS.SLIPPERS),
-        fetchStat(API_ENDPOINTS.ORDERS),
+      const response = await modernApiClient.get(endpoint, params, {
+        cache: false,
+        force: true,
+        timeout: 10000,
+      });
+
+      return extractCount(response);
+    } catch (error) {
+      console.error(`Failed to fetch count from ${endpoint}:`, error);
+      return 0;
+    }
+  }, [extractCount]);
+
+  /**
+   * Fetch all dashboard statistics
+   */
+  const fetchStats = useCallback(async (isManualRefresh = false) => {
+    try {
+      if (isManualRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      // Fetch all stats in parallel for better performance
+      const [totalUsers, totalProducts, totalOrders] = await Promise.all([
+        fetchEndpointCount(API_ENDPOINTS.USERS),
+        fetchEndpointCount(API_ENDPOINTS.SLIPPERS),
+        fetchEndpointCount(API_ENDPOINTS.ORDERS),
       ]);
 
       setStats({
@@ -118,36 +125,91 @@ export default function AdminDashboard() {
         totalProducts,
         totalOrders,
       });
-      
-    } catch (error) {
-      if (process.env.NEXT_PUBLIC_DEBUG_ADMIN === 'true') {
-        console.error("Error fetching dashboard stats:", error);
-      }
+      setLastUpdated(new Date());
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load statistics';
+      setError(errorMessage);
+      console.error("Error fetching dashboard stats:", err);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, []);
+  }, [fetchEndpointCount]);
 
   useEffect(() => {
     fetchStats();
+    
+    // Auto-refresh every 60 seconds to keep dashboard up-to-date
+    const interval = setInterval(() => fetchStats(), 60000);
+    
+    return () => clearInterval(interval);
   }, [fetchStats]);
 
+  const handleManualRefresh = () => {
+    fetchStats(true);
+  };
+
   const statCards = [
-    { title: t('admin.dashboard.stats.totalUsers'), value: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
-    { title: t('admin.dashboard.stats.totalProducts'), value: stats.totalProducts, icon: Package, color: 'bg-green-500' },
-    { title: t('admin.dashboard.stats.totalOrders'), value: stats.totalOrders, icon: ShoppingCart, color: 'bg-purple-500' },
+    { 
+      title: t('admin.dashboard.stats.totalUsers'), 
+      value: stats.totalUsers, 
+      icon: Users, 
+      color: 'bg-blue-500' 
+    },
+    { 
+      title: t('admin.dashboard.stats.totalProducts'), 
+      value: stats.totalProducts, 
+      icon: Package, 
+      color: 'bg-green-500' 
+    },
+    { 
+      title: t('admin.dashboard.stats.totalOrders'), 
+      value: stats.totalOrders, 
+      icon: ShoppingCart, 
+      color: 'bg-purple-500' 
+    },
   ];
 
   return (
     <AdminLayout>
       <div className="space-y-6">
+        {/* Header Section */}
         <div>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('admin.dashboard.title')}</h1>
-              <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">{t('admin.dashboard.welcome')}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {t('admin.dashboard.title')}
+              </h1>
+              <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
+                {t('admin.dashboard.welcome')}
+              </p>
             </div>
+            
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing || isLoading}
+              className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              <svg 
+                className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {isRefreshing ? (t('common.refreshing') || 'Refreshing...') : (t('common.refresh') || 'Refresh')}
+            </button>
           </div>
+          
+          {error && (
+            <div className="mt-3">
+              <span className="text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded-lg inline-block">
+                {t('common.errorFetching') || 'Error loading data'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -156,7 +218,10 @@ export default function AdminDashboard() {
             const Icon = card.icon;
             
             return (
-              <div key={index} className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div 
+                key={index} 
+                className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4 sm:p-6"
+              >
                 <div className="flex items-center">
                   <div className={`${card.color} rounded-md p-2 sm:p-3`}>
                     <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
@@ -165,8 +230,12 @@ export default function AdminDashboard() {
                     <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">
                       {card.title}
                     </p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-                      {isLoading ? "..." : card.value.toLocaleString()}
+                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mt-1">
+                      {isLoading ? (
+                        <span className="animate-pulse">...</span>
+                      ) : (
+                        card.value.toLocaleString()
+                      )}
                     </p>
                   </div>
                 </div>
@@ -174,7 +243,6 @@ export default function AdminDashboard() {
             );
           })}
         </div>
-        
       </div>
     </AdminLayout>
   );

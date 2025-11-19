@@ -484,28 +484,44 @@ class ModernApiClient {
             }
             
             const cookieOptions = { sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+            
+            // Dynamically set cookie expiration based on token lifetime
             if (access) {
-              Cookies.set("access_token", access, { ...cookieOptions, expires: 1 });
-              if (DEBUG_AUTH) console.log('✅ Access token saved to cookies');
-              // Also save to localStorage as backup for mobile browsers
               try {
+                // Import token utilities dynamically to get proper expiration
+                const { getTokenCookieExpiry } = await import('./tokenUtils');
+                const accessExpiry = getTokenCookieExpiry(access, false); // 15 minutes
+                
+                Cookies.set("access_token", access, { ...cookieOptions, expires: accessExpiry });
+                if (DEBUG_AUTH) console.log(`✅ Access token saved with ${accessExpiry} days expiry`);
+                
+                // Also save to localStorage as backup for mobile browsers
                 if (typeof window !== "undefined") {
                   localStorage.setItem("auth_token", access);
                 }
               } catch (e) {
-                if (DEBUG_AUTH) console.warn('⚠️ Failed to save access token to localStorage:', e);
+                if (DEBUG_AUTH) console.warn('⚠️ Failed to save access token:', e);
+                // Fallback to default 15 minutes
+                Cookies.set("access_token", access, { ...cookieOptions, expires: 15/(60*24) });
               }
             }
+            
             if (refresh) {
-              Cookies.set("refresh_token", refresh, { ...cookieOptions, expires: 30 });
-              if (DEBUG_AUTH) console.log('✅ Refresh token saved to cookies');
-              // Also save to localStorage as backup for mobile browsers
               try {
+                const { getTokenCookieExpiry } = await import('./tokenUtils');
+                const refreshExpiry = getTokenCookieExpiry(refresh, true); // 8 hours
+                
+                Cookies.set("refresh_token", refresh, { ...cookieOptions, expires: refreshExpiry });
+                if (DEBUG_AUTH) console.log(`✅ Refresh token saved with ${refreshExpiry} days expiry`);
+                
+                // Also save to localStorage as backup for mobile browsers
                 if (typeof window !== "undefined") {
                   localStorage.setItem("refresh_token", refresh);
                 }
               } catch (e) {
-                if (DEBUG_AUTH) console.warn('⚠️ Failed to save refresh token to localStorage:', e);
+                if (DEBUG_AUTH) console.warn('⚠️ Failed to save refresh token:', e);
+                // Fallback to default 8 hours
+                Cookies.set("refresh_token", refresh, { ...cookieOptions, expires: 8/24 });
               }
             } else {
               // If API doesn't return new refresh token, keep the existing one

@@ -52,6 +52,10 @@ export default {
     close: 'Yopish',
     previous: 'Oldingi',
     next: 'Keyingi',
+    lastUpdated: 'Oxirgi yangilanish',
+    refresh: 'Yangilash',
+    refreshing: 'Yangilanmoqda...',
+    errorFetching: 'Ma\'lumotlarni yuklashda xatolik',
   },
   auth: {
     login: 'Tizimga kiring',

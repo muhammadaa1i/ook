@@ -112,11 +112,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             };
             
             try {
-              Cookies.set("user", storedUser, { ...cookieOptions, expires: 7 });
-              Cookies.set("access_token", accessToken, { ...cookieOptions, expires: 1 });
+              const { getTokenCookieExpiry } = await import('@/lib/tokenUtils');
+              
               const localRefreshToken = localStorage.getItem('refresh_token');
+              
+              Cookies.set("access_token", accessToken, { 
+                ...cookieOptions, 
+                expires: getTokenCookieExpiry(accessToken, false)
+              });
+              
               if (localRefreshToken) {
-                Cookies.set("refresh_token", localRefreshToken, { ...cookieOptions, expires: 30 });
+                Cookies.set("refresh_token", localRefreshToken, { 
+                  ...cookieOptions, 
+                  expires: getTokenCookieExpiry(localRefreshToken, true)
+                });
+                Cookies.set("user", storedUser, { 
+                  ...cookieOptions, 
+                  expires: getTokenCookieExpiry(localRefreshToken, true)
+                });
+              } else {
+                Cookies.set("user", storedUser, { ...cookieOptions, expires: 7 });
               }
             } catch (cookieError) {
               mobileErrorHandler.log(cookieError as Error, 'cookie-restoration');
@@ -207,6 +222,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return () => window.removeEventListener("auth:logout", handleAutoLogout);
     }
   }, []);
+
+  // Proactive token refresh before expiration
+  useEffect(() => {
+    if (!user) return;
+
+    const checkAndRefreshToken = async () => {
+      try {
+        const { getTokenExpiration } = await import('@/lib/tokenUtils');
+        const accessToken = Cookies.get("access_token");
+        
+        if (!accessToken) return;
+        
+        const expiration = getTokenExpiration(accessToken);
+        if (!expiration) return;
+        
+        const timeUntilExpiry = expiration - Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        // Refresh token if it expires in less than 5 minutes
+        if (timeUntilExpiry < fiveMinutes && timeUntilExpiry > 0) {
+          const modernApiClient = (await import('@/lib/modernApiClient')).default;
+          await modernApiClient.refreshAccessToken();
+        }
+      } catch (error) {
+        console.error('Error checking token expiration:', error);
+      }
+    };
+
+    // Check immediately
+    checkAndRefreshToken();
+
+    // Check every 2 minutes
+    const interval = setInterval(checkAndRefreshToken, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Detect payment returns and restore session
   useEffect(() => {
@@ -330,10 +381,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       
       // Store auth data in both cookies and localStorage for mobile compatibility
+      // Import token utilities dynamically to avoid circular dependencies
       try {
-        Cookies.set("access_token", access_token, { ...cookieOptions, expires: 1 });
-        Cookies.set("refresh_token", refresh_token, { ...cookieOptions, expires: 30 });
-        Cookies.set("user", JSON.stringify(userData), { ...cookieOptions, expires: 7 });
+        const { getTokenCookieExpiry } = await import('@/lib/tokenUtils');
+        
+        // Set cookies with dynamic expiration based on actual token lifetime
+        Cookies.set("access_token", access_token, { 
+          ...cookieOptions, 
+          expires: getTokenCookieExpiry(access_token, false) // 15 minutes
+        });
+        Cookies.set("refresh_token", refresh_token, { 
+          ...cookieOptions, 
+          expires: getTokenCookieExpiry(refresh_token, true) // 8 hours
+        });
+        Cookies.set("user", JSON.stringify(userData), { 
+          ...cookieOptions, 
+          expires: getTokenCookieExpiry(refresh_token, true) // Match refresh token lifetime
+        });
       } catch {
         // Using localStorage fallback if cookies fail
       }

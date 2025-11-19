@@ -52,6 +52,10 @@ export default {
     close: 'Закрыть',
     previous: 'Предыдущая',
     next: 'Следующая',
+    lastUpdated: 'Последнее обновление',
+    refresh: 'Обновить',
+    refreshing: 'Обновление...',
+    errorFetching: 'Ошибка загрузки данных',
   },
   auth: {
     login: 'Войдите в аккаунт',
