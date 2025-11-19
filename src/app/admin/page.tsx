@@ -87,19 +87,13 @@ export default function AdminDashboard() {
       // Fetch stats with individual error handling
       const fetchStat = async (endpoint: string, params?: Record<string, unknown>) => {
         try {
-          // Some endpoints (e.g., /orders/) may not accept query params and can 500 even without them.
-          // To avoid backend errors and console noise, skip calling orders here until a safe count endpoint exists.
-          if (endpoint === API_ENDPOINTS.ORDERS) {
-            return 0;
-          }
-
-          // Build safe params for other endpoints
+          // Build safe params
           const safeParams = (() => {
             return { ...params, limit: 1, _nc: now } as Record<string, unknown>;
           })();
 
           // Force single attempt (no retries) to prevent duplicate requests on server errors
-          const response = await modernApiClient.get(endpoint, safeParams, { cache: false, force: true, retries: 0, timeout: 4000 });
+          const response = await modernApiClient.get(endpoint, safeParams, { cache: false, force: true, retries: 0, timeout: 8000 });
           return extractCount(response);
         } catch (error) {
           if (process.env.NEXT_PUBLIC_DEBUG_ADMIN === 'true') {
