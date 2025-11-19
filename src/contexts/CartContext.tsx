@@ -567,37 +567,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const cartItemId = removedItem?._cartItemId;
     
     // Optimistic update: remove immediately from UI (synchronous, no transition)
-    setItems((prevItems) => {
-      const next = prevItems.filter((i) => i.id !== productId);
-      // Immediately mirror to localStorage to prevent stale rehydration
-      try { mirrorToStorage(next); } catch { /* ignore */ }
-      return next;
-    });
+    const nextItems = items.filter((i) => i.id !== productId);
+    setItems(nextItems);
+    
+    // Immediately mirror to localStorage to prevent stale rehydration
+    mirrorToStorage(nextItems);
     
     // Show toast immediately for better UX
     if (removedItem) {
       toast.success(t("cart.removed", { name: removedItem.name }));
     }
     
-    // If no server cart item, we're done
-    if (!cartItemId) return;
-    
-    // Sync with server in background
-    (async () => {
-      try {
-        const cart = await cartService.deleteItem(cartItemId);
-        let mapped = mapServerToClient(cart, itemsRef.current);
-        mapped = reconcilePartial(mapped, itemsRef.current, productId, "delete");
-        // Only update if the item hasn't been re-added in the meantime
-        if (!itemsRef.current.some(i => i.id === productId)) {
-          startTransition(() => setItems(mapped));
-          mirrorToStorage(mapped);
+    // If authenticated and has server cart item, sync with server
+    if (cartItemId && isAuthenticated) {
+      (async () => {
+        try {
+          const cart = await cartService.deleteItem(cartItemId);
+          // Get the updated items from server, preserving images
+          const mapped = mapServerToClient(cart, nextItems);
+          // Filter out the deleted item to be absolutely sure it's gone
+          const filtered = mapped.filter((i) => i.id !== productId);
+          startTransition(() => setItems(filtered));
+          mirrorToStorage(filtered);
+        } catch (error) {
+          // Server sync failed - keep the optimistic update
+          // The item is already removed from UI and localStorage
+          console.error("Failed to sync cart deletion with server:", error);
         }
-      } catch {
-        // Server sync failed, but optimistic update already happened
-        // User won't notice the failure since UI already updated
-      }
-    })();
+      })();
+    }
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
