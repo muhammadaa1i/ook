@@ -181,93 +181,78 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated]);
 
-  // Initial load: prefer server, fallback to localStorage
+  // Initial load: Load from localStorage first (synchronously), then sync with server
   useEffect(() => {
     let mounted = true;
-    // Small delay to ensure localStorage is ready and avoid race conditions
+    
+    // STEP 1: Immediately load from localStorage (synchronous, no delay)
+    if (typeof window !== "undefined") {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        try {
+          const parsed: CartItem[] = JSON.parse(savedCart);
+          const normalized = parsed.map((it) => ({
+            ...it,
+            quantity: Math.max(1, Math.round(it.quantity || 1)),
+          }));
+          setItems(normalized);
+        } catch {
+          // Invalid JSON, ignore
+        }
+      }
+    }
+    
+    // STEP 2: If authenticated, sync with server in background (after a small delay)
     const timeoutId = setTimeout(() => {
       (async () => {
-        if (isAuthenticated) {
-          // Skip server call if tokens are missing or clearly invalid
-          const accessOk = hasValidToken();
-          let hasRefresh = !!Cookies.get("refresh_token");
-          if (!hasRefresh && typeof window !== "undefined") {
-            try { hasRefresh = !!localStorage.getItem("refresh_token"); } catch {}
-          }
-          if (!accessOk || !hasRefresh) {
-            // Fallback to local only
-            if (typeof window !== "undefined") {
-              const savedCart = localStorage.getItem("cart");
-              if (savedCart) {
-                try {
-                  const parsed: CartItem[] = JSON.parse(savedCart);
-                  const normalized = parsed.map((it) => ({
-                    ...it,
-                    quantity: Math.max(1, Math.round(it.quantity || 1)),
-                  }));
-                  if (mounted) setItems(normalized);
-                } catch { }
-              }
-            }
-            return;
-          }
-          try {
-            const cart = await cartService.getCart();
-            if (!mounted) return;
-            let prevForImages: CartItem[] = itemsRef.current;
-            if (typeof window !== "undefined") {
-              try {
-                const saved = localStorage.getItem("cart");
-                if (saved) prevForImages = JSON.parse(saved) as CartItem[];
-              } catch { }
-            }
-            const mapped = mapServerToClient(cart, prevForImages);
-            
-            // Only update if server has items or localStorage is empty
-            const hasLocalItems = prevForImages.length > 0;
-            const hasServerItems = mapped.length > 0;
-            
-            if (hasServerItems || !hasLocalItems) {
-              startTransition(() => setItems(mapped));
-              mirrorToStorage(mapped);
-            } else {
-              // Server has no items but localStorage has items - keep localStorage items
-              startTransition(() => setItems(prevForImages));
-            }
-          } catch {
-            // Server failed, fall back to localStorage
-            if (typeof window !== "undefined") {
-              const savedCart = localStorage.getItem("cart");
-              if (savedCart) {
-                try {
-                  const parsed: CartItem[] = JSON.parse(savedCart);
-                  const normalized = parsed.map((it) => ({
-                    ...it,
-                    quantity: Math.max(1, Math.round(it.quantity || 1)),
-                  }));
-                  if (mounted) setItems(normalized);
-                } catch { }
-              }
-            }
-          }
-        } else {
-          // Not authenticated - load from localStorage only
+        if (!isAuthenticated) return;
+        if (!mounted) return;
+        
+        // Skip server call if tokens are missing or clearly invalid
+        const accessOk = hasValidToken();
+        let hasRefresh = !!Cookies.get("refresh_token");
+        if (!hasRefresh && typeof window !== "undefined") {
+          try { hasRefresh = !!localStorage.getItem("refresh_token"); } catch {}
+        }
+        if (!accessOk || !hasRefresh) {
+          // No valid tokens - stick with localStorage
+          return;
+        }
+        
+        try {
+          const cart = await cartService.getCart();
+          if (!mounted) return;
+          
+          // Get current localStorage items for image preservation
+          let prevForImages: CartItem[] = itemsRef.current;
           if (typeof window !== "undefined") {
-            const savedCart = localStorage.getItem("cart");
-            if (savedCart) {
-              try {
-                const parsed: CartItem[] = JSON.parse(savedCart);
-                const normalized = parsed.map((it) => ({
-                  ...it,
-                  quantity: Math.max(1, Math.round(it.quantity || 1)),
-                }));
-                if (mounted) setItems(normalized);
-              } catch { }
-            }
+            try {
+              const saved = localStorage.getItem("cart");
+              if (saved) prevForImages = JSON.parse(saved) as CartItem[];
+            } catch { }
           }
+          const mapped = mapServerToClient(cart, prevForImages);
+          
+          // If server has items, use them (they're the source of truth for authenticated users)
+          // If server is empty but localStorage has items, keep localStorage (offline changes)
+          const hasLocalItems = prevForImages.length > 0;
+          const hasServerItems = mapped.length > 0;
+          
+          if (hasServerItems) {
+            // Server has items - use them
+            startTransition(() => setItems(mapped));
+            mirrorToStorage(mapped);
+          } else if (!hasLocalItems) {
+            // Both server and localStorage are empty - clear state
+            startTransition(() => setItems([]));
+            mirrorToStorage([]);
+          }
+          // else: server empty but localStorage has items - keep current state from localStorage
+        } catch {
+          // Server sync failed - keep localStorage items (already loaded in STEP 1)
         }
       })();
-    }, 100); // 100ms delay
+    }, 100);
     
     return () => {
       mounted = false;
