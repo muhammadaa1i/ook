@@ -86,7 +86,8 @@ export default {
       registrationSuccess: 'Ro\'yxatdan o\'tish muvaffaqiyatli!',
       logoutSuccess: 'Tizimdan chiqdingiz',
       passwordChangeSuccess: 'Parol muvaffaqiyatli o\'zgartirildi',
-      userFoundEnterNewPassword: 'Foydalanuvchi topildi. Yangi parolni kiriting'
+      userFoundEnterNewPassword: 'Foydalanuvchi topildi. Yangi parolni kiriting',
+      authenticationRequired: 'Avtorizatsiya talab qilinadi. Iltimos, qayta kiring'
     },
     serverMessages: {
       incorrectCredentials: 'Noto\'g\'ri ism yoki parol'

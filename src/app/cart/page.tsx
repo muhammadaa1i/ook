@@ -528,8 +528,17 @@ export default function CartPage() {
         console.error("🚨 MOBILE PAYMENT FAILURE:", JSON.stringify(errorDetails, null, 2));
       }
 
+      // Check if it's an authentication error
       const errorMessage = error instanceof Error ? error.message : t('payment.error.initiation');
-      toast.error(errorMessage);
+      const isAuthError = errorMessage.includes('401') || 
+                          errorMessage.includes('Authentication required') || 
+                          errorMessage.includes('Unauthorized');
+      
+      if (isAuthError) {
+        toast.error(t('auth.toasts.authenticationRequired'));
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsProcessingPayment(false);
     }

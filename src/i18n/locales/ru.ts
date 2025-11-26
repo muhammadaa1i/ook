@@ -86,7 +86,8 @@ export default {
       registrationSuccess: 'Регистрация прошла успешно!',
       logoutSuccess: 'Вы вышли из системы',
       passwordChangeSuccess: 'Пароль успешно изменён',
-      userFoundEnterNewPassword: 'Пользователь найден. Введите новый пароль'
+      userFoundEnterNewPassword: 'Пользователь найден. Введите новый пароль',
+      authenticationRequired: 'Требуется авторизация. Пожалуйста, войдите снова'
     },
     serverMessages: {
       incorrectCredentials: 'Неверное имя или пароль'
